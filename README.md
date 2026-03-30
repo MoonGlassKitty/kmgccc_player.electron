@@ -9,7 +9,7 @@
   专注于清晰的界面设计、沉浸式播放体验以及对本地音乐与歌词的良好支持
 </p>
 
----
+
 
 > [!WARNING]
 > kmgccc_player 为个人项目，可能存在 Bug、未完成特性或行为变动。  
@@ -53,7 +53,7 @@
   
   <img src="screenshots/batch_edit.png" width="800" alt="Batch Edit" />
 
----
+
 ## 构建与运行 (Build)
 
 由于使用了 macOS 26 的新系统特性，构建环境要求如下：
@@ -80,7 +80,7 @@
 在线使用：https://amll-ttml-tool.stevexmh.net/ 
 也欢迎给 AMLL DB 贡献歌词。
 
----
+
 ## 致谢
 
 本项目在开发过程中使用并修改了以下开源项目：
