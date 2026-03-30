@@ -48,7 +48,7 @@
 - ### **便捷的本地音乐资料库**  
   集成 **LDDC (Lyrics Data Digging Core)** 用于歌词搜索与匹配。支持直接导入网易云音乐 NCM 加密格式，歌曲信息与封面自动保留。内置封面获取功能，可从多个来源自动补全缺失的专辑封面。
   
-  <img src="screenshots/LDDC.png" width="380" alt="LDDC" /> <img src="screenshots/ncm.png" width="420" alt="NCM Import" />
+  <img src="screenshots/lddc.png" width="380" alt="LDDC" /> <img src="screenshots/ncm.png" width="420" alt="NCM Import" />
   
   <img src="screenshots/batch_edit.png" width="800" alt="Batch Edit" />
 
