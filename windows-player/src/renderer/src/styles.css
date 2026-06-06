@@ -17,7 +17,7 @@
   --win-titlebar-height: 28px;
   --wallpaper-tint-primary: rgba(174, 226, 241, 0.46);
   --wallpaper-tint-secondary: rgba(194, 220, 244, 0.34);
-  --wallpaper-image: none;
+  --wallpaper-image: url("./assets/desktop-wallpaper.jpg");
 }
 
 * {
@@ -101,9 +101,7 @@ input {
 
 .app-shell::before {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.56)),
-    radial-gradient(circle at 16% 18%, var(--wallpaper-tint-primary), transparent 48%),
-    radial-gradient(circle at 78% 8%, var(--wallpaper-tint-secondary), transparent 46%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.34)),
     var(--wallpaper-image);
   background-position: center;
   background-size: cover;

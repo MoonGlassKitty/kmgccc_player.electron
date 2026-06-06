@@ -223,8 +223,7 @@ function App(): React.ReactElement {
       wallpaperTint
         ? ({
             '--wallpaper-tint-primary': wallpaperTint.primary,
-            '--wallpaper-tint-secondary': wallpaperTint.secondary,
-            '--wallpaper-image': wallpaperTint.wallpaperDataUrl ? `url("${wallpaperTint.wallpaperDataUrl}")` : 'none'
+            '--wallpaper-tint-secondary': wallpaperTint.secondary
           } as React.CSSProperties)
         : undefined,
     [wallpaperTint]
