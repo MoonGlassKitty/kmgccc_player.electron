@@ -264,6 +264,16 @@ function App(): React.ReactElement {
   )
 }
 
+function SidebarToggleIcon({ size = 24 }: { size?: number }): React.ReactElement {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M9 5v14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M6 8.5h.01M6 12h.01M6 15.5h.01" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 const Sidebar = React.memo(function Sidebar({
   snapshot,
   route,
@@ -282,72 +292,76 @@ const Sidebar = React.memo(function Sidebar({
     <aside className="sidebar glass-panel chrome-drag">
       <div className="sidebar-titlebar no-drag">
         <button className="sidebar-toggle" type="button" aria-label={isCollapsed ? '展开侧边栏' : '收起侧边栏'} onClick={onToggle}>
-          <ListMusic size={20} />
+          <SidebarToggleIcon size={24} />
         </button>
       </div>
 
-      <div className="sidebar-source no-drag" role="tablist" aria-label="播放源">
-        <button className="active" type="button">
-          本地
-        </button>
-        <button type="button">Apple Music</button>
+      <div className="sidebar-main">
+        <nav className="sidebar-nav no-drag">
+          <button className={`nav-row ${route.name === 'home' ? 'active' : ''}`} type="button" onClick={() => onNavigate({ name: 'home' })}>
+            <House size={20} />
+            <span>主页</span>
+          </button>
+          <button className={`nav-row ${route.name === 'allTracks' ? 'active' : ''}`} type="button" onClick={() => onNavigate({ name: 'allTracks' })}>
+            <ListMusic size={20} />
+            <span>所有歌曲</span>
+          </button>
+        </nav>
+
+        <section className="sidebar-section no-drag">
+          <div className="sidebar-label">
+            <span>播放列表</span>
+            <button type="button" aria-label="新建播放列表">
+              <Plus size={17} />
+            </button>
+          </div>
+          <button
+            className={`playlist-row ${route.name === 'playlistDetail' && route.id === primaryPlaylist?.id ? 'active' : ''}`}
+            type="button"
+            onClick={() =>
+              primaryPlaylist
+                ? onNavigate({ name: 'playlistDetail', id: primaryPlaylist.id, title: primaryPlaylist.name })
+                : undefined
+            }
+          >
+            <span className="playlist-icon">
+              <Music2 size={18} />
+            </span>
+            <span>{primaryPlaylist?.name ?? '暂无播放列表'}</span>
+          </button>
+        </section>
+
+        <section className="sidebar-section compact no-drag">
+          <button className="sidebar-label as-button" type="button" onClick={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
+            <UserRound className="sidebar-label-icon" size={19} />
+            <span>艺人</span>
+          </button>
+          <button className="sidebar-label as-button" type="button" onClick={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
+            <Disc3 className="sidebar-label-icon" size={19} />
+            <span>专辑</span>
+          </button>
+        </section>
       </div>
 
-      <nav className="sidebar-nav no-drag">
-        <button className={`nav-row ${route.name === 'home' ? 'active' : ''}`} type="button" onClick={() => onNavigate({ name: 'home' })}>
-          <House size={20} />
-          <span>主页</span>
-        </button>
-        <button className={`nav-row ${route.name === 'allTracks' ? 'active' : ''}`} type="button" onClick={() => onNavigate({ name: 'allTracks' })}>
-          <ListMusic size={20} />
-          <span>所有歌曲</span>
-        </button>
-      </nav>
+      <div className="sidebar-footer no-drag">
+        <div className="sidebar-source" role="tablist" aria-label="播放源">
+          <button className="active" type="button">
+            本地
+          </button>
+          <button type="button">Apple Music</button>
+        </div>
 
-      <section className="sidebar-section no-drag">
-        <div className="sidebar-label">
-          <span>播放列表</span>
-          <button type="button" aria-label="新建播放列表">
-            <Plus size={17} />
+        <div className="sidebar-bottom">
+          <button className="round-control" type="button" aria-label="设置">
+            <Settings size={18} />
+          </button>
+          <button className="round-control" type="button" aria-label="外观">
+            <Sun size={18} />
+          </button>
+          <button className="round-control" type="button" aria-label="全屏">
+            <Maximize2 size={17} />
           </button>
         </div>
-        <button
-          className={`playlist-row ${route.name === 'playlistDetail' && route.id === primaryPlaylist?.id ? 'active' : ''}`}
-          type="button"
-          onClick={() =>
-            primaryPlaylist
-              ? onNavigate({ name: 'playlistDetail', id: primaryPlaylist.id, title: primaryPlaylist.name })
-              : undefined
-          }
-        >
-          <span className="playlist-icon">
-            <Music2 size={18} />
-          </span>
-          <span>{primaryPlaylist?.name ?? '暂无播放列表'}</span>
-        </button>
-      </section>
-
-      <section className="sidebar-section compact no-drag">
-        <button className="sidebar-label as-button" type="button" onClick={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
-          <UserRound className="sidebar-label-icon" size={19} />
-          <span>艺人</span>
-        </button>
-        <button className="sidebar-label as-button" type="button" onClick={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
-          <Disc3 className="sidebar-label-icon" size={19} />
-          <span>专辑</span>
-        </button>
-      </section>
-
-      <div className="sidebar-bottom no-drag">
-        <button className="round-control" type="button" aria-label="设置">
-          <Settings size={18} />
-        </button>
-        <button className="round-control" type="button" aria-label="外观">
-          <Sun size={18} />
-        </button>
-        <button className="round-control" type="button" aria-label="全屏">
-          <Maximize2 size={17} />
-        </button>
       </div>
     </aside>
   )
