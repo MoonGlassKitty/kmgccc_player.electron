@@ -456,7 +456,7 @@ const HomePage = React.memo(function HomePage({
           <div className="home-card-grid compact">
             {snapshot.artists.map((artist) => (
               <button
-                className="home-person-card home-liquid-card"
+                className="home-person-card home-liquid-card glass-panel"
                 key={artist.id}
                 type="button"
                 onClick={() => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
@@ -476,7 +476,7 @@ const HomePage = React.memo(function HomePage({
           <div className="home-card-grid">
             {snapshot.albums.map((album) => (
               <button
-                className="home-album-card home-liquid-card"
+                className="home-album-card home-liquid-card glass-panel"
                 key={album.id}
                 type="button"
                 onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
@@ -493,7 +493,7 @@ const HomePage = React.memo(function HomePage({
           <div className="home-playlist-grid">
             {snapshot.playlists.map((playlist) => (
               <button
-                className="home-playlist-card home-liquid-card"
+                className="home-playlist-card home-liquid-card glass-panel"
                 key={playlist.id}
                 type="button"
                 onClick={() => onNavigate({ name: 'playlistDetail', id: playlist.id, title: playlist.name })}
@@ -591,7 +591,7 @@ const HomeStatsSection = React.memo(function HomeStatsSection({ stats }: { stats
         <HomeStatCard label="本周常听" value={stats.favoriteArtistName ?? '-'} suffix={stats.favoriteArtistPlayCount ? `${stats.favoriteArtistPlayCount} 次播放` : ''} />
       </div>
       <div className="home-insight-grid">
-        <div className="home-rank-panel home-liquid-card">
+        <div className="home-rank-panel home-liquid-card glass-panel">
           {stats.ranking.map((item, index) => (
             <div className="home-rank-row" key={item.trackId}>
               <span>{index + 1}</span>
@@ -603,7 +603,7 @@ const HomeStatsSection = React.memo(function HomeStatsSection({ stats }: { stats
             </div>
           ))}
         </div>
-        <div className="home-calendar-panel home-liquid-card">
+        <div className="home-calendar-panel home-liquid-card glass-panel">
           <strong>听歌日历</strong>
           <div className="calendar-dots">
             {Array.from({ length: 35 }, (_entry, index) => {
@@ -628,7 +628,7 @@ const HomeStatCard = React.memo(function HomeStatCard({
   suffix: string
 }): React.ReactElement {
   return (
-    <div className="home-stat-card home-liquid-card">
+    <div className="home-stat-card home-liquid-card glass-panel">
       <span>{label}</span>
       <strong>{value}</strong>
       <small>{suffix}</small>
@@ -708,13 +708,13 @@ const CollectionGrid = React.memo(function CollectionGrid({
   return (
     <div className="collection-grid">
       {artists?.map((artist) => (
-        <button className="home-person-card home-liquid-card" key={artist.id} type="button" onClick={() => onArtist?.(artist)}>
+        <button className="home-person-card home-liquid-card glass-panel" key={artist.id} type="button" onClick={() => onArtist?.(artist)}>
           {artist.artworkUrl ? <img src={artist.artworkUrl} alt="" /> : <span className="artist-avatar">{artist.name}</span>}
           <strong>{artist.name}</strong>
         </button>
       ))}
       {albums?.map((album) => (
-        <button className="home-album-card home-liquid-card" key={album.id} type="button" onClick={() => onAlbum?.(album)}>
+        <button className="home-album-card home-liquid-card glass-panel" key={album.id} type="button" onClick={() => onAlbum?.(album)}>
           <img src={albumArtworkFor(album)} alt="" />
           <strong>{album.title}</strong>
           <span>{album.artist}</span>
