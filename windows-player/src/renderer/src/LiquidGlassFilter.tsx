@@ -16,6 +16,14 @@ type LiquidGlassFilterProps = {
   dpr?: number
 }
 
+type LiquidGlassFilterData = {
+  displacementUrl: string
+  specularUrl: string
+  displacementScale: number
+}
+
+const liquidGlassFilterDataCache = new Map<string, LiquidGlassFilterData>()
+
 const convexSquircle = (value: number): number => Math.pow(1 - Math.pow(1 - value, 4), 1 / 4)
 
 function clamp(value: number, min: number, max: number): number {
@@ -194,7 +202,77 @@ function createSpecularMap({
   return imageData
 }
 
-function LiquidGlassFilter({
+function filterDataCacheKey({
+  width,
+  height,
+  radius,
+  bezelWidth,
+  glassThickness,
+  refractiveIndex,
+  scaleRatio,
+  specularWidth = 44,
+  dpr = 1
+}: LiquidGlassFilterProps): string {
+  return [
+    width,
+    height,
+    radius,
+    bezelWidth,
+    glassThickness,
+    refractiveIndex,
+    scaleRatio,
+    specularWidth,
+    dpr
+  ].join('|')
+}
+
+function getOrCreateFilterData(props: LiquidGlassFilterProps): LiquidGlassFilterData | null {
+  if (typeof document === 'undefined') return null
+
+  const key = filterDataCacheKey(props)
+  const cached = liquidGlassFilterDataCache.get(key)
+  if (cached) return cached
+
+  const {
+    width,
+    height,
+    radius,
+    bezelWidth,
+    glassThickness,
+    refractiveIndex,
+    scaleRatio,
+    specularWidth = 44,
+    dpr = 1
+  } = props
+  const profile = computeRefractionProfile(glassThickness, bezelWidth, refractiveIndex)
+  const maxDisplacement = Math.max(...profile.map((value) => Math.abs(value)), 1)
+  const displacementMap = createDisplacementMap({
+    width,
+    height,
+    radius,
+    bezelWidth,
+    maxDisplacement,
+    profile,
+    dpr
+  })
+  const specularMap = createSpecularMap({
+    width,
+    height,
+    radius,
+    specularWidth,
+    dpr
+  })
+  const filterData = {
+    displacementUrl: imageDataToUrl(displacementMap),
+    specularUrl: imageDataToUrl(specularMap),
+    displacementScale: maxDisplacement * scaleRatio
+  }
+
+  liquidGlassFilterDataCache.set(key, filterData)
+  return filterData
+}
+
+const LiquidGlassFilter = React.memo(function LiquidGlassFilter({
   id,
   width,
   height,
@@ -209,34 +287,39 @@ function LiquidGlassFilter({
   specularWidth = 44,
   dpr = 1
 }: LiquidGlassFilterProps): React.ReactElement | null {
-  const filterData = React.useMemo(() => {
-    if (typeof document === 'undefined') return null
-
-    const profile = computeRefractionProfile(glassThickness, bezelWidth, refractiveIndex)
-    const maxDisplacement = Math.max(...profile.map((value) => Math.abs(value)), 1)
-    const displacementMap = createDisplacementMap({
-      width,
-      height,
-      radius,
+  const filterData = React.useMemo(
+    () =>
+      getOrCreateFilterData({
+        id,
+        width,
+        height,
+        radius,
+        blur,
+        bezelWidth,
+        glassThickness,
+        refractiveIndex,
+        scaleRatio,
+        specularOpacity,
+        specularSaturation,
+        specularWidth,
+        dpr
+      }),
+    [
       bezelWidth,
-      maxDisplacement,
-      profile,
-      dpr
-    })
-    const specularMap = createSpecularMap({
-      width,
+      blur,
+      dpr,
+      glassThickness,
       height,
+      id,
       radius,
+      refractiveIndex,
+      scaleRatio,
+      specularOpacity,
+      specularSaturation,
       specularWidth,
-      dpr
-    })
-
-    return {
-      displacementUrl: imageDataToUrl(displacementMap),
-      specularUrl: imageDataToUrl(specularMap),
-      displacementScale: maxDisplacement * scaleRatio
-    }
-  }, [bezelWidth, dpr, glassThickness, height, radius, refractiveIndex, scaleRatio, specularWidth, width])
+      width
+    ]
+  )
 
   if (!filterData) return null
 
@@ -282,11 +365,54 @@ function LiquidGlassFilter({
       </defs>
     </svg>
   )
-}
+})
 
-export function LiquidGlassFilters(): React.ReactElement {
+export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): React.ReactElement {
   return (
     <div className="liquid-glass-bank" aria-hidden="true">
+      <LiquidGlassFilter
+        id="lg-sidebar"
+        width={320}
+        height={860}
+        radius={28}
+        blur={2.4}
+        bezelWidth={24}
+        glassThickness={120}
+        refractiveIndex={1.34}
+        scaleRatio={1.18}
+        specularOpacity={0.82}
+        specularSaturation={8}
+        specularWidth={56}
+      />
+      <LiquidGlassFilter
+        id="lg-lyrics"
+        width={470}
+        height={860}
+        radius={30}
+        blur={2.6}
+        bezelWidth={26}
+        glassThickness={115}
+        refractiveIndex={1.34}
+        scaleRatio={1.12}
+        specularOpacity={0.72}
+        specularSaturation={8}
+        specularWidth={64}
+      />
+      <LiquidGlassFilter
+        id="lg-mini"
+        width={930}
+        height={58}
+        radius={29}
+        blur={3.3}
+        bezelWidth={25}
+        glassThickness={92}
+        refractiveIndex={1.3}
+        scaleRatio={1}
+        specularOpacity={1}
+        specularSaturation={25}
+        specularWidth={42}
+        dpr={1.15}
+      />
       <LiquidGlassFilter
         id="lg-toolbar-pill"
         width={130}
@@ -334,4 +460,4 @@ export function LiquidGlassFilters(): React.ReactElement {
       />
     </div>
   )
-}
+})
