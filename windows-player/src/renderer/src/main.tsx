@@ -24,6 +24,7 @@ import {
   SkipForward,
   Square,
   Sun,
+  UserRound,
   Volume2,
   X
 } from 'lucide-react'
@@ -120,6 +121,22 @@ function albumArtworkFor(album?: Pick<HomeAlbumCard, 'artworkUrl'> | null): stri
   return album?.artworkUrl || albumArtwork
 }
 
+function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<string, HomeAlbumCard>): React.CSSProperties {
+  const artwork = trackArtwork(track, albums)
+  const isAltArtwork = artwork === altArtwork || track?.albumId === 'album-myth' || track?.albumId === 'album-udong'
+  const accent = isAltArtwork ? 'rgba(124, 143, 104, 0.42)' : 'rgba(88, 190, 229, 0.38)'
+  const border = isAltArtwork ? 'rgba(92, 110, 75, 0.34)' : 'rgba(38, 137, 174, 0.24)'
+  const text = isAltArtwork ? '#66754e' : '#1680ad'
+  const shadow = isAltArtwork ? 'rgba(92, 110, 75, 0.11)' : 'rgba(15, 85, 120, 0.09)'
+
+  return {
+    '--cover-accent': accent,
+    '--cover-accent-border': border,
+    '--cover-accent-text': text,
+    '--cover-accent-shadow': shadow
+  } as React.CSSProperties
+}
+
 function tracksForRoute(route: Exclude<AppRoute, { name: 'home' }>, snapshot: HomeSnapshot): HomeTrack[] {
   switch (route.name) {
   case 'allTracks':
@@ -172,6 +189,7 @@ function detailSubtitle(route: Exclude<AppRoute, { name: 'home' }>, snapshot: Ho
 
 function App(): React.ReactElement {
   const [homeSnapshot, setHomeSnapshot] = React.useState<HomeSnapshot>(fallbackHomeSnapshot)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
   const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
   const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
   const [isPlaying, setIsPlaying] = React.useState(true)
@@ -180,6 +198,7 @@ function App(): React.ReactElement {
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
     [currentId, homeSnapshot]
   )
+  const coverThemeStyle = React.useMemo(() => coverThemeFor(currentTrack, albums), [albums, currentTrack])
 
   React.useEffect(() => {
     let cancelled = false
@@ -203,6 +222,9 @@ function App(): React.ReactElement {
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
   }, [])
+  const toggleSidebar = React.useCallback(() => {
+    setIsSidebarCollapsed((value) => !value)
+  }, [])
   const selectTrack = React.useCallback((id: string) => {
     setCurrentId(id)
     setIsPlaying(true)
@@ -213,10 +235,10 @@ function App(): React.ReactElement {
   }, [])
 
   return (
-    <div className="desktop-root">
+    <div className="desktop-root" style={coverThemeStyle}>
       <LiquidGlassFilters />
-      <div className="app-shell">
-        <Sidebar snapshot={homeSnapshot} route={route} onNavigate={setRoute} />
+      <div className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+        <Sidebar snapshot={homeSnapshot} route={route} onNavigate={setRoute} isCollapsed={isSidebarCollapsed} onToggle={toggleSidebar} />
         <WindowControls />
         <div className="titlebar-drag-region chrome-drag" aria-hidden="true" />
 
@@ -245,17 +267,21 @@ function App(): React.ReactElement {
 const Sidebar = React.memo(function Sidebar({
   snapshot,
   route,
-  onNavigate
+  onNavigate,
+  isCollapsed,
+  onToggle
 }: {
   snapshot: HomeSnapshot
   route: AppRoute
   onNavigate: (route: AppRoute) => void
+  isCollapsed: boolean
+  onToggle: () => void
 }): React.ReactElement {
   const primaryPlaylist = snapshot.playlists[0]
   return (
-    <aside className="sidebar glass-panel chrome-drag" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
+    <aside className="sidebar glass-panel chrome-drag">
       <div className="sidebar-titlebar no-drag">
-        <button className="sidebar-toggle" type="button" aria-label="侧边栏">
+        <button className="sidebar-toggle" type="button" aria-label={isCollapsed ? '展开侧边栏' : '收起侧边栏'} onClick={onToggle}>
           <ListMusic size={20} />
         </button>
       </div>
@@ -303,10 +329,12 @@ const Sidebar = React.memo(function Sidebar({
 
       <section className="sidebar-section compact no-drag">
         <button className="sidebar-label as-button" type="button" onClick={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
-          艺人
+          <UserRound className="sidebar-label-icon" size={19} />
+          <span>艺人</span>
         </button>
         <button className="sidebar-label as-button" type="button" onClick={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
-          专辑
+          <Disc3 className="sidebar-label-icon" size={19} />
+          <span>专辑</span>
         </button>
       </section>
 
@@ -550,15 +578,27 @@ const HomeSectionBlock = React.memo(function HomeSectionBlock({
 
 const HomeStatsSection = React.memo(function HomeStatsSection({ stats }: { stats: HomeStats }): React.ReactElement {
   return (
-    <section className="home-section-block">
+    <section className="home-section-block home-stats-block">
       <div className="home-section-heading">
         <h2>音乐足迹</h2>
       </div>
-      <div className="home-stat-grid">
-        <HomeStatCard label="总歌曲" value={`${stats.totalTrackCount}`} suffix="首" />
-        <HomeStatCard label="本周播放" value={`${stats.weeklyPlayCount}`} suffix="次" />
-        <HomeStatCard label="本周时长" value={`${Math.round(stats.weeklyListeningSeconds / 60)}`} suffix="分钟" />
-        <HomeStatCard label="本周常听" value={stats.favoriteArtistName ?? '-'} suffix={stats.favoriteArtistPlayCount ? `${stats.favoriteArtistPlayCount} 次播放` : ''} />
+      <div className="home-metrics-row">
+        <div className="home-stat-grid">
+          <HomeStatCard label="总歌曲" value={`${stats.totalTrackCount}`} suffix="首" />
+          <HomeStatCard label="本周播放" value={`${stats.weeklyPlayCount}`} suffix="次" />
+          <HomeStatCard label="本周时长" value={`${Math.round(stats.weeklyListeningSeconds / 60)}`} suffix="分钟" />
+          <HomeStatCard label="本周常听" value={stats.favoriteArtistName ?? '-'} suffix={stats.favoriteArtistPlayCount ? `${stats.favoriteArtistPlayCount} 次播放` : ''} />
+        </div>
+        <div className="home-calendar-panel home-liquid-card glass-panel">
+          <strong>听歌日历</strong>
+          <div className="calendar-dots">
+            {Array.from({ length: 35 }, (_entry, index) => {
+              const day = index + 1
+              const active = day === 5 || day === 6
+              return <span className={active ? 'active' : ''} key={day}>{day <= 30 ? day : ''}</span>
+            })}
+          </div>
+        </div>
       </div>
       <div className="home-insight-grid">
         <div className="home-rank-panel home-liquid-card glass-panel">
@@ -572,16 +612,6 @@ const HomeStatsSection = React.memo(function HomeStatsSection({ stats }: { stats
               <em>{item.playCount}</em>
             </div>
           ))}
-        </div>
-        <div className="home-calendar-panel home-liquid-card glass-panel">
-          <strong>听歌日历</strong>
-          <div className="calendar-dots">
-            {Array.from({ length: 35 }, (_entry, index) => {
-              const day = index + 1
-              const active = day === 5 || day === 6
-              return <span className={active ? 'active' : ''} key={day}>{day <= 30 ? day : ''}</span>
-            })}
-          </div>
         </div>
       </div>
     </section>

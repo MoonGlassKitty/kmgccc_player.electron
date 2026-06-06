@@ -14,6 +14,10 @@
   --accent: #2e87ac;
   --accent-deep: #0d3d55;
   --accent-soft: rgba(88, 196, 227, 0.18);
+  --cover-accent: rgba(88, 190, 229, 0.38);
+  --cover-accent-border: rgba(38, 137, 174, 0.24);
+  --cover-accent-text: #1680ad;
+  --cover-accent-shadow: rgba(15, 85, 120, 0.09);
   --win-titlebar-height: 28px;
   --wallpaper-tint-primary: rgba(174, 226, 241, 0.18);
   --wallpaper-tint-secondary: rgba(194, 220, 244, 0.12);
@@ -69,7 +73,7 @@ input {
   padding: 0;
   place-items: stretch;
   background: transparent;
-  contain: layout paint;
+  contain: layout;
 }
 
 .app-shell {
@@ -149,13 +153,10 @@ input {
   margin: 8px 0 8px 8px;
   padding: var(--win-titlebar-height) 0 0;
   border-radius: 28px;
+  --filter-url: url(#lg-sidebar);
   --glass-alpha: 0.34;
   --glass-border: rgba(255, 255, 255, 0.52);
-  --glass-shadow: rgba(25, 58, 80, 0.032);
-  box-shadow:
-    0 14px 34px var(--glass-shadow),
-    0 1px 10px rgba(12, 38, 52, 0.035) inset,
-    0 -1px 12px rgba(255, 255, 255, 0.12) inset;
+  --glass-shadow: rgba(25, 58, 80, 0.0225);
   contain: layout paint;
 }
 
@@ -257,7 +258,6 @@ input {
 
 .nav-row,
 .playlist-row {
-  position: relative;
   display: flex;
   align-items: center;
   gap: 15px;
@@ -271,56 +271,22 @@ input {
   background: transparent;
 }
 
-.nav-row > svg,
-.nav-row > span,
-.playlist-row > * {
-  position: relative;
-  z-index: 1;
-}
-
 .nav-row.active {
-  background: transparent;
-}
-
-.nav-row.active::before {
-  content: "";
-  position: absolute;
-  top: -8px;
-  right: -18px;
-  bottom: -8px;
-  left: -10px;
-  z-index: 0;
-  pointer-events: none;
-  border: 1px solid rgba(255, 255, 255, 0.56);
-  border-radius: 24px 28px 28px 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.28)),
-    rgba(222, 245, 252, 0.22);
+  color: #0a2f45;
+  border-radius: 999px;
+  background: var(--cover-accent);
   box-shadow:
-    0 12px 24px rgba(25, 70, 92, 0.07),
-    0 2px 8px rgba(25, 70, 92, 0.035);
-}
-
-.nav-row.active::after {
-  content: "";
-  position: absolute;
-  right: -36px;
-  bottom: -38px;
-  z-index: 0;
-  width: 92px;
-  height: 68px;
-  pointer-events: none;
-  border-right: 1px solid rgba(255, 255, 255, 0.5);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.42);
-  border-radius: 0 0 36px 0;
-  background:
-    radial-gradient(ellipse at 0 0, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.12) 46%, transparent 68%);
-  box-shadow:
-    10px 12px 24px rgba(25, 70, 92, 0.04);
+    0 0 0 1px var(--cover-accent-border) inset,
+    0 1px 4px var(--cover-accent-shadow);
 }
 
 .playlist-row.active {
-  background: rgba(255, 255, 255, 0.26);
+  color: #0a2f45;
+  border-radius: 999px;
+  background: var(--cover-accent);
+  box-shadow:
+    0 0 0 1px var(--cover-accent-border) inset,
+    0 1px 4px var(--cover-accent-shadow);
 }
 
 .sidebar-section {
@@ -357,6 +323,10 @@ input {
   text-align: left;
 }
 
+.sidebar-label-icon {
+  display: none;
+}
+
 .playlist-icon {
   display: grid;
   width: 30px;
@@ -386,6 +356,94 @@ input {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.34) inset,
     0 1px 4px rgba(18, 64, 86, 0.035);
+}
+
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 82px minmax(0, 1fr);
+}
+
+.app-shell.sidebar-collapsed .titlebar-drag-region {
+  left: 82px;
+}
+
+.app-shell.sidebar-collapsed .sidebar {
+  margin: 7px 0 7px 7px;
+  padding-top: var(--win-titlebar-height);
+  border-radius: 24px;
+  --filter-url: blur(18px) saturate(170%);
+}
+
+.app-shell.sidebar-collapsed .sidebar-titlebar {
+  height: 54px;
+  padding: 0;
+  place-items: center;
+}
+
+.app-shell.sidebar-collapsed .sidebar-source,
+.app-shell.sidebar-collapsed .sidebar-label span,
+.app-shell.sidebar-collapsed .sidebar-label button,
+.app-shell.sidebar-collapsed .nav-row span,
+.app-shell.sidebar-collapsed .playlist-row > span:not(.playlist-icon) {
+  display: none;
+}
+
+.app-shell.sidebar-collapsed .sidebar-nav,
+.app-shell.sidebar-collapsed .sidebar-section {
+  align-items: center;
+  gap: 14px;
+  padding: 0;
+}
+
+.app-shell.sidebar-collapsed .sidebar-section {
+  margin-top: 22px;
+}
+
+.app-shell.sidebar-collapsed .sidebar-section.compact {
+  gap: 14px;
+}
+
+.app-shell.sidebar-collapsed .nav-row,
+.app-shell.sidebar-collapsed .playlist-row,
+.app-shell.sidebar-collapsed .sidebar-label.as-button {
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 16px;
+}
+
+.app-shell.sidebar-collapsed .sidebar-label-icon {
+  display: block;
+}
+
+.app-shell.sidebar-collapsed .nav-row.active {
+  color: var(--cover-accent-text);
+  border-radius: 999px;
+  background: var(--cover-accent);
+  box-shadow:
+    0 7px 16px var(--cover-accent-shadow),
+    0 0 0 1px var(--cover-accent-border) inset;
+}
+
+.app-shell.sidebar-collapsed .playlist-row.active {
+  color: var(--cover-accent-text);
+  border-radius: 999px;
+  background: var(--cover-accent);
+  box-shadow:
+    0 7px 16px var(--cover-accent-shadow),
+    0 0 0 1px var(--cover-accent-border) inset;
+}
+
+.app-shell.sidebar-collapsed .playlist-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.app-shell.sidebar-collapsed .sidebar-bottom {
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0 18px;
 }
 
 .content-pane {
@@ -643,6 +701,22 @@ input {
   overflow: visible;
 }
 
+.home-stats-block {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.4fr) minmax(320px, 0.8fr);
+  gap: 16px;
+}
+
+.home-stats-block .home-section-heading,
+.home-stats-block .home-stat-grid {
+  grid-column: 1 / -1;
+}
+
+.home-metrics-row,
+.home-insight-grid {
+  display: contents;
+}
+
 .home-section-heading {
   display: flex;
   align-items: center;
@@ -868,10 +942,15 @@ input {
 }
 
 .home-insight-grid {
-  display: grid;
-  grid-template-columns: minmax(420px, 1.4fr) minmax(320px, 0.8fr);
-  gap: 16px;
   margin-top: 16px;
+}
+
+.home-rank-panel {
+  grid-column: 1;
+}
+
+.home-calendar-panel {
+  grid-column: 2;
 }
 
 .home-rank-panel,
@@ -1319,18 +1398,122 @@ input {
   }
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1200px) {
   .app-shell {
-    grid-template-columns: 228px minmax(0, 1fr);
+    grid-template-columns: 82px minmax(0, 1fr);
   }
 
   .titlebar-drag-region {
-    left: 228px;
+    left: 82px;
   }
 
-  .sidebar-source {
-    margin-right: 16px;
-    margin-left: 16px;
+  .sidebar {
+    margin: 7px 0 7px 7px;
+    padding-top: var(--win-titlebar-height);
+    border-radius: 24px;
+    --filter-url: blur(18px) saturate(170%);
+  }
+
+  .sidebar-titlebar {
+    height: 54px;
+    padding: 0;
+    place-items: center;
+  }
+
+  .sidebar-source,
+  .sidebar-label span,
+  .sidebar-label button,
+  .nav-row span,
+  .playlist-row > span:not(.playlist-icon) {
+    display: none;
+  }
+
+  .sidebar-nav,
+  .sidebar-section {
+    align-items: center;
+    gap: 14px;
+    padding: 0;
+  }
+
+  .sidebar-section {
+    margin-top: 22px;
+  }
+
+  .sidebar-section.compact {
+    gap: 14px;
+  }
+
+  .nav-row,
+  .playlist-row,
+  .sidebar-label.as-button {
+    justify-content: center;
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border-radius: 16px;
+  }
+
+  .sidebar-label-icon {
+    display: block;
+  }
+
+  .nav-row.active {
+    color: var(--cover-accent-text);
+    border-radius: 999px;
+    background: var(--cover-accent);
+    box-shadow:
+      0 7px 16px var(--cover-accent-shadow),
+      0 0 0 1px var(--cover-accent-border) inset;
+  }
+
+  .playlist-row.active {
+    color: var(--cover-accent-text);
+    border-radius: 999px;
+    background: var(--cover-accent);
+    box-shadow:
+      0 7px 16px var(--cover-accent-shadow),
+      0 0 0 1px var(--cover-accent-border) inset;
+  }
+
+  .playlist-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .sidebar-bottom {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0 18px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .home-stats-block {
+    grid-template-columns: minmax(300px, 0.95fr) minmax(360px, 1.05fr);
+  }
+
+  .home-stats-block .home-stat-grid {
+    grid-column: 1;
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+
+  .home-calendar-panel {
+    grid-column: 2;
+  }
+
+  .home-rank-panel {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 980px) {
+  .app-shell {
+    grid-template-columns: 82px minmax(0, 1fr);
+  }
+
+  .titlebar-drag-region {
+    left: 82px;
   }
 
   .sidebar {
@@ -1340,7 +1523,7 @@ input {
 
   .sidebar-nav,
   .sidebar-section {
-    padding: 0 18px;
+    padding: 0;
   }
 
   .artist-page {
