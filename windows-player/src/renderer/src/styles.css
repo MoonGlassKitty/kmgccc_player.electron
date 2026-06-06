@@ -395,6 +395,16 @@ input {
   --glass-shadow: rgba(16, 36, 52, 0.025);
 }
 
+.toolbar-liquid-pad {
+  --glass-alpha: 0.66;
+  --glass-border: rgba(255, 255, 255, 0.62);
+  --glass-shadow: rgba(16, 36, 52, 0.03);
+  background-color: rgba(255, 255, 255, 0.66);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.34) inset,
+    0 1px 8px rgba(15, 42, 58, 0.045);
+}
+
 .search-field {
   display: grid;
   grid-template-columns: 20px 1fr 20px;

@@ -423,7 +423,7 @@ const Toolbar = React.memo(function Toolbar({ onNavigateHome }: { onNavigateHome
         </div>
 
         <button
-          className="toolbar-circle glass-panel"
+          className="toolbar-circle toolbar-liquid-pad glass-panel"
           type="button"
           aria-label="排序"
           style={{ '--filter-url': 'url(#lg-circle)' } as React.CSSProperties}
@@ -453,7 +453,7 @@ const Toolbar = React.memo(function Toolbar({ onNavigateHome }: { onNavigateHome
           <CircleX size={17} className="search-clear" />
         </label>
         <button
-          className="toolbar-circle glass-panel"
+          className="toolbar-circle toolbar-liquid-pad glass-panel"
           type="button"
           aria-label="歌词"
           style={{ '--filter-url': 'url(#lg-circle)' } as React.CSSProperties}
