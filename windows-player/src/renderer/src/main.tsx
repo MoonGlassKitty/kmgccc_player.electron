@@ -65,7 +65,13 @@ const lyrics = [
 function App(): React.ReactElement {
   const [currentId, setCurrentId] = React.useState('myth')
   const [isPlaying, setIsPlaying] = React.useState(true)
-  const currentTrack = tracks.find((track) => track.id === currentId) ?? tracks[0]
+  const currentTrack = React.useMemo(() => tracks.find((track) => track.id === currentId) ?? tracks[0], [currentId])
+  const togglePlayback = React.useCallback(() => {
+    setIsPlaying((value) => !value)
+  }, [])
+  const selectTrack = React.useCallback((id: string) => {
+    setCurrentId(id)
+  }, [])
 
   return (
     <div className="desktop-root">
@@ -85,7 +91,7 @@ function App(): React.ReactElement {
                 <p className="artist-meta">9 首歌曲 · 1 张专辑</p>
                 <p className="artist-description">acloudyskye，欧美音乐人，曾发表作品《What Do You Want!》。</p>
                 <div className="artist-actions">
-                  <button className="play-cta" type="button" onClick={() => setIsPlaying((value) => !value)}>
+                  <button className="play-cta" type="button" onClick={togglePlayback}>
                     {isPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" />}
                     {isPlaying ? '暂停' : '播放'}
                   </button>
@@ -96,10 +102,10 @@ function App(): React.ReactElement {
               </div>
             </header>
 
-            <TrackRows currentId={currentId} onSelect={setCurrentId} />
+            <TrackRows currentId={currentId} onSelect={selectTrack} />
           </section>
 
-          <MiniPlayer track={currentTrack} isPlaying={isPlaying} onPlayPause={() => setIsPlaying((value) => !value)} />
+          <MiniPlayer track={currentTrack} isPlaying={isPlaying} onPlayPause={togglePlayback} />
         </main>
 
         <LyricsPane />
@@ -108,7 +114,7 @@ function App(): React.ReactElement {
   )
 }
 
-function Sidebar(): React.ReactElement {
+const Sidebar = React.memo(function Sidebar(): React.ReactElement {
   return (
     <aside className="sidebar glass-panel chrome-drag" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
       <div className="traffic-row no-drag">
@@ -171,9 +177,9 @@ function Sidebar(): React.ReactElement {
       </div>
     </aside>
   )
-}
+})
 
-function Toolbar(): React.ReactElement {
+const Toolbar = React.memo(function Toolbar(): React.ReactElement {
   return (
     <header className="toolbar chrome-drag">
       <div className="toolbar-left no-drag">
@@ -228,9 +234,9 @@ function Toolbar(): React.ReactElement {
       </div>
     </header>
   )
-}
+})
 
-function TrackRows({
+const TrackRows = React.memo(function TrackRows({
   currentId,
   onSelect
 }: {
@@ -255,9 +261,9 @@ function TrackRows({
       ))}
     </div>
   )
-}
+})
 
-function MiniPlayer({
+const MiniPlayer = React.memo(function MiniPlayer({
   track,
   isPlaying,
   onPlayPause
@@ -301,9 +307,9 @@ function MiniPlayer({
       </div>
     </div>
   )
-}
+})
 
-function LyricsPane(): React.ReactElement {
+const LyricsPane = React.memo(function LyricsPane(): React.ReactElement {
   return (
     <aside className="lyrics-pane glass-panel" style={{ '--filter-url': 'url(#lg-lyrics)' } as React.CSSProperties}>
       <div className="lyrics-scroll">
@@ -316,7 +322,7 @@ function LyricsPane(): React.ReactElement {
       </div>
     </aside>
   )
-}
+})
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

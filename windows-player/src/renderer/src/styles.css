@@ -66,6 +66,7 @@ input {
   padding: 0;
   place-items: stretch;
   background: transparent;
+  contain: layout paint;
 }
 
 .app-shell {
@@ -85,9 +86,10 @@ input {
     radial-gradient(circle at 86% 22%, rgba(255, 241, 228, 0.72), transparent 36%),
     linear-gradient(90deg, rgba(235, 247, 253, 0.94) 0 18%, rgba(253, 254, 255, 0.96) 31% 73%, rgba(255, 250, 246, 0.96));
   box-shadow:
-    0 18px 42px rgba(0, 0, 0, 0.22),
+    0 10px 28px rgba(0, 0, 0, 0.14),
     0 0 0 1px rgba(255, 255, 255, 0.36) inset,
-    0 0 0 1px rgba(0, 0, 0, 0.1);
+    0 0 0 1px rgba(0, 0, 0, 0.07);
+  contain: layout paint;
 }
 
 .app-shell::before {
@@ -108,7 +110,7 @@ input {
 .glass-panel {
   --glass-alpha: 0.42;
   --glass-border: rgba(255, 255, 255, 0.46);
-  --glass-shadow: rgba(16, 36, 52, 0.08);
+  --glass-shadow: rgba(16, 36, 52, 0.035);
   position: relative;
   overflow: hidden;
   border: 1px solid var(--glass-border);
@@ -118,9 +120,10 @@ input {
   backdrop-filter: var(--filter-url);
   -webkit-backdrop-filter: var(--filter-url);
   box-shadow:
-    0 2px 10px var(--glass-shadow),
-    0 1px 16px rgba(0, 0, 0, 0.07) inset,
-    0 -1px 18px rgba(255, 255, 255, 0.24) inset;
+    0 1px 6px var(--glass-shadow),
+    0 1px 10px rgba(0, 0, 0, 0.035) inset,
+    0 -1px 12px rgba(255, 255, 255, 0.16) inset;
+  contain: paint;
 }
 
 .glass-panel > * {
@@ -137,7 +140,8 @@ input {
   border-radius: 0 30px 30px 0;
   --glass-alpha: 0.34;
   --glass-border: rgba(255, 255, 255, 0.52);
-  --glass-shadow: rgba(25, 58, 80, 0.04);
+  --glass-shadow: rgba(25, 58, 80, 0.015);
+  contain: layout paint;
 }
 
 .traffic-row {
@@ -188,7 +192,7 @@ input {
   background: rgba(0, 0, 0, 0.06);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.5) inset,
-    0 0 0 1px rgba(9, 30, 44, 0.08) inset;
+    0 0 0 1px rgba(9, 30, 44, 0.055) inset;
 }
 
 .sidebar-source button {
@@ -203,8 +207,8 @@ input {
   color: #1680ad;
   background: rgba(104, 190, 219, 0.34);
   box-shadow:
-    0 0 0 1px rgba(38, 137, 174, 0.24) inset,
-    0 2px 8px rgba(15, 85, 120, 0.12);
+    0 0 0 1px rgba(38, 137, 174, 0.18) inset,
+    0 1px 4px rgba(15, 85, 120, 0.055);
 }
 
 .sidebar-nav,
@@ -289,8 +293,8 @@ input {
   color: #2487ad;
   background: rgba(255, 255, 255, 0.66);
   box-shadow:
-    0 1px 4px rgba(0, 0, 0, 0.06),
-    0 0 0 1px rgba(12, 54, 72, 0.06) inset;
+    0 1px 3px rgba(0, 0, 0, 0.035),
+    0 0 0 1px rgba(12, 54, 72, 0.045) inset;
 }
 
 .content-pane {
@@ -299,6 +303,7 @@ input {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  contain: layout paint;
 }
 
 .toolbar {
@@ -310,6 +315,7 @@ input {
   justify-content: space-between;
   height: 76px;
   padding: 12px 28px;
+  contain: layout paint;
 }
 
 .toolbar-left,
@@ -328,6 +334,7 @@ input {
   height: 40px;
   border-radius: 20px;
   --glass-alpha: 0.58;
+  --glass-shadow: rgba(16, 36, 52, 0.025);
 }
 
 .toolbar-pill button,
@@ -355,6 +362,7 @@ input {
   height: 40px;
   border-radius: 50%;
   --glass-alpha: 0.58;
+  --glass-shadow: rgba(16, 36, 52, 0.025);
 }
 
 .search-field {
@@ -367,6 +375,7 @@ input {
   padding: 0 16px;
   border-radius: 20px;
   --glass-alpha: 0.58;
+  --glass-shadow: rgba(16, 36, 52, 0.025);
   color: rgba(25, 39, 49, 0.52);
 }
 
@@ -388,6 +397,7 @@ input {
   overflow: hidden auto;
   padding: 116px 66px 112px;
   scrollbar-width: none;
+  contain: layout paint;
 }
 
 .artist-page::-webkit-scrollbar {
@@ -400,6 +410,7 @@ input {
   align-items: center;
   gap: 64px;
   min-height: 390px;
+  contain: layout paint;
 }
 
 .artist-image-frame {
@@ -409,8 +420,8 @@ input {
   overflow: hidden;
   border-radius: 50%;
   box-shadow:
-    0 34px 60px rgba(29, 108, 145, 0.16),
-    0 0 0 1px rgba(255, 255, 255, 0.46) inset;
+    0 16px 32px rgba(29, 108, 145, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.36) inset;
 }
 
 .artist-image-frame::after {
@@ -469,8 +480,8 @@ input {
   border-radius: 23px;
   gap: 8px;
   box-shadow:
-    0 2px 7px rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+    0 1px 4px rgba(0, 0, 0, 0.07),
+    0 0 0 1px rgba(255, 255, 255, 0.14) inset;
 }
 
 .play-cta {
@@ -494,6 +505,7 @@ input {
   gap: 8px;
   padding-top: 16px;
   padding-bottom: 36px;
+  contain: layout paint;
 }
 
 .track-row {
@@ -507,6 +519,7 @@ input {
   color: #0d3044;
   text-align: left;
   background: transparent;
+  contain: layout paint;
 }
 
 .track-row.current {
@@ -564,7 +577,8 @@ input {
   padding: 8px 24px;
   border-radius: 29px;
   --glass-alpha: 0.7;
-  --glass-shadow: rgba(12, 33, 48, 0.1);
+  --glass-shadow: rgba(12, 33, 48, 0.035);
+  contain: layout paint;
 }
 
 .mini-track {
@@ -625,8 +639,8 @@ input {
   border-radius: 15px;
   background: rgba(92, 184, 219, 0.28);
   box-shadow:
-    0 0 0 1px rgba(31, 132, 174, 0.18) inset,
-    0 2px 8px rgba(31, 132, 174, 0.12);
+    0 0 0 1px rgba(31, 132, 174, 0.14) inset,
+    0 1px 4px rgba(31, 132, 174, 0.055);
 }
 
 .progress-track,
@@ -672,7 +686,7 @@ input {
   height: 22px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   transform: translate(-50%, -50%);
 }
 
@@ -685,7 +699,8 @@ input {
   border-left-color: rgba(0, 0, 0, 0.08);
   border-radius: 0 34px 34px 0;
   --glass-alpha: 0.38;
-  --glass-shadow: rgba(48, 26, 18, 0.04);
+  --glass-shadow: rgba(48, 26, 18, 0.015);
+  contain: layout paint;
 }
 
 .lyrics-scroll {
@@ -693,17 +708,18 @@ input {
   overflow: hidden;
   padding: 148px 58px 90px 68px;
   mask-image: linear-gradient(transparent 0, #000 15%, #000 86%, transparent 100%);
+  contain: layout paint;
 }
 
 .lyric-line {
   margin-bottom: 48px;
   color: rgba(56, 63, 72, 0.28);
-  filter: blur(1px);
+  opacity: 0.34;
 }
 
 .lyric-line.active {
   color: rgba(42, 47, 52, 0.82);
-  filter: none;
+  opacity: 1;
 }
 
 .lyric-line p {
