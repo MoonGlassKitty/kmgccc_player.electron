@@ -822,14 +822,16 @@ const MiniPlayer = React.memo(function MiniPlayer({
       <button className="mode-button" type="button" aria-label="随机">
         <Shuffle size={18} />
       </button>
-      <div className="progress-track" aria-hidden="true">
-        <span />
-      </div>
-      <div className="volume-track">
-        <Volume2 size={16} />
-        <div className="volume-bar">
+      <div className="mini-timeline">
+        <div className="progress-track" aria-hidden="true">
           <span />
-          <i />
+        </div>
+        <div className="volume-track">
+          <Volume2 size={16} />
+          <div className="volume-bar">
+            <span />
+            <i />
+          </div>
         </div>
       </div>
     </div>
