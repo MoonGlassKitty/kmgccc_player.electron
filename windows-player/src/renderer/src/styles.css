@@ -590,6 +590,8 @@ input {
 
 .home-section-block {
   margin-top: 42px;
+  position: relative;
+  overflow: visible;
 }
 
 .home-section-heading {
@@ -635,19 +637,21 @@ input {
   padding-bottom: 40px;
 }
 
-.home-section-block,
 .collection-grid,
 .track-list {
   content-visibility: auto;
 }
 
-.home-section-block {
-  contain-intrinsic-size: auto 360px;
-}
-
 .collection-grid,
 .track-list {
   contain-intrinsic-size: auto 420px;
+}
+
+.home-card-grid,
+.home-playlist-grid,
+.home-stat-grid,
+.home-insight-grid {
+  overflow: visible;
 }
 
 .home-person-card,
@@ -669,6 +673,7 @@ input {
   --glass-shadow: rgba(25, 58, 80, 0.05);
   position: relative;
   overflow: hidden;
+  contain: layout;
   border: 1px solid var(--glass-border);
   background-color: rgba(255, 255, 255, var(--glass-alpha));
   backdrop-filter: blur(18px) saturate(170%);
