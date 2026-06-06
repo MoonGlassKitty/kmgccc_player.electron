@@ -70,6 +70,7 @@ declare global {
     primary: string
     secondary: string
     wallpaperPath?: string
+    wallpaperDataUrl?: string
   }
 
   interface Window {

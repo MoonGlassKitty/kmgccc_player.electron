@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -37,6 +37,7 @@ type WallpaperTint = {
   primary: string
   secondary: string
   wallpaperPath?: string
+  wallpaperDataUrl?: string
 }
 
 function runCommand(command: string, args: string[]): string {
@@ -104,6 +105,25 @@ function tintFromRgb(red: number, green: number, blue: number, source: Wallpaper
   }
 }
 
+function wallpaperDataUrlFromImage(image: Electron.NativeImage): string | undefined {
+  if (image.isEmpty()) return undefined
+  const resized = image.resize({ width: 2200, quality: 'good' })
+  return resized.isEmpty() ? undefined : resized.toDataURL()
+}
+
+function loadWallpaperImage(wallpaperPath: string): Electron.NativeImage {
+  const image = nativeImage.createFromPath(wallpaperPath)
+  if (!image.isEmpty() || process.platform !== 'darwin') return image
+
+  const convertedPath = join(app.getPath('temp'), 'kmgccc-wallpaper-preview.jpg')
+  runCommand('sips', ['-s', 'format', 'jpeg', wallpaperPath, '--out', convertedPath])
+  try {
+    return nativeImage.createFromBuffer(readFileSync(convertedPath))
+  } catch {
+    return nativeImage.createFromPath(convertedPath)
+  }
+}
+
 function getWallpaperTint(): WallpaperTint {
   const { source, wallpaperPath } = resolveWallpaperPath()
 
@@ -111,8 +131,9 @@ function getWallpaperTint(): WallpaperTint {
     return tintFromRgb(132, 199, 221, 'fallback')
   }
 
-  const image = nativeImage.createFromPath(wallpaperPath)
+  const image = loadWallpaperImage(wallpaperPath)
   if (image.isEmpty()) return tintFromRgb(132, 199, 221, source)
+  const wallpaperDataUrl = wallpaperDataUrlFromImage(image)
 
   const bitmap = image.resize({ width: 64, height: 64, quality: 'good' }).getBitmap()
   let red = 0
@@ -129,9 +150,12 @@ function getWallpaperTint(): WallpaperTint {
     count += 1
   }
 
-  if (count === 0) return tintFromRgb(132, 199, 221, source, wallpaperPath)
+  if (count === 0) return { ...tintFromRgb(132, 199, 221, source, wallpaperPath), wallpaperDataUrl }
 
-  return tintFromRgb(Math.round(red / count), Math.round(green / count), Math.round(blue / count), source, wallpaperPath)
+  return {
+    ...tintFromRgb(Math.round(red / count), Math.round(green / count), Math.round(blue / count), source, wallpaperPath),
+    wallpaperDataUrl
+  }
 }
 
 function getHomeSnapshot() {
