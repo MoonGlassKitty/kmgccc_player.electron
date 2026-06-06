@@ -11,6 +11,7 @@ import {
   ListMusic,
   Maximize2,
   MessageSquareQuote,
+  Minus,
   Music2,
   Pause,
   Pencil,
@@ -21,8 +22,10 @@ import {
   Shuffle,
   SkipBack,
   SkipForward,
+  Square,
   Sun,
-  Volume2
+  Volume2,
+  X
 } from 'lucide-react'
 import { LiquidGlassFilters } from './LiquidGlassFilter'
 import './styles.css'
@@ -53,15 +56,6 @@ const tracks: Track[] = [
   { id: 'shoots', title: 'Shoots', artist: 'acloudyskye', duration: '4:09', artwork: altArtwork }
 ]
 
-const lyrics = [
-  ['Dug a hole in my life', '我在生命中挖了个洞'],
-  ["I've tried a thousand times", '我已尝试千百次'],
-  ["To make it up,I'll do it", '我会弥补 我会做到'],
-  ["Cause I know it's not alright", '因为我知道这并不对'],
-  ["And you told me it wasn't fair", '你说这不公平'],
-  ["I dug my way through the air", '我穿过空气继续下坠']
-]
-
 function App(): React.ReactElement {
   const [currentId, setCurrentId] = React.useState('myth')
   const [isPlaying, setIsPlaying] = React.useState(true)
@@ -78,6 +72,7 @@ function App(): React.ReactElement {
       <LiquidGlassFilters />
       <div className="app-shell">
         <Sidebar />
+        <WindowControls />
 
         <main className="content-pane">
           <Toolbar />
@@ -107,8 +102,6 @@ function App(): React.ReactElement {
 
           <MiniPlayer track={currentTrack} isPlaying={isPlaying} onPlayPause={togglePlayback} />
         </main>
-
-        <LyricsPane />
       </div>
     </div>
   )
@@ -117,10 +110,7 @@ function App(): React.ReactElement {
 const Sidebar = React.memo(function Sidebar(): React.ReactElement {
   return (
     <aside className="sidebar glass-panel chrome-drag" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
-      <div className="traffic-row no-drag">
-        <button className="traffic close" type="button" aria-label="关闭" onClick={() => window.kmgccc?.close()} />
-        <button className="traffic minimize" type="button" aria-label="最小化" onClick={() => window.kmgccc?.minimize()} />
-        <button className="traffic zoom" type="button" aria-label="最大化" onClick={() => window.kmgccc?.toggleMaximize()} />
+      <div className="sidebar-titlebar no-drag">
         <button className="sidebar-toggle" type="button" aria-label="侧边栏">
           <ListMusic size={20} />
         </button>
@@ -176,6 +166,22 @@ const Sidebar = React.memo(function Sidebar(): React.ReactElement {
         </button>
       </div>
     </aside>
+  )
+})
+
+const WindowControls = React.memo(function WindowControls(): React.ReactElement {
+  return (
+    <div className="window-controls no-drag">
+      <button type="button" aria-label="最小化" onClick={() => window.kmgccc?.minimize()}>
+        <Minus size={17} />
+      </button>
+      <button type="button" aria-label="最大化" onClick={() => window.kmgccc?.toggleMaximize()}>
+        <Square size={14} />
+      </button>
+      <button className="close" type="button" aria-label="关闭" onClick={() => window.kmgccc?.close()}>
+        <X size={17} />
+      </button>
+    </div>
   )
 })
 
@@ -306,21 +312,6 @@ const MiniPlayer = React.memo(function MiniPlayer({
         </div>
       </div>
     </div>
-  )
-})
-
-const LyricsPane = React.memo(function LyricsPane(): React.ReactElement {
-  return (
-    <aside className="lyrics-pane glass-panel" style={{ '--filter-url': 'url(#lg-lyrics)' } as React.CSSProperties}>
-      <div className="lyrics-scroll">
-        {lyrics.map((line, index) => (
-          <div className={`lyric-line ${index === 1 ? 'active' : ''}`} key={line[0]}>
-            <p>{line[0]}</p>
-            <span>{line[1]}</span>
-          </div>
-        ))}
-      </div>
-    </aside>
   )
 })
 

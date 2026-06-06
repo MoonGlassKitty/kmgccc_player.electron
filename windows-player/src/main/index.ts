@@ -10,8 +10,8 @@ function createWindow(): void {
     minWidth: 1180,
     minHeight: 720,
     frame: false,
-    transparent: true,
-    backgroundColor: '#00000000',
+    transparent: false,
+    backgroundColor: '#eef7fb',
     show: false,
     title: 'kmgccc_player',
     webPreferences: {

@@ -9,7 +9,7 @@
   color: #092638;
   background: transparent;
   font-synthesis: none;
-  text-rendering: geometricPrecision;
+  text-rendering: auto;
   -webkit-font-smoothing: antialiased;
   --accent: #2e87ac;
   --accent-deep: #0d3d55;
@@ -72,19 +72,16 @@ input {
 .app-shell {
   position: relative;
   display: grid;
-  grid-template-columns: 320px minmax(700px, 1fr) clamp(360px, 28vw, 520px);
+  grid-template-columns: 320px minmax(700px, 1fr);
   width: 100%;
   height: 100%;
   min-width: 1080px;
   min-height: 680px;
   overflow: hidden;
   isolation: isolate;
-  border-radius: 34px;
+  border-radius: 0;
   background: transparent;
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.14),
-    0 0 0 1px rgba(255, 255, 255, 0.36) inset,
-    0 0 0 1px rgba(0, 0, 0, 0.07);
+  box-shadow: none;
   contain: layout paint;
 }
 
@@ -96,7 +93,6 @@ input {
   z-index: 0;
   pointer-events: none;
   contain: paint;
-  transform: translateZ(0);
 }
 
 .app-shell::before {
@@ -112,8 +108,7 @@ input {
     radial-gradient(circle at 31% 37%, rgba(103, 210, 233, 0.22), transparent 19%),
     radial-gradient(circle at 38% 87%, rgba(55, 190, 229, 0.18), transparent 16%),
     linear-gradient(100deg, rgba(157, 199, 220, 0.36) 0 20%, transparent 34% 100%),
-    repeating-linear-gradient(90deg, rgba(45, 65, 80, 0.045) 0 1px, transparent 1px 64px),
-    repeating-linear-gradient(0deg, rgba(45, 65, 80, 0.035) 0 1px, transparent 1px 64px);
+    url("./assets/app-pad-grid.svg");
   opacity: 0.9;
 }
 
@@ -154,32 +149,12 @@ input {
   contain: layout paint;
 }
 
-.traffic-row {
+.sidebar-titlebar {
   display: grid;
-  grid-template-columns: 20px 20px 20px 1fr 40px;
+  grid-template-columns: 1fr;
   align-items: center;
-  gap: 10px;
   height: 46px;
   padding: 0 24px;
-}
-
-.traffic {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
-}
-
-.traffic.close {
-  background: #ff5f57;
-}
-
-.traffic.minimize {
-  background: #ffbd2e;
-}
-
-.traffic.zoom {
-  background: #28c840;
 }
 
 .sidebar-toggle {
@@ -190,6 +165,32 @@ input {
   border-radius: 9px;
   background: transparent;
   color: rgba(10, 34, 48, 0.78);
+}
+
+.window-controls {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(3, 46px);
+  height: 34px;
+  color: rgba(12, 30, 42, 0.76);
+}
+
+.window-controls button {
+  display: grid;
+  place-items: center;
+  background: transparent;
+}
+
+.window-controls button:hover {
+  background: rgba(10, 36, 52, 0.08);
+}
+
+.window-controls .close:hover {
+  color: #fff;
+  background: #c42b1c;
 }
 
 .sidebar-source {
@@ -761,10 +762,6 @@ input {
     min-height: 0;
     border-radius: 0;
     grid-template-columns: 280px minmax(620px, 1fr);
-  }
-
-  .lyrics-pane {
-    display: none;
   }
 
   .sidebar {

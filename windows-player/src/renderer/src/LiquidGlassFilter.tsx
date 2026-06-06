@@ -385,20 +385,6 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
         specularWidth={56}
       />
       <LiquidGlassFilter
-        id="lg-lyrics"
-        width={470}
-        height={860}
-        radius={30}
-        blur={2.6}
-        bezelWidth={26}
-        glassThickness={115}
-        refractiveIndex={1.34}
-        scaleRatio={1.12}
-        specularOpacity={0.72}
-        specularSaturation={8}
-        specularWidth={64}
-      />
-      <LiquidGlassFilter
         id="lg-mini"
         width={930}
         height={58}
