@@ -47,6 +47,76 @@ button {
   color: inherit;
 }
 
+:is(
+  .toolbar-pill button,
+  .toolbar-circle,
+  .sidebar-toggle,
+  .sidebar-source button,
+  .nav-row,
+  .playlist-row,
+  .sidebar-label button,
+  .sidebar-label.as-button,
+  .round-control,
+  .home-section-heading button,
+  .play-cta,
+  .edit-button,
+  .track-row,
+  .mini-controls button,
+  .mode-button,
+  .search-clear
+) {
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease,
+    opacity 140ms ease;
+}
+
+.mini-controls button,
+.search-clear {
+  border-radius: 50%;
+}
+
+.toolbar-pill button,
+.nav-row,
+.playlist-row,
+.sidebar-source button,
+.sidebar-label.as-button,
+.home-section-heading button,
+.play-cta,
+.mode-button {
+  border-radius: 999px;
+}
+
+:is(
+  .toolbar-pill button,
+  .toolbar-circle,
+  .sidebar-toggle,
+  .sidebar-source button:not(.active),
+  .nav-row:not(.active),
+  .playlist-row:not(.active),
+  .sidebar-label button,
+  .sidebar-label.as-button,
+  .round-control,
+  .home-section-heading button,
+  .edit-button,
+  .track-row:not(.current),
+  .mini-controls button,
+  .search-clear
+):hover {
+  background-color: rgba(13, 32, 44, 0.075);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.28) inset,
+    0 1px 5px rgba(13, 32, 44, 0.04);
+}
+
+:where(.play-cta, .mode-button):hover {
+  filter: brightness(1.04);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+    0 2px 8px rgba(13, 32, 44, 0.08);
+}
+
 .chrome-drag {
   -webkit-app-region: drag;
 }
@@ -173,7 +243,7 @@ input {
   width: 34px;
   height: 34px;
   place-items: center;
-  border-radius: 9px;
+  border-radius: 50%;
   background: transparent;
   color: rgba(10, 34, 48, 0.78);
 }
@@ -263,7 +333,7 @@ input {
   gap: 15px;
   min-height: 38px;
   padding: 0 14px;
-  border-radius: 11px;
+  border-radius: 999px;
   color: #0b2b3f;
   font-size: 17px;
   font-weight: 790;
@@ -287,6 +357,14 @@ input {
   box-shadow:
     0 0 0 1px var(--cover-accent-border) inset,
     0 1px 4px var(--cover-accent-shadow);
+}
+
+.nav-row.active:hover,
+.playlist-row.active:hover {
+  background-color: color-mix(in srgb, var(--cover-accent) 82%, white);
+  box-shadow:
+    0 0 0 1px var(--cover-accent-border) inset,
+    0 2px 7px var(--cover-accent-shadow);
 }
 
 .sidebar-section {
@@ -319,6 +397,7 @@ input {
 
 .sidebar-label.as-button {
   width: 100%;
+  border-radius: 999px;
   background: transparent;
   text-align: left;
 }
@@ -409,7 +488,7 @@ input {
   width: 44px;
   min-height: 44px;
   padding: 0;
-  border-radius: 16px;
+  border-radius: 999px;
 }
 
 .app-shell.sidebar-collapsed .sidebar-label-icon {
@@ -806,6 +885,11 @@ input {
   box-shadow:
     0 14px 34px var(--glass-shadow),
     0 3px 11px rgba(25, 58, 80, 0.034);
+  transition:
+    background-color 300ms ease,
+    box-shadow 300ms ease,
+    border-color 300ms ease,
+    transform 300ms ease;
 }
 
 .home-liquid-card::before {
@@ -818,6 +902,9 @@ input {
     linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent 24%, transparent 80%, rgba(255, 255, 255, 0.12)),
     linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 38%);
   opacity: 0.55;
+  transition:
+    background 300ms ease,
+    opacity 300ms ease;
 }
 
 .home-liquid-card::after {
@@ -828,6 +915,24 @@ input {
   border-radius: inherit;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+}
+
+.home-liquid-card:hover {
+  --glass-shadow: rgba(25, 58, 80, 0.038);
+  border-color: rgba(255, 255, 255, 0.68);
+  background-color: rgba(255, 255, 255, 0.39);
+  box-shadow:
+    0 8px 20px var(--glass-shadow),
+    0 2px 7px rgba(25, 58, 80, 0.022);
+  transform: translateY(-4.5px);
+}
+
+.home-liquid-card:hover::before {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.36), transparent 24%, transparent 80%, rgba(255, 255, 255, 0.2)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 42%),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.3), transparent 55%);
+  opacity: 0.86;
 }
 
 .home-liquid-card > * {
@@ -1450,7 +1555,7 @@ input {
     width: 44px;
     min-height: 44px;
     padding: 0;
-    border-radius: 16px;
+    border-radius: 999px;
   }
 
   .sidebar-label-icon {
