@@ -34,8 +34,9 @@ type Track = {
   id: string
   title: string
   artist: string
-  duration: string
-  artwork: string
+  album: string
+  duration: number
+  artworkUrl?: string
 }
 
 const albumArtwork =
@@ -44,17 +45,38 @@ const albumArtwork =
 const altArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e9/c4/38/e9c43893-e743-269a-6a47-c11120717177/artwork.jpg/600x600bb.jpg'
 
-const tracks: Track[] = [
-  { id: 'renascence', title: '!renascence!', artist: 'acloudyskye', duration: '1:53', artwork: albumArtwork },
-  { id: 'basin', title: 'Basin', artist: 'acloudyskye', duration: '5:20', artwork: albumArtwork },
-  { id: 'bones', title: 'Bones', artist: 'acloudyskye', duration: '3:52', artwork: albumArtwork },
-  { id: 'float', title: 'Float', artist: 'acloudyskye', duration: '4:30', artwork: albumArtwork },
-  { id: 'home', title: 'Home', artist: 'acloudyskye', duration: '6:15', artwork: albumArtwork },
-  { id: 'innards', title: 'Innards', artist: 'acloudyskye', duration: '6:39', artwork: albumArtwork },
-  { id: 'myth', title: 'Myth', artist: 'acloudyskye', duration: '4:01', artwork: altArtwork },
-  { id: 'spill', title: 'Spill', artist: 'acloudyskye', duration: '3:33', artwork: altArtwork },
-  { id: 'shoots', title: 'Shoots', artist: 'acloudyskye', duration: '4:09', artwork: altArtwork }
-]
+const fallbackHomeSnapshot: HomeSnapshot = {
+  heroTrack: { id: 'myth', title: 'Myth', artist: 'acloudyskye', album: 'Myth', duration: 241, artworkUrl: altArtwork },
+  tracks: [
+    { id: 'renascence', title: '!renascence!', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 113, artworkUrl: albumArtwork },
+    { id: 'basin', title: 'Basin', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 320, artworkUrl: albumArtwork },
+    { id: 'bones', title: 'Bones', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 232, artworkUrl: albumArtwork },
+    { id: 'float', title: 'Float', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 270, artworkUrl: albumArtwork },
+    { id: 'myth', title: 'Myth', artist: 'acloudyskye', album: 'Myth', duration: 241, artworkUrl: altArtwork },
+    { id: 'udong', title: '乌东', artist: 'MoonGlassKitty', album: '乌东', duration: 163, artworkUrl: altArtwork }
+  ],
+  artists: [
+    { id: 'artist-moonglasskitty', name: 'MoonGlassKitty', trackCount: 1, albumCount: 1 },
+    { id: 'artist-acloudyskye', name: 'acloudyskye', artworkUrl: albumArtwork, trackCount: 5, albumCount: 1 }
+  ],
+  albums: [
+    { id: 'album-last', title: "This Won't Be The Last...", artist: 'acloudyskye', artworkUrl: albumArtwork, trackCount: 4 },
+    { id: 'album-udong', title: '乌东', artist: 'MoonGlassKitty', artworkUrl: altArtwork, trackCount: 1 }
+  ],
+  playlists: [{ id: 'playlist-import-june-5', name: '导入于 6月 5', trackCount: 6 }],
+  stats: {
+    totalTrackCount: 6,
+    weeklyPlayCount: 5,
+    weeklyListeningSeconds: 480,
+    favoriteArtistName: 'acloudyskye',
+    favoriteArtistPlayCount: 3,
+    ranking: [
+      { trackId: 'myth', title: 'Myth', artist: 'acloudyskye', artworkUrl: altArtwork, playCount: 2, score: 0.92 },
+      { trackId: 'udong', title: '乌东', artist: 'MoonGlassKitty', artworkUrl: altArtwork, playCount: 1, score: 0.76 }
+    ],
+    dailyListeningMap: { '2026-06-05': 3, '2026-06-06': 2 }
+  }
+}
 
 const elasticScrollLimit = 42
 
@@ -131,16 +153,63 @@ function useElasticScroll<T extends HTMLElement>(): {
   return { scrollRef, elasticOffset, isSettling, onWheel }
 }
 
+type AppRoute =
+  | { name: 'home' }
+  | { name: 'allTracks' }
+  | { name: 'artistDetail'; id: string; title: string }
+  | { name: 'albumDetail'; id: string; title: string }
+  | { name: 'playlistDetail'; id: string; title: string }
+
+function formatDuration(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.round(seconds))
+  const minutes = Math.floor(safeSeconds / 60)
+  const remainder = safeSeconds % 60
+  return `${minutes}:${remainder.toString().padStart(2, '0')}`
+}
+
+function artworkFor(track?: Pick<Track, 'artworkUrl'> | null): string {
+  return track?.artworkUrl || albumArtwork
+}
+
 function App(): React.ReactElement {
-  const [currentId, setCurrentId] = React.useState('myth')
+  const [homeSnapshot, setHomeSnapshot] = React.useState<HomeSnapshot>(fallbackHomeSnapshot)
+  const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
+  const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
   const [isPlaying, setIsPlaying] = React.useState(true)
-  const artistScroll = useElasticScroll<HTMLElement>()
-  const currentTrack = React.useMemo(() => tracks.find((track) => track.id === currentId) ?? tracks[0], [currentId])
+  const currentTrack = React.useMemo(
+    () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
+    [currentId, homeSnapshot]
+  )
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    window.kmgccc
+      ?.getHomeSnapshot()
+      .then((snapshot) => {
+        if (cancelled) return
+        setHomeSnapshot(snapshot)
+        setCurrentId((value) => value || snapshot.heroTrack?.id || snapshot.tracks[0]?.id || '')
+      })
+      .catch(() => {
+        setHomeSnapshot(fallbackHomeSnapshot)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
   }, [])
   const selectTrack = React.useCallback((id: string) => {
     setCurrentId(id)
+    setIsPlaying(true)
+  }, [])
+  const playHomeTrack = React.useCallback((trackId: string) => {
+    setCurrentId(trackId)
+    setIsPlaying(true)
   }, [])
 
   return (
@@ -151,39 +220,14 @@ function App(): React.ReactElement {
         <WindowControls />
 
         <main className="content-pane">
-          <Toolbar />
-          <section className="artist-page" ref={artistScroll.scrollRef} onWheel={artistScroll.onWheel}>
-            <div
-              className={`artist-scroll-content ${artistScroll.elasticOffset !== 0 ? 'elastic-active' : ''} ${
-                artistScroll.isSettling ? 'settling' : ''
-              }`}
-              style={{ transform: `translate3d(0, ${artistScroll.elasticOffset}px, 0)` }}
-            >
-              <header className="artist-header">
-                <div className="artist-image-frame">
-                  <img src={albumArtwork} alt="" />
-                </div>
-                <div className="artist-copy">
-                  <h1>acloudyskye</h1>
-                  <p className="artist-meta">9 首歌曲 · 1 张专辑</p>
-                  <p className="artist-description">acloudyskye，欧美音乐人，曾发表作品《What Do You Want!》。</p>
-                  <div className="artist-actions">
-                    <button className="play-cta" type="button" onClick={togglePlayback}>
-                      {isPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" />}
-                      {isPlaying ? '暂停' : '播放'}
-                    </button>
-                    <button className="edit-button" type="button" aria-label="编辑">
-                      <Pencil size={16} />
-                    </button>
-                  </div>
-                </div>
-              </header>
+          <Toolbar onNavigateHome={() => setRoute({ name: 'home' })} />
+          {route.name === 'home' ? (
+            <HomePage snapshot={homeSnapshot} onNavigate={setRoute} onPlayTrack={playHomeTrack} />
+          ) : (
+            <LibraryDetailPage route={route} snapshot={homeSnapshot} currentId={currentId} onSelect={selectTrack} />
+          )}
 
-              <TrackRows currentId={currentId} onSelect={selectTrack} />
-            </div>
-          </section>
-
-          <MiniPlayer track={currentTrack} isPlaying={isPlaying} onPlayPause={togglePlayback} />
+          {currentTrack ? <MiniPlayer track={currentTrack} isPlaying={isPlaying} onPlayPause={togglePlayback} /> : null}
         </main>
       </div>
     </div>
@@ -268,12 +312,12 @@ const WindowControls = React.memo(function WindowControls(): React.ReactElement 
   )
 })
 
-const Toolbar = React.memo(function Toolbar(): React.ReactElement {
+const Toolbar = React.memo(function Toolbar({ onNavigateHome }: { onNavigateHome: () => void }): React.ReactElement {
   return (
     <header className="toolbar chrome-drag">
       <div className="toolbar-left no-drag">
         <div className="toolbar-pill glass-panel" style={{ '--filter-url': 'url(#lg-toolbar-pill)' } as React.CSSProperties}>
-          <button type="button" aria-label="返回">
+          <button type="button" aria-label="返回主页" onClick={onNavigateHome}>
             <ChevronLeft size={23} />
           </button>
           <span className="toolbar-divider" />
@@ -325,10 +369,246 @@ const Toolbar = React.memo(function Toolbar(): React.ReactElement {
   )
 })
 
-const TrackRows = React.memo(function TrackRows({
+const HomePage = React.memo(function HomePage({
+  snapshot,
+  onNavigate,
+  onPlayTrack
+}: {
+  snapshot: HomeSnapshot
+  onNavigate: (route: AppRoute) => void
+  onPlayTrack: (trackId: string) => void
+}): React.ReactElement {
+  const homeScroll = useElasticScroll<HTMLElement>()
+  const heroTrack = snapshot.heroTrack ?? snapshot.tracks[0] ?? null
+
+  return (
+    <section className="home-page" ref={homeScroll.scrollRef} onWheel={homeScroll.onWheel}>
+      <div
+        className={`home-scroll-content ${homeScroll.elasticOffset !== 0 ? 'elastic-active' : ''} ${
+          homeScroll.isSettling ? 'settling' : ''
+        }`}
+        style={{ transform: `translate3d(0, ${homeScroll.elasticOffset}px, 0)` }}
+      >
+        {heroTrack ? <HomeHero track={heroTrack} onPlay={() => onPlayTrack(heroTrack.id)} /> : null}
+
+        <HomeSectionBlock title="艺人" onShowAll={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
+          <div className="home-card-grid compact">
+            {snapshot.artists.map((artist) => (
+              <button
+                className="home-person-card"
+                key={artist.id}
+                type="button"
+                onClick={() => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
+              >
+                {artist.artworkUrl ? (
+                  <img src={artist.artworkUrl} alt="" />
+                ) : (
+                  <span className="artist-avatar">{artist.name}</span>
+                )}
+                <strong>{artist.name}</strong>
+              </button>
+            ))}
+          </div>
+        </HomeSectionBlock>
+
+        <HomeSectionBlock title="专辑" onShowAll={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
+          <div className="home-card-grid">
+            {snapshot.albums.map((album) => (
+              <button
+                className="home-album-card"
+                key={album.id}
+                type="button"
+                onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
+              >
+                <img src={album.artworkUrl || albumArtwork} alt="" />
+                <strong>{album.title}</strong>
+                <span>{album.artist}</span>
+              </button>
+            ))}
+          </div>
+        </HomeSectionBlock>
+
+        <HomeSectionBlock title="播放列表">
+          <div className="home-playlist-grid">
+            {snapshot.playlists.map((playlist) => (
+              <button
+                className="home-playlist-card"
+                key={playlist.id}
+                type="button"
+                onClick={() => onNavigate({ name: 'playlistDetail', id: playlist.id, title: playlist.name })}
+              >
+                <span className="playlist-icon large">
+                  <Music2 size={28} />
+                </span>
+                <span>
+                  <strong>{playlist.name}</strong>
+                  <small>{playlist.trackCount} 首</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        </HomeSectionBlock>
+
+        <HomeStatsSection stats={snapshot.stats} />
+      </div>
+    </section>
+  )
+})
+
+const HomeHero = React.memo(function HomeHero({ track, onPlay }: { track: HomeTrack; onPlay: () => void }): React.ReactElement {
+  return (
+    <header className="home-hero">
+      <img className="home-hero-bg" src={artworkFor(track)} alt="" />
+      <div className="home-hero-cover">
+        <img src={artworkFor(track)} alt="" />
+      </div>
+      <div className="home-hero-copy">
+        <span>{track.artist}</span>
+        <h1>{track.title}</h1>
+        <p>{track.album}</p>
+      </div>
+      <div className="home-hero-actions">
+        <button className="play-cta" type="button" onClick={onPlay}>
+          <Play size={17} fill="currentColor" />
+          播放
+        </button>
+        <button className="edit-button" type="button" aria-label="更多">
+          •••
+        </button>
+        <button className="edit-button" type="button" aria-label="刷新精选">
+          <Shuffle size={16} />
+        </button>
+      </div>
+      <time>{formatDuration(track.duration)}</time>
+    </header>
+  )
+})
+
+const HomeSectionBlock = React.memo(function HomeSectionBlock({
+  title,
+  onShowAll,
+  children
+}: {
+  title: string
+  onShowAll?: () => void
+  children: React.ReactNode
+}): React.ReactElement {
+  return (
+    <section className="home-section-block">
+      <div className="home-section-heading">
+        <h2>{title}</h2>
+        {onShowAll ? (
+          <button type="button" onClick={onShowAll}>
+            查看全部 <ChevronRight size={16} />
+          </button>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  )
+})
+
+const HomeStatsSection = React.memo(function HomeStatsSection({ stats }: { stats: HomeStats }): React.ReactElement {
+  return (
+    <section className="home-section-block">
+      <div className="home-section-heading">
+        <h2>音乐足迹</h2>
+      </div>
+      <div className="home-stat-grid">
+        <HomeStatCard label="总歌曲" value={`${stats.totalTrackCount}`} suffix="首" />
+        <HomeStatCard label="本周播放" value={`${stats.weeklyPlayCount}`} suffix="次" />
+        <HomeStatCard label="本周时长" value={`${Math.round(stats.weeklyListeningSeconds / 60)}`} suffix="分钟" />
+        <HomeStatCard label="本周常听" value={stats.favoriteArtistName ?? '-'} suffix={stats.favoriteArtistPlayCount ? `${stats.favoriteArtistPlayCount} 次播放` : ''} />
+      </div>
+      <div className="home-insight-grid">
+        <div className="home-rank-panel">
+          {stats.ranking.map((item, index) => (
+            <div className="home-rank-row" key={item.trackId}>
+              <span>{index + 1}</span>
+              <img src={item.artworkUrl || albumArtwork} alt="" />
+              <strong>{item.title}</strong>
+              <small>{item.artist}</small>
+              <i style={{ width: `${Math.max(18, item.score * 120)}px` }} />
+              <em>{item.playCount}</em>
+            </div>
+          ))}
+        </div>
+        <div className="home-calendar-panel">
+          <strong>听歌日历</strong>
+          <div className="calendar-dots">
+            {Array.from({ length: 35 }, (_entry, index) => {
+              const day = index + 1
+              const active = day === 5 || day === 6
+              return <span className={active ? 'active' : ''} key={day}>{day <= 30 ? day : ''}</span>
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+})
+
+const HomeStatCard = React.memo(function HomeStatCard({
+  label,
+  value,
+  suffix
+}: {
+  label: string
+  value: string
+  suffix: string
+}): React.ReactElement {
+  return (
+    <div className="home-stat-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{suffix}</small>
+    </div>
+  )
+})
+
+const LibraryDetailPage = React.memo(function LibraryDetailPage({
+  route,
+  snapshot,
   currentId,
   onSelect
 }: {
+  route: Exclude<AppRoute, { name: 'home' }>
+  snapshot: HomeSnapshot
+  currentId: string
+  onSelect: (id: string) => void
+}): React.ReactElement {
+  const pageScroll = useElasticScroll<HTMLElement>()
+  return (
+    <section className="artist-page" ref={pageScroll.scrollRef} onWheel={pageScroll.onWheel}>
+      <div
+        className={`artist-scroll-content ${pageScroll.elasticOffset !== 0 ? 'elastic-active' : ''} ${
+          pageScroll.isSettling ? 'settling' : ''
+        }`}
+        style={{ transform: `translate3d(0, ${pageScroll.elasticOffset}px, 0)` }}
+      >
+        <header className="artist-header">
+          <div className="artist-image-frame">
+            <img src={artworkFor(snapshot.heroTrack)} alt="" />
+          </div>
+          <div className="artist-copy">
+            <h1>{route.name === 'allTracks' ? '所有歌曲' : route.title}</h1>
+            <p className="artist-meta">{snapshot.tracks.length} 首歌曲</p>
+            <p className="artist-description">详情数据接口已预留，后续按艺人、专辑、播放列表分别接入。</p>
+          </div>
+        </header>
+
+        <TrackRows tracks={snapshot.tracks} currentId={currentId} onSelect={onSelect} />
+      </div>
+    </section>
+  )
+})
+
+const TrackRows = React.memo(function TrackRows({
+  tracks,
+  currentId,
+  onSelect
+}: {
+  tracks: Track[]
   currentId: string
   onSelect: (id: string) => void
 }): React.ReactElement {
@@ -341,10 +621,10 @@ const TrackRows = React.memo(function TrackRows({
           type="button"
           onClick={() => onSelect(track.id)}
         >
-          <img className="track-art" src={track.artwork} alt="" />
+          <img className="track-art" src={artworkFor(track)} alt="" />
           <span className="track-title">{track.title}</span>
           <span className="track-artist">{track.artist}</span>
-          <span className="track-duration">{track.duration}</span>
+          <span className="track-duration">{formatDuration(track.duration)}</span>
           <span className="track-more">•••</span>
         </button>
       ))}
@@ -364,7 +644,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
   return (
     <div className="mini-player glass-panel no-drag" style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
       <div className="mini-track">
-        <img src={track.artwork} alt="" />
+        <img src={artworkFor(track)} alt="" />
         <div>
           <strong>{track.title}</strong>
           <span>{track.artist}</span>
