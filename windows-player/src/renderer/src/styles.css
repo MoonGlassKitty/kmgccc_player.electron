@@ -151,7 +151,11 @@ input {
   border-radius: 28px;
   --glass-alpha: 0.34;
   --glass-border: rgba(255, 255, 255, 0.52);
-  --glass-shadow: rgba(25, 58, 80, 0.0225);
+  --glass-shadow: rgba(25, 58, 80, 0.032);
+  box-shadow:
+    0 14px 34px var(--glass-shadow),
+    0 1px 10px rgba(12, 38, 52, 0.035) inset,
+    0 -1px 12px rgba(255, 255, 255, 0.12) inset;
   contain: layout paint;
 }
 
@@ -253,6 +257,7 @@ input {
 
 .nav-row,
 .playlist-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 15px;
@@ -266,8 +271,52 @@ input {
   background: transparent;
 }
 
+.nav-row > svg,
+.nav-row > span,
+.playlist-row > * {
+  position: relative;
+  z-index: 1;
+}
+
 .nav-row.active {
-  background: rgba(255, 255, 255, 0.34);
+  background: transparent;
+}
+
+.nav-row.active::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: -18px;
+  bottom: -8px;
+  left: -10px;
+  z-index: 0;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  border-radius: 24px 28px 28px 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.28)),
+    rgba(222, 245, 252, 0.22);
+  box-shadow:
+    0 12px 24px rgba(25, 70, 92, 0.07),
+    0 2px 8px rgba(25, 70, 92, 0.035);
+}
+
+.nav-row.active::after {
+  content: "";
+  position: absolute;
+  right: -36px;
+  bottom: -38px;
+  z-index: 0;
+  width: 92px;
+  height: 68px;
+  pointer-events: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 0 0 36px 0;
+  background:
+    radial-gradient(ellipse at 0 0, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.12) 46%, transparent 68%);
+  box-shadow:
+    10px 12px 24px rgba(25, 70, 92, 0.04);
 }
 
 .playlist-row.active {
@@ -670,7 +719,7 @@ input {
   --filter-url: url(#lg-home-liquid);
   --glass-alpha: 0.31;
   --glass-border: rgba(255, 255, 255, 0.48);
-  --glass-shadow: rgba(25, 58, 80, 0.05);
+  --glass-shadow: rgba(25, 58, 80, 0.07);
   position: relative;
   overflow: hidden;
   contain: layout;
@@ -681,8 +730,8 @@ input {
   backdrop-filter: var(--filter-url);
   -webkit-backdrop-filter: var(--filter-url);
   box-shadow:
-    0 10px 24px var(--glass-shadow),
-    0 2px 8px rgba(25, 58, 80, 0.024);
+    0 14px 34px var(--glass-shadow),
+    0 3px 11px rgba(25, 58, 80, 0.034);
 }
 
 .home-liquid-card::before {
