@@ -133,6 +133,7 @@ input {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   padding: var(--win-titlebar-height) 0 0;
   border-radius: 0 30px 30px 0;
   --glass-alpha: 0.34;
@@ -288,7 +289,7 @@ input {
   display: flex;
   gap: 14px;
   margin-top: auto;
-  padding: 0 28px 24px;
+  padding: 18px 28px 24px;
   border-top: 0;
 }
 

@@ -373,7 +373,7 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
       <LiquidGlassFilter
         id="lg-sidebar"
         width={320}
-        height={860}
+        height={960}
         radius={28}
         blur={2.4}
         bezelWidth={24}
