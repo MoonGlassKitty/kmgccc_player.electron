@@ -372,17 +372,8 @@ function HomeLiquidGlassFilter(): React.ReactElement {
     <svg className="liquid-glass-def" aria-hidden="true" focusable="false">
       <defs>
         <filter id="lg-home-liquid" colorInterpolationFilters="sRGB" x="-18%" y="-18%" width="136%" height="136%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="2.8" result="home_blur" />
-          <feTurbulence type="fractalNoise" baseFrequency="0.012 0.03" numOctaves="2" seed="18" result="home_noise" />
-          <feDisplacementMap
-            in="home_blur"
-            in2="home_noise"
-            scale="18"
-            xChannelSelector="R"
-            yChannelSelector="G"
-            result="home_displaced"
-          />
-          <feColorMatrix in="home_displaced" type="saturate" values="1.75" result="home_saturated" />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="home_blur" />
+          <feColorMatrix in="home_blur" type="saturate" values="1.75" result="home_saturated" />
           <feComponentTransfer in="home_saturated">
             <feFuncA type="linear" slope="1" />
           </feComponentTransfer>
