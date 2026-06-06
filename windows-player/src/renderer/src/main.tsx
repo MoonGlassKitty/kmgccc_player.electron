@@ -81,12 +81,6 @@ const fallbackHomeSnapshot: HomeSnapshot = {
   }
 }
 
-const elasticScrollLimit = 68
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value))
-}
-
 function useElasticScroll<T extends HTMLElement>(): {
   scrollRef: React.RefObject<T | null>
   elasticOffset: number
@@ -94,70 +88,9 @@ function useElasticScroll<T extends HTMLElement>(): {
   onWheel: (event: React.WheelEvent<T>) => void
 } {
   const scrollRef = React.useRef<T>(null)
-  const settleTimerRef = React.useRef<number | null>(null)
-  const offsetRef = React.useRef(0)
-  const [elasticOffset, setElasticOffsetState] = React.useState(0)
-  const [isSettling, setIsSettling] = React.useState(false)
+  const onWheel = React.useCallback((_event: React.WheelEvent<T>) => {}, [])
 
-  const setElasticOffset = React.useCallback((value: number) => {
-    if (Math.abs(value - offsetRef.current) < 0.5) return
-    offsetRef.current = value
-    setElasticOffsetState(value)
-  }, [])
-
-  const settle = React.useCallback(() => {
-    if (settleTimerRef.current !== null) {
-      window.clearTimeout(settleTimerRef.current)
-    }
-
-    settleTimerRef.current = window.setTimeout(() => {
-      settleTimerRef.current = null
-      setIsSettling(true)
-      setElasticOffset(0)
-    }, 110)
-  }, [setElasticOffset])
-
-  const onWheel = React.useCallback(
-    (event: React.WheelEvent<T>) => {
-      const node = event.currentTarget
-      const maxScrollTop = Math.max(0, node.scrollHeight - node.clientHeight)
-      const projectedScrollTop = node.scrollTop + event.deltaY
-      const pullsPastTop = event.deltaY < 0 && projectedScrollTop <= 0
-      const pullsPastBottom = event.deltaY > 0 && projectedScrollTop >= maxScrollTop
-
-      if (!pullsPastTop && !pullsPastBottom) {
-        if (offsetRef.current !== 0) {
-          setIsSettling(true)
-          setElasticOffset(0)
-        }
-        return
-      }
-
-      event.preventDefault()
-      setIsSettling(false)
-      node.scrollTop = pullsPastTop ? 0 : maxScrollTop
-
-      const overscroll = pullsPastTop ? Math.abs(projectedScrollTop) : Math.abs(projectedScrollTop - maxScrollTop)
-      const pull = clamp(Math.sqrt(overscroll) * 1.6 + Math.abs(event.deltaY) * 0.08, 6, elasticScrollLimit)
-      const direction = pullsPastTop ? 1 : -1
-      const nextOffset = direction * pull
-
-      setElasticOffset(nextOffset)
-      settle()
-    },
-    [setElasticOffset, settle]
-  )
-
-  React.useEffect(
-    () => () => {
-      if (settleTimerRef.current !== null) {
-        window.clearTimeout(settleTimerRef.current)
-      }
-    },
-    []
-  )
-
-  return { scrollRef, elasticOffset, isSettling, onWheel }
+  return { scrollRef, elasticOffset: 0, isSettling: false, onWheel }
 }
 
 type AppRoute =
