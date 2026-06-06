@@ -372,7 +372,7 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
     <div className="liquid-glass-bank" aria-hidden="true">
       <LiquidGlassFilter
         id="lg-sidebar"
-        width={320}
+        width={280}
         height={960}
         radius={28}
         blur={2.4}

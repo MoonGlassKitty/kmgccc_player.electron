@@ -73,7 +73,7 @@ input {
 .app-shell {
   position: relative;
   display: grid;
-  grid-template-columns: 320px minmax(700px, 1fr);
+  grid-template-columns: 280px minmax(700px, 1fr);
   width: 100%;
   height: 100%;
   min-width: 1080px;
@@ -195,7 +195,7 @@ input {
   position: absolute;
   top: 0;
   right: 138px;
-  left: 320px;
+  left: 280px;
   z-index: 7;
   height: var(--win-titlebar-height);
   pointer-events: auto;
@@ -204,10 +204,10 @@ input {
 .sidebar-source {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  height: 42px;
-  margin: 32px 26px 26px;
+  height: 38px;
+  margin: 26px 22px 24px;
   padding: 3px;
-  border-radius: 21px;
+  border-radius: 19px;
   background: rgba(0, 0, 0, 0.06);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.5) inset,
@@ -215,10 +215,10 @@ input {
 }
 
 .sidebar-source button {
-  border-radius: 18px;
+  border-radius: 16px;
   background: transparent;
   color: rgba(23, 37, 48, 0.64);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 760;
 }
 
@@ -234,8 +234,8 @@ input {
 .sidebar-section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 0 28px;
+  gap: 8px;
+  padding: 0 24px;
 }
 
 .nav-row,
@@ -243,11 +243,11 @@ input {
   display: flex;
   align-items: center;
   gap: 15px;
-  min-height: 42px;
-  padding: 0 16px;
+  min-height: 38px;
+  padding: 0 14px;
   border-radius: 11px;
   color: #0b2b3f;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 790;
   text-decoration: none;
   background: transparent;
@@ -262,7 +262,7 @@ input {
 }
 
 .sidebar-section {
-  margin-top: 28px;
+  margin-top: 24px;
 }
 
 .sidebar-section.compact {
@@ -307,16 +307,16 @@ input {
 
 .sidebar-bottom {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   margin-top: auto;
-  padding: 18px 28px 24px;
+  padding: 16px 24px 22px;
   border-top: 0;
 }
 
 .round-control {
   display: grid;
-  width: 46px;
-  height: 46px;
+  width: 42px;
+  height: 42px;
   place-items: center;
   border-radius: 50%;
   color: #2487ad;
@@ -424,7 +424,7 @@ input {
   position: absolute;
   inset: 0;
   overflow: hidden auto;
-  padding: calc(116px + var(--win-titlebar-height)) 66px 112px;
+  padding: calc(96px + var(--win-titlebar-height)) 52px 104px;
   scrollbar-width: none;
   contain: layout paint;
 }
@@ -449,7 +449,7 @@ input {
   position: absolute;
   inset: 0;
   overflow: hidden auto;
-  padding: calc(72px + var(--win-titlebar-height)) 48px 128px;
+  padding: calc(64px + var(--win-titlebar-height)) 42px 118px;
   scrollbar-width: none;
   contain: layout paint;
 }
@@ -809,17 +809,17 @@ input {
 
 .artist-header {
   display: grid;
-  grid-template-columns: clamp(220px, 23vw, 318px) minmax(330px, 1fr);
+  grid-template-columns: clamp(190px, 20vw, 300px) minmax(300px, 1fr);
   align-items: center;
-  gap: 64px;
-  min-height: 390px;
+  gap: 44px;
+  min-height: 330px;
   contain: layout paint;
 }
 
 .artist-image-frame {
   position: relative;
-  width: clamp(220px, 23vw, 318px);
-  height: clamp(220px, 23vw, 318px);
+  width: clamp(190px, 20vw, 300px);
+  height: clamp(190px, 20vw, 300px);
   overflow: hidden;
   border-radius: 50%;
   box-shadow:
@@ -847,13 +847,13 @@ input {
 
 .artist-copy {
   min-width: 0;
-  padding-top: 22px;
+  padding-top: 12px;
 }
 
 .artist-copy h1 {
   margin: 0 0 6px;
   color: #142534;
-  font-size: clamp(30px, 2.7vw, 44px);
+  font-size: clamp(28px, 2.35vw, 40px);
   font-weight: 880;
   letter-spacing: 0;
 }
@@ -862,12 +862,12 @@ input {
 .artist-description {
   margin: 0;
   color: rgba(31, 45, 56, 0.55);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 650;
 }
 
 .artist-description {
-  margin-top: 22px;
+  margin-top: 18px;
   line-height: 1.6;
 }
 
@@ -909,19 +909,19 @@ input {
 .track-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-top: 16px;
+  gap: 6px;
+  padding-top: 10px;
   padding-bottom: 36px;
   contain: layout paint;
 }
 
 .track-row {
   display: grid;
-  grid-template-columns: 54px minmax(160px, 1fr) minmax(150px, 300px) 56px 34px;
+  grid-template-columns: 50px minmax(150px, 1fr) minmax(140px, 280px) 52px 30px;
   align-items: center;
-  gap: 22px;
-  min-height: 66px;
-  padding: 5px 2px;
+  gap: 18px;
+  min-height: 58px;
+  padding: 4px 2px;
   border-radius: 12px;
   color: #0d3044;
   text-align: left;
@@ -934,16 +934,16 @@ input {
 }
 
 .track-art {
-  width: 54px;
-  height: 54px;
-  border-radius: 8px;
+  width: 50px;
+  height: 50px;
+  border-radius: 7px;
   object-fit: cover;
 }
 
 .track-title {
   overflow: hidden;
   color: #09283a;
-  font-size: 21px;
+  font-size: 19px;
   font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -953,7 +953,7 @@ input {
 .track-duration {
   overflow: hidden;
   color: rgba(12, 54, 78, 0.82);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -966,23 +966,23 @@ input {
 
 .track-more {
   color: #2385b0;
-  font-size: 22px;
+  font-size: 20px;
   letter-spacing: 1px;
 }
 
 .mini-player {
   position: absolute;
-  right: 28px;
-  bottom: 18px;
-  left: 28px;
+  right: 24px;
+  bottom: 16px;
+  left: 24px;
   z-index: 12;
   display: grid;
-  grid-template-columns: minmax(160px, 260px) 128px 54px minmax(0, 1fr);
+  grid-template-columns: minmax(150px, 240px) 118px 50px minmax(0, 1fr);
   align-items: center;
-  gap: 16px;
-  height: 58px;
-  padding: 8px 22px;
-  border-radius: 29px;
+  gap: 14px;
+  height: 54px;
+  padding: 7px 20px;
+  border-radius: 27px;
   --glass-alpha: 0.7;
   --glass-shadow: rgba(12, 33, 48, 0.035);
   contain: layout paint;
@@ -990,15 +990,15 @@ input {
 
 .mini-track {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 40px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   min-width: 0;
 }
 
 .mini-track img {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: 7px;
   object-fit: cover;
 }
@@ -1169,7 +1169,7 @@ input {
     min-width: 0;
     min-height: 0;
     border-radius: 0;
-    grid-template-columns: 280px minmax(620px, 1fr);
+    grid-template-columns: 260px minmax(620px, 1fr);
   }
 
   .sidebar {
@@ -1177,17 +1177,17 @@ input {
   }
 
   .titlebar-drag-region {
-    left: 280px;
+    left: 260px;
   }
 }
 
 @media (max-width: 980px) {
   .app-shell {
-    grid-template-columns: 238px minmax(0, 1fr);
+    grid-template-columns: 228px minmax(0, 1fr);
   }
 
   .titlebar-drag-region {
-    left: 238px;
+    left: 228px;
   }
 
   .sidebar-source {
@@ -1215,7 +1215,7 @@ input {
   }
 
   .track-row {
-    grid-template-columns: 54px minmax(140px, 1fr) 56px 28px;
+    grid-template-columns: 50px minmax(140px, 1fr) 52px 28px;
   }
 
   .track-artist {
