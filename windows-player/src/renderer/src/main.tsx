@@ -172,7 +172,6 @@ function detailSubtitle(route: Exclude<AppRoute, { name: 'home' }>, snapshot: Ho
 
 function App(): React.ReactElement {
   const [homeSnapshot, setHomeSnapshot] = React.useState<HomeSnapshot>(fallbackHomeSnapshot)
-  const [wallpaperTint, setWallpaperTint] = React.useState<WallpaperTint | null>(null)
   const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
   const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
   const [isPlaying, setIsPlaying] = React.useState(true)
@@ -201,34 +200,6 @@ function App(): React.ReactElement {
     }
   }, [])
 
-  React.useEffect(() => {
-    let cancelled = false
-
-    window.kmgccc
-      ?.getWallpaperTint()
-      .then((tint) => {
-        if (!cancelled) setWallpaperTint(tint)
-      })
-      .catch(() => {
-        setWallpaperTint(null)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const wallpaperStyle = React.useMemo(
-    () =>
-      wallpaperTint
-        ? ({
-            '--wallpaper-tint-primary': wallpaperTint.primary,
-            '--wallpaper-tint-secondary': wallpaperTint.secondary
-          } as React.CSSProperties)
-        : undefined,
-    [wallpaperTint]
-  )
-
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
   }, [])
@@ -242,7 +213,7 @@ function App(): React.ReactElement {
   }, [])
 
   return (
-    <div className="desktop-root" style={wallpaperStyle}>
+    <div className="desktop-root">
       <LiquidGlassFilters />
       <div className="app-shell">
         <Sidebar snapshot={homeSnapshot} route={route} onNavigate={setRoute} />
