@@ -109,11 +109,10 @@ input {
 
 .app-shell::after {
   inset: -80px;
-  display: block;
+  display: none;
   background:
     radial-gradient(circle at 22% 78%, var(--wallpaper-tint-secondary), transparent 36%),
     radial-gradient(circle at 88% 72%, var(--wallpaper-tint-primary), transparent 32%);
-  filter: blur(42px);
   opacity: 0.95;
 }
 
