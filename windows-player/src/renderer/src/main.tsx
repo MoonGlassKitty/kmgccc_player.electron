@@ -281,6 +281,7 @@ function App(): React.ReactElement {
       <div className="app-shell">
         <Sidebar snapshot={homeSnapshot} route={route} onNavigate={setRoute} />
         <WindowControls />
+        <div className="titlebar-drag-region chrome-drag" aria-hidden="true" />
 
         <main className="content-pane">
           <Toolbar onNavigateHome={() => setRoute({ name: 'home' })} />
@@ -687,6 +688,7 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
   const tracks = React.useMemo(() => tracksForRoute(route, snapshot), [route, snapshot])
   const isArtistIndex = route.name === 'artistDetail' && route.id === 'all-artists'
   const isAlbumIndex = route.name === 'albumDetail' && route.id === 'all-albums'
+  const artworkShape = route.name === 'artistDetail' && route.id !== 'all-artists' ? 'artist' : 'square'
 
   return (
     <section className="artist-page" ref={pageScroll.scrollRef} onWheel={pageScroll.onWheel}>
@@ -697,7 +699,7 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
         style={{ transform: `translate3d(0, ${pageScroll.elasticOffset}px, 0)` }}
       >
         <header className="artist-header">
-          <div className="artist-image-frame">
+          <div className={`artist-image-frame ${artworkShape === 'square' ? 'square-artwork' : ''}`}>
             <img src={detailArtwork(route, snapshot, albums)} alt="" />
           </div>
           <div className="artist-copy">

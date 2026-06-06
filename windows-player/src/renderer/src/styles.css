@@ -191,6 +191,16 @@ input {
   background: #c42b1c;
 }
 
+.titlebar-drag-region {
+  position: absolute;
+  top: 0;
+  right: 138px;
+  left: 320px;
+  z-index: 7;
+  height: var(--win-titlebar-height);
+  pointer-events: auto;
+}
+
 .sidebar-source {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -817,6 +827,10 @@ input {
     0 0 0 1px rgba(255, 255, 255, 0.36) inset;
 }
 
+.artist-image-frame.square-artwork {
+  border-radius: 18px;
+}
+
 .artist-image-frame::after {
   content: "";
   position: absolute;
@@ -963,11 +977,11 @@ input {
   left: 28px;
   z-index: 12;
   display: grid;
-  grid-template-columns: minmax(130px, 230px) 128px 48px minmax(120px, 1fr) 190px;
+  grid-template-columns: minmax(160px, 260px) 128px 54px minmax(260px, 1fr) minmax(136px, 176px);
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   height: 58px;
-  padding: 8px 24px;
+  padding: 8px 22px;
   border-radius: 29px;
   --glass-alpha: 0.7;
   --glass-shadow: rgba(12, 33, 48, 0.035);
@@ -1041,12 +1055,12 @@ input {
   height: 6px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(31, 64, 82, 0.12);
+  background: rgba(31, 64, 82, 0.1);
 }
 
 .progress-track span {
   display: block;
-  width: 42%;
+  width: 48%;
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #2b8fb8, rgba(43, 143, 184, 0.24));
@@ -1056,27 +1070,31 @@ input {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: rgba(27, 58, 74, 0.58);
+  min-width: 0;
 }
 
 .volume-bar {
   position: relative;
+  min-width: 0;
+  height: 4px;
+  background: linear-gradient(90deg, rgba(43, 143, 184, 0.28) 0 72%, rgba(31, 64, 82, 0.06) 72%);
 }
 
 .volume-bar span {
   display: block;
   width: 72%;
   height: 100%;
-  background: #2b8fb8;
+  background: transparent;
 }
 
 .volume-bar i {
   position: absolute;
   top: 50%;
   left: 72%;
-  width: 22px;
-  height: 22px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
@@ -1149,11 +1167,19 @@ input {
   .sidebar {
     border-radius: 0 28px 28px 0;
   }
+
+  .titlebar-drag-region {
+    left: 280px;
+  }
 }
 
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 238px minmax(0, 1fr);
+  }
+
+  .titlebar-drag-region {
+    left: 238px;
   }
 
   .sidebar-source {
