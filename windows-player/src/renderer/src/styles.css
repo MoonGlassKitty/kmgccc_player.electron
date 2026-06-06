@@ -141,6 +141,9 @@ input {
   --glass-alpha: 0.34;
   --glass-border: rgba(255, 255, 255, 0.52);
   --glass-shadow: rgba(25, 58, 80, 0.015);
+  background-color: rgba(226, 243, 249, 0.58);
+  backdrop-filter: blur(5px) saturate(130%);
+  -webkit-backdrop-filter: blur(5px) saturate(130%);
   contain: layout paint;
 }
 
@@ -578,6 +581,9 @@ input {
   border-radius: 29px;
   --glass-alpha: 0.7;
   --glass-shadow: rgba(12, 33, 48, 0.035);
+  background-color: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(6px) saturate(135%);
+  -webkit-backdrop-filter: blur(6px) saturate(135%);
   contain: layout paint;
 }
 
@@ -700,6 +706,9 @@ input {
   border-radius: 0 34px 34px 0;
   --glass-alpha: 0.38;
   --glass-shadow: rgba(48, 26, 18, 0.015);
+  background-color: rgba(255, 249, 244, 0.56);
+  backdrop-filter: blur(5px) saturate(125%);
+  -webkit-backdrop-filter: blur(5px) saturate(125%);
   contain: layout paint;
 }
 

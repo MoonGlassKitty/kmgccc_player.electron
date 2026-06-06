@@ -116,7 +116,7 @@ function App(): React.ReactElement {
 
 const Sidebar = React.memo(function Sidebar(): React.ReactElement {
   return (
-    <aside className="sidebar glass-panel chrome-drag" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
+    <aside className="sidebar glass-panel chrome-drag">
       <div className="traffic-row no-drag">
         <button className="traffic close" type="button" aria-label="关闭" onClick={() => window.kmgccc?.close()} />
         <button className="traffic minimize" type="button" aria-label="最小化" onClick={() => window.kmgccc?.minimize()} />
@@ -273,7 +273,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onPlayPause: () => void
 }): React.ReactElement {
   return (
-    <div className="mini-player glass-panel no-drag" style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
+    <div className="mini-player glass-panel no-drag">
       <div className="mini-track">
         <img src={track.artwork} alt="" />
         <div>
@@ -311,7 +311,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
 
 const LyricsPane = React.memo(function LyricsPane(): React.ReactElement {
   return (
-    <aside className="lyrics-pane glass-panel" style={{ '--filter-url': 'url(#lg-lyrics)' } as React.CSSProperties}>
+    <aside className="lyrics-pane glass-panel">
       <div className="lyrics-scroll">
         {lyrics.map((line, index) => (
           <div className={`lyric-line ${index === 1 ? 'active' : ''}`} key={line[0]}>

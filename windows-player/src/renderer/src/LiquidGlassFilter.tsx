@@ -288,49 +288,6 @@ export function LiquidGlassFilters(): React.ReactElement {
   return (
     <div className="liquid-glass-bank" aria-hidden="true">
       <LiquidGlassFilter
-        id="lg-sidebar"
-        width={320}
-        height={860}
-        radius={28}
-        blur={2.4}
-        bezelWidth={24}
-        glassThickness={120}
-        refractiveIndex={1.34}
-        scaleRatio={1.18}
-        specularOpacity={0.82}
-        specularSaturation={8}
-        specularWidth={56}
-      />
-      <LiquidGlassFilter
-        id="lg-lyrics"
-        width={470}
-        height={860}
-        radius={30}
-        blur={2.6}
-        bezelWidth={26}
-        glassThickness={115}
-        refractiveIndex={1.34}
-        scaleRatio={1.12}
-        specularOpacity={0.72}
-        specularSaturation={8}
-        specularWidth={64}
-      />
-      <LiquidGlassFilter
-        id="lg-mini"
-        width={930}
-        height={58}
-        radius={29}
-        blur={3.3}
-        bezelWidth={25}
-        glassThickness={92}
-        refractiveIndex={1.3}
-        scaleRatio={1}
-        specularOpacity={1}
-        specularSaturation={25}
-        specularWidth={42}
-        dpr={1.15}
-      />
-      <LiquidGlassFilter
         id="lg-toolbar-pill"
         width={130}
         height={40}
