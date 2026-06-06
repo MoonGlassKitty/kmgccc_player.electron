@@ -23,6 +23,7 @@ This is not a direct SwiftUI/AppKit compilation target. Treat it as a Windows-si
 - Dependencies: common libraries may be added as needed. Ask only for critical or unusual dependencies.
 - Screen recording/screenshot permission is available. Codex may screenshot and record the installed macOS app and Windows/Electron prototype to inspect runtime visuals.
 - After every code-writing session, write a concise development log entry so long-running work does not lose context.
+- After each implementation checkpoint, create a local git commit so every meaningful working state can be restored.
 
 ## Engineering Direction
 
