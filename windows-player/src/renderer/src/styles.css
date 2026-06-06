@@ -247,6 +247,10 @@ input {
   background: rgba(255, 255, 255, 0.34);
 }
 
+.playlist-row.active {
+  background: rgba(255, 255, 255, 0.26);
+}
+
 .sidebar-section {
   margin-top: 28px;
 }
@@ -273,6 +277,12 @@ input {
   place-items: center;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.34);
+}
+
+.sidebar-label.as-button {
+  width: 100%;
+  background: transparent;
+  text-align: left;
 }
 
 .playlist-icon {
@@ -582,6 +592,14 @@ input {
 
 .home-card-grid.compact {
   grid-template-columns: repeat(auto-fill, minmax(150px, 190px));
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 210px));
+  gap: 16px;
+  padding-top: 12px;
+  padding-bottom: 40px;
 }
 
 .home-person-card,

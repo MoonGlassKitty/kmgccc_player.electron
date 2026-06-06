@@ -34,7 +34,9 @@ type Track = {
   id: string
   title: string
   artist: string
+  artistId: string
   album: string
+  albumId: string
   duration: number
   artworkUrl?: string
 }
@@ -46,24 +48,25 @@ const altArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e9/c4/38/e9c43893-e743-269a-6a47-c11120717177/artwork.jpg/600x600bb.jpg'
 
 const fallbackHomeSnapshot: HomeSnapshot = {
-  heroTrack: { id: 'myth', title: 'Myth', artist: 'acloudyskye', album: 'Myth', duration: 241, artworkUrl: altArtwork },
+  heroTrack: { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241 },
   tracks: [
-    { id: 'renascence', title: '!renascence!', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 113, artworkUrl: albumArtwork },
-    { id: 'basin', title: 'Basin', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 320, artworkUrl: albumArtwork },
-    { id: 'bones', title: 'Bones', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 232, artworkUrl: albumArtwork },
-    { id: 'float', title: 'Float', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 270, artworkUrl: albumArtwork },
-    { id: 'myth', title: 'Myth', artist: 'acloudyskye', album: 'Myth', duration: 241, artworkUrl: altArtwork },
-    { id: 'udong', title: '乌东', artist: 'MoonGlassKitty', album: '乌东', duration: 163, artworkUrl: altArtwork }
+    { id: 'renascence', title: '!renascence!', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 113 },
+    { id: 'basin', title: 'Basin', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 320 },
+    { id: 'bones', title: 'Bones', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 232 },
+    { id: 'float', title: 'Float', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 270 },
+    { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241 },
+    { id: 'udong', title: '乌东', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', album: '乌东', albumId: 'album-udong', duration: 163 }
   ],
   artists: [
     { id: 'artist-moonglasskitty', name: 'MoonGlassKitty', trackCount: 1, albumCount: 1 },
     { id: 'artist-acloudyskye', name: 'acloudyskye', artworkUrl: albumArtwork, trackCount: 5, albumCount: 1 }
   ],
   albums: [
-    { id: 'album-last', title: "This Won't Be The Last...", artist: 'acloudyskye', artworkUrl: albumArtwork, trackCount: 4 },
-    { id: 'album-udong', title: '乌东', artist: 'MoonGlassKitty', artworkUrl: altArtwork, trackCount: 1 }
+    { id: 'album-last', title: "This Won't Be The Last...", artist: 'acloudyskye', artistId: 'artist-acloudyskye', artworkUrl: albumArtwork, trackCount: 4 },
+    { id: 'album-myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', artworkUrl: altArtwork, trackCount: 1 },
+    { id: 'album-udong', title: '乌东', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', artworkUrl: altArtwork, trackCount: 1 }
   ],
-  playlists: [{ id: 'playlist-import-june-5', name: '导入于 6月 5', trackCount: 6 }],
+  playlists: [{ id: 'playlist-import-june-5', name: '导入于 6月 5', artworkUrl: altArtwork, trackCount: 6, trackIds: ['renascence', 'basin', 'bones', 'float', 'myth', 'udong'] }],
   stats: {
     totalTrackCount: 6,
     weeklyPlayCount: 5,
@@ -167,8 +170,67 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${remainder.toString().padStart(2, '0')}`
 }
 
-function artworkFor(track?: Pick<Track, 'artworkUrl'> | null): string {
-  return track?.artworkUrl || albumArtwork
+function albumById(snapshot: HomeSnapshot): Map<string, HomeAlbumCard> {
+  return new Map(snapshot.albums.map((album) => [album.id, album]))
+}
+
+function trackArtwork(track: HomeTrack | Track | null | undefined, albums: Map<string, HomeAlbumCard>): string {
+  if (!track) return albumArtwork
+  return track.artworkUrl || albums.get(track.albumId)?.artworkUrl || albumArtwork
+}
+
+function albumArtworkFor(album?: Pick<HomeAlbumCard, 'artworkUrl'> | null): string {
+  return album?.artworkUrl || albumArtwork
+}
+
+function tracksForRoute(route: Exclude<AppRoute, { name: 'home' }>, snapshot: HomeSnapshot): HomeTrack[] {
+  switch (route.name) {
+  case 'allTracks':
+    return snapshot.tracks
+  case 'artistDetail':
+    if (route.id === 'all-artists') return snapshot.tracks
+    return snapshot.tracks.filter((track) => track.artistId === route.id)
+  case 'albumDetail':
+    if (route.id === 'all-albums') return snapshot.tracks
+    return snapshot.tracks.filter((track) => track.albumId === route.id)
+  case 'playlistDetail': {
+    const playlist = snapshot.playlists.find((entry) => entry.id === route.id)
+    if (!playlist) return []
+    const trackIds = new Set(playlist.trackIds)
+    return snapshot.tracks.filter((track) => trackIds.has(track.id))
+  }
+  }
+}
+
+function detailArtwork(route: Exclude<AppRoute, { name: 'home' }>, snapshot: HomeSnapshot, albums: Map<string, HomeAlbumCard>): string {
+  if (route.name === 'albumDetail' && route.id !== 'all-albums') {
+    return albumArtworkFor(albums.get(route.id))
+  }
+  if (route.name === 'artistDetail' && route.id !== 'all-artists') {
+    const artist = snapshot.artists.find((entry) => entry.id === route.id)
+    const firstTrack = snapshot.tracks.find((track) => track.artistId === route.id)
+    return artist?.artworkUrl || trackArtwork(firstTrack, albums)
+  }
+  if (route.name === 'playlistDetail') {
+    const playlist = snapshot.playlists.find((entry) => entry.id === route.id)
+    return playlist?.artworkUrl || trackArtwork(tracksForRoute(route, snapshot)[0], albums)
+  }
+  return trackArtwork(snapshot.heroTrack, albums)
+}
+
+function detailSubtitle(route: Exclude<AppRoute, { name: 'home' }>, snapshot: HomeSnapshot, tracks: HomeTrack[]): string {
+  if (route.name === 'albumDetail' && route.id !== 'all-albums') {
+    const album = snapshot.albums.find((entry) => entry.id === route.id)
+    return `${album?.artist ?? ''} · ${tracks.length} 首歌曲`
+  }
+  if (route.name === 'artistDetail' && route.id !== 'all-artists') {
+    const artist = snapshot.artists.find((entry) => entry.id === route.id)
+    return `${tracks.length} 首歌曲 · ${artist?.albumCount ?? 0} 张专辑`
+  }
+  if (route.name === 'playlistDetail') return `${tracks.length} 首歌曲`
+  if (route.name === 'albumDetail') return `${snapshot.albums.length} 张专辑`
+  if (route.name === 'artistDetail') return `${snapshot.artists.length} 位艺人`
+  return `${tracks.length} 首歌曲`
 }
 
 function App(): React.ReactElement {
@@ -176,6 +238,7 @@ function App(): React.ReactElement {
   const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
   const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
   const [isPlaying, setIsPlaying] = React.useState(true)
+  const albums = React.useMemo(() => albumById(homeSnapshot), [homeSnapshot])
   const currentTrack = React.useMemo(
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
     [currentId, homeSnapshot]
@@ -216,25 +279,41 @@ function App(): React.ReactElement {
     <div className="desktop-root">
       <LiquidGlassFilters />
       <div className="app-shell">
-        <Sidebar />
+        <Sidebar snapshot={homeSnapshot} route={route} onNavigate={setRoute} />
         <WindowControls />
 
         <main className="content-pane">
           <Toolbar onNavigateHome={() => setRoute({ name: 'home' })} />
           {route.name === 'home' ? (
-            <HomePage snapshot={homeSnapshot} onNavigate={setRoute} onPlayTrack={playHomeTrack} />
+            <HomePage snapshot={homeSnapshot} albums={albums} onNavigate={setRoute} onPlayTrack={playHomeTrack} />
           ) : (
-            <LibraryDetailPage route={route} snapshot={homeSnapshot} currentId={currentId} onSelect={selectTrack} />
+            <LibraryDetailPage
+              route={route}
+              snapshot={homeSnapshot}
+              albums={albums}
+              currentId={currentId}
+              onNavigate={setRoute}
+              onSelect={selectTrack}
+            />
           )}
 
-          {currentTrack ? <MiniPlayer track={currentTrack} isPlaying={isPlaying} onPlayPause={togglePlayback} /> : null}
+          {currentTrack ? <MiniPlayer track={currentTrack} albums={albums} isPlaying={isPlaying} onPlayPause={togglePlayback} /> : null}
         </main>
       </div>
     </div>
   )
 }
 
-const Sidebar = React.memo(function Sidebar(): React.ReactElement {
+const Sidebar = React.memo(function Sidebar({
+  snapshot,
+  route,
+  onNavigate
+}: {
+  snapshot: HomeSnapshot
+  route: AppRoute
+  onNavigate: (route: AppRoute) => void
+}): React.ReactElement {
+  const primaryPlaylist = snapshot.playlists[0]
   return (
     <aside className="sidebar glass-panel chrome-drag" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
       <div className="sidebar-titlebar no-drag">
@@ -251,14 +330,14 @@ const Sidebar = React.memo(function Sidebar(): React.ReactElement {
       </div>
 
       <nav className="sidebar-nav no-drag">
-        <a className="nav-row active">
+        <button className={`nav-row ${route.name === 'home' ? 'active' : ''}`} type="button" onClick={() => onNavigate({ name: 'home' })}>
           <House size={20} />
           <span>主页</span>
-        </a>
-        <a className="nav-row">
+        </button>
+        <button className={`nav-row ${route.name === 'allTracks' ? 'active' : ''}`} type="button" onClick={() => onNavigate({ name: 'allTracks' })}>
           <ListMusic size={20} />
           <span>所有歌曲</span>
-        </a>
+        </button>
       </nav>
 
       <section className="sidebar-section no-drag">
@@ -268,17 +347,29 @@ const Sidebar = React.memo(function Sidebar(): React.ReactElement {
             <Plus size={17} />
           </button>
         </div>
-        <button className="playlist-row" type="button">
+        <button
+          className={`playlist-row ${route.name === 'playlistDetail' && route.id === primaryPlaylist?.id ? 'active' : ''}`}
+          type="button"
+          onClick={() =>
+            primaryPlaylist
+              ? onNavigate({ name: 'playlistDetail', id: primaryPlaylist.id, title: primaryPlaylist.name })
+              : undefined
+          }
+        >
           <span className="playlist-icon">
             <Music2 size={18} />
           </span>
-          <span>导入于 6月 5</span>
+          <span>{primaryPlaylist?.name ?? '暂无播放列表'}</span>
         </button>
       </section>
 
       <section className="sidebar-section compact no-drag">
-        <div className="sidebar-label">艺人</div>
-        <div className="sidebar-label">专辑</div>
+        <button className="sidebar-label as-button" type="button" onClick={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
+          艺人
+        </button>
+        <button className="sidebar-label as-button" type="button" onClick={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
+          专辑
+        </button>
       </section>
 
       <div className="sidebar-bottom no-drag">
@@ -371,10 +462,12 @@ const Toolbar = React.memo(function Toolbar({ onNavigateHome }: { onNavigateHome
 
 const HomePage = React.memo(function HomePage({
   snapshot,
+  albums,
   onNavigate,
   onPlayTrack
 }: {
   snapshot: HomeSnapshot
+  albums: Map<string, HomeAlbumCard>
   onNavigate: (route: AppRoute) => void
   onPlayTrack: (trackId: string) => void
 }): React.ReactElement {
@@ -389,7 +482,7 @@ const HomePage = React.memo(function HomePage({
         }`}
         style={{ transform: `translate3d(0, ${homeScroll.elasticOffset}px, 0)` }}
       >
-        {heroTrack ? <HomeHero track={heroTrack} onPlay={() => onPlayTrack(heroTrack.id)} /> : null}
+        {heroTrack ? <HomeHero track={heroTrack} albums={albums} onPlay={() => onPlayTrack(heroTrack.id)} /> : null}
 
         <HomeSectionBlock title="艺人" onShowAll={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
           <div className="home-card-grid compact">
@@ -420,7 +513,7 @@ const HomePage = React.memo(function HomePage({
                 type="button"
                 onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
               >
-                <img src={album.artworkUrl || albumArtwork} alt="" />
+                <img src={albumArtworkFor(album)} alt="" />
                 <strong>{album.title}</strong>
                 <span>{album.artist}</span>
               </button>
@@ -455,12 +548,21 @@ const HomePage = React.memo(function HomePage({
   )
 })
 
-const HomeHero = React.memo(function HomeHero({ track, onPlay }: { track: HomeTrack; onPlay: () => void }): React.ReactElement {
+const HomeHero = React.memo(function HomeHero({
+  track,
+  albums,
+  onPlay
+}: {
+  track: HomeTrack
+  albums: Map<string, HomeAlbumCard>
+  onPlay: () => void
+}): React.ReactElement {
+  const artwork = trackArtwork(track, albums)
   return (
     <header className="home-hero">
-      <img className="home-hero-bg" src={artworkFor(track)} alt="" />
+      <img className="home-hero-bg" src={artwork} alt="" />
       <div className="home-hero-cover">
-        <img src={artworkFor(track)} alt="" />
+        <img src={artwork} alt="" />
       </div>
       <div className="home-hero-copy">
         <span>{track.artist}</span>
@@ -569,15 +671,23 @@ const HomeStatCard = React.memo(function HomeStatCard({
 const LibraryDetailPage = React.memo(function LibraryDetailPage({
   route,
   snapshot,
+  albums,
   currentId,
+  onNavigate,
   onSelect
 }: {
   route: Exclude<AppRoute, { name: 'home' }>
   snapshot: HomeSnapshot
+  albums: Map<string, HomeAlbumCard>
   currentId: string
+  onNavigate: (route: AppRoute) => void
   onSelect: (id: string) => void
 }): React.ReactElement {
   const pageScroll = useElasticScroll<HTMLElement>()
+  const tracks = React.useMemo(() => tracksForRoute(route, snapshot), [route, snapshot])
+  const isArtistIndex = route.name === 'artistDetail' && route.id === 'all-artists'
+  const isAlbumIndex = route.name === 'albumDetail' && route.id === 'all-albums'
+
   return (
     <section className="artist-page" ref={pageScroll.scrollRef} onWheel={pageScroll.onWheel}>
       <div
@@ -588,27 +698,71 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
       >
         <header className="artist-header">
           <div className="artist-image-frame">
-            <img src={artworkFor(snapshot.heroTrack)} alt="" />
+            <img src={detailArtwork(route, snapshot, albums)} alt="" />
           </div>
           <div className="artist-copy">
             <h1>{route.name === 'allTracks' ? '所有歌曲' : route.title}</h1>
-            <p className="artist-meta">{snapshot.tracks.length} 首歌曲</p>
-            <p className="artist-description">详情数据接口已预留，后续按艺人、专辑、播放列表分别接入。</p>
+            <p className="artist-meta">{detailSubtitle(route, snapshot, tracks)}</p>
+            <p className="artist-description">这里已经走统一 route 和 ID 过滤接口；导入功能接入后只需要更新 HomeSnapshot 数据。</p>
           </div>
         </header>
 
-        <TrackRows tracks={snapshot.tracks} currentId={currentId} onSelect={onSelect} />
+        {isArtistIndex ? (
+          <CollectionGrid
+            artists={snapshot.artists}
+            onArtist={(artist) => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
+          />
+        ) : null}
+        {isAlbumIndex ? (
+          <CollectionGrid
+            albums={snapshot.albums}
+            onAlbum={(album) => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
+          />
+        ) : null}
+        {!isArtistIndex && !isAlbumIndex ? <TrackRows tracks={tracks} albums={albums} currentId={currentId} onSelect={onSelect} /> : null}
       </div>
     </section>
   )
 })
 
+const CollectionGrid = React.memo(function CollectionGrid({
+  artists,
+  albums,
+  onArtist,
+  onAlbum
+}: {
+  artists?: HomeArtistCard[]
+  albums?: HomeAlbumCard[]
+  onArtist?: (artist: HomeArtistCard) => void
+  onAlbum?: (album: HomeAlbumCard) => void
+}): React.ReactElement {
+  return (
+    <div className="collection-grid">
+      {artists?.map((artist) => (
+        <button className="home-person-card" key={artist.id} type="button" onClick={() => onArtist?.(artist)}>
+          {artist.artworkUrl ? <img src={artist.artworkUrl} alt="" /> : <span className="artist-avatar">{artist.name}</span>}
+          <strong>{artist.name}</strong>
+        </button>
+      ))}
+      {albums?.map((album) => (
+        <button className="home-album-card" key={album.id} type="button" onClick={() => onAlbum?.(album)}>
+          <img src={albumArtworkFor(album)} alt="" />
+          <strong>{album.title}</strong>
+          <span>{album.artist}</span>
+        </button>
+      ))}
+    </div>
+  )
+})
+
 const TrackRows = React.memo(function TrackRows({
   tracks,
+  albums,
   currentId,
   onSelect
 }: {
   tracks: Track[]
+  albums: Map<string, HomeAlbumCard>
   currentId: string
   onSelect: (id: string) => void
 }): React.ReactElement {
@@ -621,7 +775,7 @@ const TrackRows = React.memo(function TrackRows({
           type="button"
           onClick={() => onSelect(track.id)}
         >
-          <img className="track-art" src={artworkFor(track)} alt="" />
+          <img className="track-art" src={trackArtwork(track, albums)} alt="" />
           <span className="track-title">{track.title}</span>
           <span className="track-artist">{track.artist}</span>
           <span className="track-duration">{formatDuration(track.duration)}</span>
@@ -634,17 +788,19 @@ const TrackRows = React.memo(function TrackRows({
 
 const MiniPlayer = React.memo(function MiniPlayer({
   track,
+  albums,
   isPlaying,
   onPlayPause
 }: {
   track: Track
+  albums: Map<string, HomeAlbumCard>
   isPlaying: boolean
   onPlayPause: () => void
 }): React.ReactElement {
   return (
     <div className="mini-player glass-panel no-drag" style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
       <div className="mini-track">
-        <img src={artworkFor(track)} alt="" />
+        <img src={trackArtwork(track, albums)} alt="" />
         <div>
           <strong>{track.title}</strong>
           <span>{track.artist}</span>

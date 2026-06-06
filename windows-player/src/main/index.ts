@@ -10,12 +10,22 @@ const altArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e9/c4/38/e9c43893-e743-269a-6a47-c11120717177/artwork.jpg/600x600bb.jpg'
 
 const demoTracks = [
-  { id: 'renascence', title: '!renascence!', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 113, artworkUrl: albumArtwork },
-  { id: 'basin', title: 'Basin', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 320, artworkUrl: albumArtwork },
-  { id: 'bones', title: 'Bones', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 232, artworkUrl: albumArtwork },
-  { id: 'float', title: 'Float', artist: 'acloudyskye', album: "This Won't Be The Last...", duration: 270, artworkUrl: albumArtwork },
-  { id: 'myth', title: 'Myth', artist: 'acloudyskye', album: 'Myth', duration: 241, artworkUrl: altArtwork },
-  { id: 'udong', title: '乌东', artist: 'MoonGlassKitty', album: '乌东', duration: 163, artworkUrl: altArtwork }
+  { id: 'renascence', title: '!renascence!', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 113 },
+  { id: 'basin', title: 'Basin', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 320 },
+  { id: 'bones', title: 'Bones', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 232 },
+  { id: 'float', title: 'Float', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 270 },
+  { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241 },
+  { id: 'udong', title: '乌东', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', album: '乌东', albumId: 'album-udong', duration: 163 }
+]
+
+const demoAlbums = [
+  { id: 'album-last', title: "This Won't Be The Last...", artist: 'acloudyskye', artistId: 'artist-acloudyskye', artworkUrl: albumArtwork, trackCount: 4 },
+  { id: 'album-myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', artworkUrl: altArtwork, trackCount: 1 },
+  { id: 'album-udong', title: '乌东', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', artworkUrl: altArtwork, trackCount: 1 }
+]
+
+const demoPlaylists = [
+  { id: 'playlist-import-june-5', name: '导入于 6月 5', artworkUrl: altArtwork, trackCount: demoTracks.length, trackIds: demoTracks.map((track) => track.id) }
 ]
 
 function getHomeSnapshot() {
@@ -24,13 +34,10 @@ function getHomeSnapshot() {
     tracks: demoTracks,
     artists: [
       { id: 'artist-moonglasskitty', name: 'MoonGlassKitty', artworkUrl: undefined, trackCount: 1, albumCount: 1 },
-      { id: 'artist-acloudyskye', name: 'acloudyskye', artworkUrl: albumArtwork, trackCount: 5, albumCount: 1 }
+      { id: 'artist-acloudyskye', name: 'acloudyskye', artworkUrl: albumArtwork, trackCount: 5, albumCount: 2 }
     ],
-    albums: [
-      { id: 'album-last', title: "This Won't Be The Last...", artist: 'acloudyskye', artworkUrl: albumArtwork, trackCount: 4 },
-      { id: 'album-udong', title: '乌东', artist: 'MoonGlassKitty', artworkUrl: altArtwork, trackCount: 1 }
-    ],
-    playlists: [{ id: 'playlist-import-june-5', name: '导入于 6月 5', artworkUrl: undefined, trackCount: demoTracks.length }],
+    albums: demoAlbums,
+    playlists: demoPlaylists,
     stats: {
       totalTrackCount: demoTracks.length,
       weeklyPlayCount: 5,

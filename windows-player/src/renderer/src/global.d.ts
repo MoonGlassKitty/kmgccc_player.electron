@@ -5,7 +5,9 @@ declare global {
     id: string
     title: string
     artist: string
+    artistId: string
     album: string
+    albumId: string
     duration: number
     artworkUrl?: string
   }
@@ -22,6 +24,7 @@ declare global {
     id: string
     title: string
     artist: string
+    artistId: string
     artworkUrl?: string
     trackCount: number
   }
@@ -31,6 +34,7 @@ declare global {
     name: string
     artworkUrl?: string
     trackCount: number
+    trackIds: string[]
   }
 
   type HomeRankItem = {
