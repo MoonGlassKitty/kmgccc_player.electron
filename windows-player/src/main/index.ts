@@ -1,5 +1,8 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
+import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL)
 
@@ -27,6 +30,95 @@ const demoAlbums = [
 const demoPlaylists = [
   { id: 'playlist-import-june-5', name: '导入于 6月 5', artworkUrl: altArtwork, trackCount: demoTracks.length, trackIds: demoTracks.map((track) => track.id) }
 ]
+
+type WallpaperTint = {
+  source: 'macos' | 'windows' | 'linux' | 'fallback'
+  primary: string
+  secondary: string
+  wallpaperPath?: string
+}
+
+function runCommand(command: string, args: string[]): string {
+  try {
+    return execFileSync(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+  } catch {
+    return ''
+  }
+}
+
+function resolveWallpaperPath(): { source: WallpaperTint['source']; wallpaperPath?: string } {
+  if (process.platform === 'darwin') {
+    const wallpaperPath = runCommand('osascript', ['-e', 'tell application "System Events" to tell current desktop to get picture'])
+    return { source: 'macos', wallpaperPath }
+  }
+
+  if (process.platform === 'win32') {
+    const wallpaperPath = runCommand('powershell.exe', [
+      '-NoProfile',
+      '-Command',
+      "(Get-ItemProperty 'HKCU:\\Control Panel\\Desktop').WallPaper"
+    ])
+    return { source: 'windows', wallpaperPath }
+  }
+
+  if (process.platform === 'linux') {
+    const rawUri = runCommand('gsettings', ['get', 'org.gnome.desktop.background', 'picture-uri']).replace(/^'|'$/g, '')
+    const wallpaperPath = rawUri.startsWith('file://') ? fileURLToPath(rawUri) : rawUri
+    return { source: 'linux', wallpaperPath }
+  }
+
+  return { source: 'fallback' }
+}
+
+function colorChannel(value: number, toward: number, amount: number): number {
+  return Math.round(value + (toward - value) * amount)
+}
+
+function tintFromRgb(red: number, green: number, blue: number, source: WallpaperTint['source'], wallpaperPath?: string): WallpaperTint {
+  const softRed = colorChannel(red, 255, 0.34)
+  const softGreen = colorChannel(green, 255, 0.34)
+  const softBlue = colorChannel(blue, 255, 0.34)
+  const coolRed = colorChannel(red, 245, 0.2)
+  const coolGreen = colorChannel(green, 252, 0.2)
+  const coolBlue = colorChannel(blue, 255, 0.2)
+
+  return {
+    source,
+    primary: `rgba(${softRed}, ${softGreen}, ${softBlue}, 0.2)`,
+    secondary: `rgba(${coolRed}, ${coolGreen}, ${coolBlue}, 0.14)`,
+    wallpaperPath
+  }
+}
+
+function getWallpaperTint(): WallpaperTint {
+  const { source, wallpaperPath } = resolveWallpaperPath()
+
+  if (!wallpaperPath || !existsSync(wallpaperPath)) {
+    return tintFromRgb(132, 199, 221, 'fallback')
+  }
+
+  const image = nativeImage.createFromPath(wallpaperPath)
+  if (image.isEmpty()) return tintFromRgb(132, 199, 221, source)
+
+  const bitmap = image.resize({ width: 64, height: 64, quality: 'good' }).getBitmap()
+  let red = 0
+  let green = 0
+  let blue = 0
+  let count = 0
+
+  for (let index = 0; index < bitmap.length; index += 4) {
+    const alpha = bitmap[index + 3] ?? 255
+    if (alpha < 16) continue
+    blue += bitmap[index] ?? 0
+    green += bitmap[index + 1] ?? 0
+    red += bitmap[index + 2] ?? 0
+    count += 1
+  }
+
+  if (count === 0) return tintFromRgb(132, 199, 221, source, wallpaperPath)
+
+  return tintFromRgb(Math.round(red / count), Math.round(green / count), Math.round(blue / count), source, wallpaperPath)
+}
 
 function getHomeSnapshot() {
   return {
@@ -121,3 +213,4 @@ ipcMain.on('window:close', (event) => {
 })
 
 ipcMain.handle('library:get-home-snapshot', () => getHomeSnapshot())
+ipcMain.handle('system:get-wallpaper-tint', () => getWallpaperTint())

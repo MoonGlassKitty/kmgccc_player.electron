@@ -65,12 +65,20 @@ declare global {
     stats: HomeStats
   }
 
+  type WallpaperTint = {
+    source: 'macos' | 'windows' | 'linux' | 'fallback'
+    primary: string
+    secondary: string
+    wallpaperPath?: string
+  }
+
   interface Window {
     kmgccc?: {
       minimize: () => void
       toggleMaximize: () => void
       close: () => void
       getHomeSnapshot: () => Promise<HomeSnapshot>
+      getWallpaperTint: () => Promise<WallpaperTint>
     }
   }
 }
