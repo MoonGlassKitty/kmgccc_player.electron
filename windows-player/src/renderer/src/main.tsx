@@ -81,7 +81,7 @@ const fallbackHomeSnapshot: HomeSnapshot = {
   }
 }
 
-const elasticScrollLimit = 42
+const elasticScrollLimit = 68
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
@@ -100,6 +100,7 @@ function useElasticScroll<T extends HTMLElement>(): {
   const [isSettling, setIsSettling] = React.useState(false)
 
   const setElasticOffset = React.useCallback((value: number) => {
+    if (Math.abs(value - offsetRef.current) < 0.5) return
     offsetRef.current = value
     setElasticOffsetState(value)
   }, [])
@@ -110,18 +111,19 @@ function useElasticScroll<T extends HTMLElement>(): {
     }
 
     settleTimerRef.current = window.setTimeout(() => {
+      settleTimerRef.current = null
       setIsSettling(true)
       setElasticOffset(0)
-    }, 80)
+    }, 110)
   }, [setElasticOffset])
 
   const onWheel = React.useCallback(
     (event: React.WheelEvent<T>) => {
       const node = event.currentTarget
-      const atTop = node.scrollTop <= 0
-      const atBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 1
-      const pullsPastTop = event.deltaY < 0 && atTop
-      const pullsPastBottom = event.deltaY > 0 && atBottom
+      const maxScrollTop = Math.max(0, node.scrollHeight - node.clientHeight)
+      const projectedScrollTop = node.scrollTop + event.deltaY
+      const pullsPastTop = event.deltaY < 0 && projectedScrollTop <= 0
+      const pullsPastBottom = event.deltaY > 0 && projectedScrollTop >= maxScrollTop
 
       if (!pullsPastTop && !pullsPastBottom) {
         if (offsetRef.current !== 0) {
@@ -133,10 +135,12 @@ function useElasticScroll<T extends HTMLElement>(): {
 
       event.preventDefault()
       setIsSettling(false)
+      node.scrollTop = pullsPastTop ? 0 : maxScrollTop
 
-      const pull = clamp(Math.abs(event.deltaY) * 0.18, 3, 18)
+      const overscroll = pullsPastTop ? Math.abs(projectedScrollTop) : Math.abs(projectedScrollTop - maxScrollTop)
+      const pull = clamp(Math.sqrt(overscroll) * 1.6 + Math.abs(event.deltaY) * 0.08, 6, elasticScrollLimit)
       const direction = pullsPastTop ? 1 : -1
-      const nextOffset = clamp(offsetRef.current + direction * pull, -elasticScrollLimit, elasticScrollLimit)
+      const nextOffset = direction * pull
 
       setElasticOffset(nextOffset)
       settle()

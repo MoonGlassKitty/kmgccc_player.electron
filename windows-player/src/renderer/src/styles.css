@@ -443,7 +443,7 @@ input {
 }
 
 .artist-scroll-content.settling {
-  transition: transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 340ms cubic-bezier(0.18, 1.12, 0.28, 1);
 }
 
 .home-page {
@@ -468,7 +468,7 @@ input {
 }
 
 .home-scroll-content.settling {
-  transition: transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 340ms cubic-bezier(0.18, 1.12, 0.28, 1);
 }
 
 .home-hero {
@@ -492,7 +492,7 @@ input {
   height: calc(100% + 80px);
   object-fit: cover;
   opacity: 0.62;
-  filter: blur(28px) saturate(118%);
+  filter: blur(20px) saturate(112%);
   transform: scale(1.05);
 }
 
@@ -611,6 +611,21 @@ input {
   gap: 16px;
   padding-top: 12px;
   padding-bottom: 40px;
+}
+
+.home-section-block,
+.collection-grid,
+.track-list {
+  content-visibility: auto;
+}
+
+.home-section-block {
+  contain-intrinsic-size: auto 360px;
+}
+
+.collection-grid,
+.track-list {
+  contain-intrinsic-size: auto 420px;
 }
 
 .home-person-card,
