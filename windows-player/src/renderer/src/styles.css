@@ -14,7 +14,7 @@
   --accent: #2e87ac;
   --accent-deep: #0d3d55;
   --accent-soft: rgba(88, 196, 227, 0.18);
-  --win-titlebar-height: 38px;
+  --win-titlebar-height: 28px;
 }
 
 * {
@@ -168,12 +168,17 @@ input {
   grid-template-columns: repeat(3, 46px);
   height: 34px;
   color: rgba(12, 30, 42, 0.76);
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
 }
 
 .window-controls button {
   display: grid;
+  width: 46px;
+  height: 34px;
   place-items: center;
   background: transparent;
+  -webkit-app-region: no-drag;
 }
 
 .window-controls button:hover {
