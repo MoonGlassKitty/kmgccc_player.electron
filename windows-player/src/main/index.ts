@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -46,10 +47,23 @@ function runCommand(command: string, args: string[]): string {
   }
 }
 
+function normalizeWallpaperPath(wallpaperPath: string): string {
+  if (wallpaperPath.startsWith('~/')) {
+    return join(homedir(), wallpaperPath.slice(2))
+  }
+  return wallpaperPath
+}
+
 function resolveWallpaperPath(): { source: WallpaperTint['source']; wallpaperPath?: string } {
   if (process.platform === 'darwin') {
-    const wallpaperPath = runCommand('osascript', ['-e', 'tell application "System Events" to tell current desktop to get picture'])
-    return { source: 'macos', wallpaperPath }
+    const systemEventsPath = runCommand('osascript', ['-e', 'tell application "System Events" to tell current desktop to get picture'])
+    if (systemEventsPath && systemEventsPath !== 'missing value') {
+      return { source: 'macos', wallpaperPath: normalizeWallpaperPath(systemEventsPath) }
+    }
+
+    const dockDatabasePath = join(homedir(), 'Library/Application Support/Dock/desktoppicture.db')
+    const dockPath = runCommand('sqlite3', [dockDatabasePath, 'select value from data where value is not null and value != "" order by rowid desc limit 1;'])
+    return { source: 'macos', wallpaperPath: dockPath ? normalizeWallpaperPath(dockPath) : undefined }
   }
 
   if (process.platform === 'win32') {
@@ -58,13 +72,13 @@ function resolveWallpaperPath(): { source: WallpaperTint['source']; wallpaperPat
       '-Command',
       "(Get-ItemProperty 'HKCU:\\Control Panel\\Desktop').WallPaper"
     ])
-    return { source: 'windows', wallpaperPath }
+    return { source: 'windows', wallpaperPath: wallpaperPath ? normalizeWallpaperPath(wallpaperPath) : undefined }
   }
 
   if (process.platform === 'linux') {
     const rawUri = runCommand('gsettings', ['get', 'org.gnome.desktop.background', 'picture-uri']).replace(/^'|'$/g, '')
     const wallpaperPath = rawUri.startsWith('file://') ? fileURLToPath(rawUri) : rawUri
-    return { source: 'linux', wallpaperPath }
+    return { source: 'linux', wallpaperPath: wallpaperPath ? normalizeWallpaperPath(wallpaperPath) : undefined }
   }
 
   return { source: 'fallback' }
@@ -84,8 +98,8 @@ function tintFromRgb(red: number, green: number, blue: number, source: Wallpaper
 
   return {
     source,
-    primary: `rgba(${softRed}, ${softGreen}, ${softBlue}, 0.2)`,
-    secondary: `rgba(${coolRed}, ${coolGreen}, ${coolBlue}, 0.14)`,
+    primary: `rgba(${softRed}, ${softGreen}, ${softBlue}, 0.46)`,
+    secondary: `rgba(${coolRed}, ${coolGreen}, ${coolBlue}, 0.34)`,
     wallpaperPath
   }
 }

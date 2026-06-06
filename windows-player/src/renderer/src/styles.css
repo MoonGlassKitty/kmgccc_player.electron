@@ -15,8 +15,8 @@
   --accent-deep: #0d3d55;
   --accent-soft: rgba(88, 196, 227, 0.18);
   --win-titlebar-height: 28px;
-  --wallpaper-tint-primary: rgba(174, 226, 241, 0.18);
-  --wallpaper-tint-secondary: rgba(194, 220, 244, 0.12);
+  --wallpaper-tint-primary: rgba(174, 226, 241, 0.46);
+  --wallpaper-tint-secondary: rgba(194, 220, 244, 0.34);
 }
 
 * {
@@ -100,19 +100,19 @@ input {
 
 .app-shell::before {
   background:
-    radial-gradient(circle at 16% 18%, var(--wallpaper-tint-primary), transparent 34%),
-    radial-gradient(circle at 78% 8%, var(--wallpaper-tint-secondary), transparent 32%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.98));
+    radial-gradient(circle at 16% 18%, var(--wallpaper-tint-primary), transparent 48%),
+    radial-gradient(circle at 78% 8%, var(--wallpaper-tint-secondary), transparent 46%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.9));
 }
 
 .app-shell::after {
   inset: -80px;
   display: block;
   background:
-    radial-gradient(circle at 22% 78%, var(--wallpaper-tint-secondary), transparent 28%),
-    radial-gradient(circle at 88% 72%, var(--wallpaper-tint-primary), transparent 24%);
-  filter: blur(54px);
-  opacity: 0.62;
+    radial-gradient(circle at 22% 78%, var(--wallpaper-tint-secondary), transparent 36%),
+    radial-gradient(circle at 88% 72%, var(--wallpaper-tint-primary), transparent 32%);
+  filter: blur(42px);
+  opacity: 0.95;
 }
 
 .glass-panel {
@@ -662,15 +662,33 @@ input {
 }
 
 .home-liquid-card {
-  --filter-url: url(#lg-home-card);
-  --glass-alpha: 0.54;
-  --glass-border: rgba(255, 255, 255, 0.58);
-  --glass-shadow: rgba(15, 40, 55, 0.0525);
-  background-color: rgba(255, 255, 255, 0.54);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.38)),
+    radial-gradient(circle at 16% 10%, rgba(255, 255, 255, 0.54), transparent 38%);
   box-shadow:
-    0 2px 12px rgba(15, 40, 55, 0.0525),
-    0 1px 12px rgba(0, 0, 0, 0.035) inset,
-    0 -1px 14px rgba(255, 255, 255, 0.2) inset;
+    0 2px 14px rgba(15, 40, 55, 0.06),
+    0 1px 12px rgba(0, 0, 0, 0.045) inset,
+    0 -1px 16px rgba(255, 255, 255, 0.26) inset;
+}
+
+.home-liquid-card::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.34), transparent 22%, transparent 78%, rgba(255, 255, 255, 0.22)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 34%);
+  opacity: 0.72;
+}
+
+.home-liquid-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .home-person-card,

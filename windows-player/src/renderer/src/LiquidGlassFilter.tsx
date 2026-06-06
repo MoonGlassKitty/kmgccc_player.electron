@@ -430,21 +430,6 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
         dpr={1.25}
       />
       <LiquidGlassFilter
-        id="lg-home-card"
-        width={220}
-        height={220}
-        radius={16}
-        blur={1.8}
-        bezelWidth={18}
-        glassThickness={86}
-        refractiveIndex={1.31}
-        scaleRatio={1}
-        specularOpacity={0.78}
-        specularSaturation={12}
-        specularWidth={24}
-        dpr={1.15}
-      />
-      <LiquidGlassFilter
         id="lg-circle"
         width={42}
         height={42}
