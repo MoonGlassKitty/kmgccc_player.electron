@@ -412,6 +412,18 @@ input {
   display: none;
 }
 
+.artist-scroll-content {
+  transform: translate3d(0, 0, 0);
+}
+
+.artist-scroll-content.elastic-active {
+  will-change: transform;
+}
+
+.artist-scroll-content.settling {
+  transition: transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .artist-header {
   display: grid;
   grid-template-columns: clamp(220px, 23vw, 318px) minmax(330px, 1fr);

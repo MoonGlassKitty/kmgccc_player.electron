@@ -56,9 +56,85 @@ const tracks: Track[] = [
   { id: 'shoots', title: 'Shoots', artist: 'acloudyskye', duration: '4:09', artwork: altArtwork }
 ]
 
+const elasticScrollLimit = 42
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
+function useElasticScroll<T extends HTMLElement>(): {
+  scrollRef: React.RefObject<T | null>
+  elasticOffset: number
+  isSettling: boolean
+  onWheel: (event: React.WheelEvent<T>) => void
+} {
+  const scrollRef = React.useRef<T>(null)
+  const settleTimerRef = React.useRef<number | null>(null)
+  const offsetRef = React.useRef(0)
+  const [elasticOffset, setElasticOffsetState] = React.useState(0)
+  const [isSettling, setIsSettling] = React.useState(false)
+
+  const setElasticOffset = React.useCallback((value: number) => {
+    offsetRef.current = value
+    setElasticOffsetState(value)
+  }, [])
+
+  const settle = React.useCallback(() => {
+    if (settleTimerRef.current !== null) {
+      window.clearTimeout(settleTimerRef.current)
+    }
+
+    settleTimerRef.current = window.setTimeout(() => {
+      setIsSettling(true)
+      setElasticOffset(0)
+    }, 80)
+  }, [setElasticOffset])
+
+  const onWheel = React.useCallback(
+    (event: React.WheelEvent<T>) => {
+      const node = event.currentTarget
+      const atTop = node.scrollTop <= 0
+      const atBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 1
+      const pullsPastTop = event.deltaY < 0 && atTop
+      const pullsPastBottom = event.deltaY > 0 && atBottom
+
+      if (!pullsPastTop && !pullsPastBottom) {
+        if (offsetRef.current !== 0) {
+          setIsSettling(true)
+          setElasticOffset(0)
+        }
+        return
+      }
+
+      event.preventDefault()
+      setIsSettling(false)
+
+      const pull = clamp(Math.abs(event.deltaY) * 0.18, 3, 18)
+      const direction = pullsPastTop ? 1 : -1
+      const nextOffset = clamp(offsetRef.current + direction * pull, -elasticScrollLimit, elasticScrollLimit)
+
+      setElasticOffset(nextOffset)
+      settle()
+    },
+    [setElasticOffset, settle]
+  )
+
+  React.useEffect(
+    () => () => {
+      if (settleTimerRef.current !== null) {
+        window.clearTimeout(settleTimerRef.current)
+      }
+    },
+    []
+  )
+
+  return { scrollRef, elasticOffset, isSettling, onWheel }
+}
+
 function App(): React.ReactElement {
   const [currentId, setCurrentId] = React.useState('myth')
   const [isPlaying, setIsPlaying] = React.useState(true)
+  const artistScroll = useElasticScroll<HTMLElement>()
   const currentTrack = React.useMemo(() => tracks.find((track) => track.id === currentId) ?? tracks[0], [currentId])
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
@@ -76,28 +152,35 @@ function App(): React.ReactElement {
 
         <main className="content-pane">
           <Toolbar />
-          <section className="artist-page">
-            <header className="artist-header">
-              <div className="artist-image-frame">
-                <img src={albumArtwork} alt="" />
-              </div>
-              <div className="artist-copy">
-                <h1>acloudyskye</h1>
-                <p className="artist-meta">9 首歌曲 · 1 张专辑</p>
-                <p className="artist-description">acloudyskye，欧美音乐人，曾发表作品《What Do You Want!》。</p>
-                <div className="artist-actions">
-                  <button className="play-cta" type="button" onClick={togglePlayback}>
-                    {isPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" />}
-                    {isPlaying ? '暂停' : '播放'}
-                  </button>
-                  <button className="edit-button" type="button" aria-label="编辑">
-                    <Pencil size={16} />
-                  </button>
+          <section className="artist-page" ref={artistScroll.scrollRef} onWheel={artistScroll.onWheel}>
+            <div
+              className={`artist-scroll-content ${artistScroll.elasticOffset !== 0 ? 'elastic-active' : ''} ${
+                artistScroll.isSettling ? 'settling' : ''
+              }`}
+              style={{ transform: `translate3d(0, ${artistScroll.elasticOffset}px, 0)` }}
+            >
+              <header className="artist-header">
+                <div className="artist-image-frame">
+                  <img src={albumArtwork} alt="" />
                 </div>
-              </div>
-            </header>
+                <div className="artist-copy">
+                  <h1>acloudyskye</h1>
+                  <p className="artist-meta">9 首歌曲 · 1 张专辑</p>
+                  <p className="artist-description">acloudyskye，欧美音乐人，曾发表作品《What Do You Want!》。</p>
+                  <div className="artist-actions">
+                    <button className="play-cta" type="button" onClick={togglePlayback}>
+                      {isPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" />}
+                      {isPlaying ? '暂停' : '播放'}
+                    </button>
+                    <button className="edit-button" type="button" aria-label="编辑">
+                      <Pencil size={16} />
+                    </button>
+                  </div>
+                </div>
+              </header>
 
-            <TrackRows currentId={currentId} onSelect={selectTrack} />
+              <TrackRows currentId={currentId} onSelect={selectTrack} />
+            </div>
           </section>
 
           <MiniPlayer track={currentTrack} isPlaying={isPlaying} onPlayPause={togglePlayback} />
