@@ -1307,7 +1307,7 @@ input {
   border-top: 0;
   border-right: 0;
   border-bottom: 0;
-  border-radius: 34px 0 0 34px;
+  border-radius: 0;
   --glass-alpha: 0.5;
   --glass-shadow: rgba(16, 36, 52, 0.07);
 }
