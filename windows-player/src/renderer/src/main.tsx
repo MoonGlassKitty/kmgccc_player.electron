@@ -63,14 +63,23 @@ const albumArtwork =
 const altArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e9/c4/38/e9c43893-e743-269a-6a47-c11120717177/artwork.jpg/600x600bb.jpg'
 
+const demoSyncedLyrics = [
+  '[00:00.00]歌词预览已准备',
+  '[00:06.00]导入单曲后会自动同步真实歌词',
+  '[00:12.00]当前播放行会停在视觉中心',
+  '[00:18.00]点击带时间轴的行可以跳转播放',
+  '[00:24.00]右侧侧栏和完整界面共用同一套时间轴',
+  '[00:30.00]后续可以替换为 AMLL 渲染组件'
+].join('\n')
+
 const fallbackHomeSnapshot: HomeSnapshot = {
-  heroTrack: { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241 },
+  heroTrack: { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241, syncedLyrics: demoSyncedLyrics },
   tracks: [
     { id: 'renascence', title: '!renascence!', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 113 },
     { id: 'basin', title: 'Basin', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 320 },
     { id: 'bones', title: 'Bones', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 232 },
     { id: 'float', title: 'Float', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 270 },
-    { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241 },
+    { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241, syncedLyrics: demoSyncedLyrics },
     { id: 'udong', title: '乌东', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', album: '乌东', albumId: 'album-udong', duration: 163 }
   ],
   artists: [
@@ -115,6 +124,8 @@ type AppRoute =
   | { name: 'artistDetail'; id: string; title: string }
   | { name: 'albumDetail'; id: string; title: string }
   | { name: 'playlistDetail'; id: string; title: string }
+
+type DetailRoute = Exclude<AppRoute, { name: 'home' }>
 
 function formatDuration(seconds: number): string {
   const safeSeconds = Math.max(0, Math.round(seconds))
@@ -289,7 +300,7 @@ function snapshotWithTrackDuration(snapshot: HomeSnapshot, trackId: string, dura
   }
 }
 
-function tracksForRoute(route: Exclude<AppRoute, { name: 'home' }>, snapshot: HomeSnapshot): HomeTrack[] {
+function tracksForRoute(route: DetailRoute, snapshot: HomeSnapshot): HomeTrack[] {
   switch (route.name) {
   case 'allTracks':
     return snapshot.tracks
@@ -308,7 +319,7 @@ function tracksForRoute(route: Exclude<AppRoute, { name: 'home' }>, snapshot: Ho
   }
 }
 
-function detailArtwork(route: Exclude<AppRoute, { name: 'home' }>, snapshot: HomeSnapshot, albums: Map<string, HomeAlbumCard>): string {
+function detailArtwork(route: DetailRoute, snapshot: HomeSnapshot, albums: Map<string, HomeAlbumCard>): string {
   if (route.name === 'albumDetail' && route.id !== 'all-albums') {
     return albumArtworkFor(albums.get(route.id))
   }
@@ -324,7 +335,7 @@ function detailArtwork(route: Exclude<AppRoute, { name: 'home' }>, snapshot: Hom
   return trackArtwork(snapshot.heroTrack, albums)
 }
 
-function detailSubtitle(route: Exclude<AppRoute, { name: 'home' }>, snapshot: HomeSnapshot, tracks: HomeTrack[]): string {
+function detailSubtitle(route: DetailRoute, snapshot: HomeSnapshot, tracks: HomeTrack[]): string {
   if (route.name === 'albumDetail' && route.id !== 'all-albums') {
     const album = snapshot.albums.find((entry) => entry.id === route.id)
     return `${album?.artist ?? ''} · ${tracks.length} 首歌曲`
@@ -343,6 +354,8 @@ function App(): React.ReactElement {
   const [homeSnapshot, setHomeSnapshot] = React.useState<HomeSnapshot>(fallbackHomeSnapshot)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
   const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
+  const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
+  const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
   const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
   const [isPlaying, setIsPlaying] = React.useState(false)
   const [playbackTime, setPlaybackTime] = React.useState(0)
@@ -438,6 +451,18 @@ function App(): React.ReactElement {
     setCurrentId(trackId)
     setIsPlaying(true)
   }, [])
+  const toggleLyricsSidebar = React.useCallback(() => {
+    setIsLyricsSidebarOpen((value) => !value)
+  }, [])
+  const toggleFullscreenLyrics = React.useCallback(() => {
+    setIsFullscreenLyricsOpen((value) => !value)
+  }, [])
+  const seekTo = React.useCallback((seconds: number) => {
+    const audio = audioRef.current
+    if (!audio || !Number.isFinite(seconds)) return
+    audio.currentTime = Math.max(0, seconds)
+    setPlaybackTime(audio.currentTime)
+  }, [])
 
   React.useEffect(() => {
     const audio = audioRef.current
@@ -497,16 +522,21 @@ function App(): React.ReactElement {
   }, [])
 
   return (
-    <div className="desktop-root" style={coverThemeStyle}>
+    <div className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''}`} style={coverThemeStyle}>
       <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
       <LiquidGlassFilters />
-      <div className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <div className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''}`}>
         <Sidebar snapshot={homeSnapshot} route={route} onNavigate={setRoute} isCollapsed={isSidebarCollapsed} onToggle={toggleSidebar} />
         <WindowControls />
         <div className="titlebar-drag-region chrome-drag" aria-hidden="true" />
 
         <main className="content-pane">
-          <Toolbar onNavigateHome={() => setRoute({ name: 'home' })} onImportAudioFile={importAudioFile} />
+          <Toolbar
+            onNavigateHome={() => setRoute({ name: 'home' })}
+            onImportAudioFile={importAudioFile}
+            onToggleLyricsSidebar={toggleLyricsSidebar}
+            isLyricsSidebarOpen={isLyricsSidebarOpen}
+          />
           {route.name === 'home' ? (
             <HomePage snapshot={homeSnapshot} albums={albums} onNavigate={setRoute} onPlayTrack={playHomeTrack} />
           ) : (
@@ -521,17 +551,27 @@ function App(): React.ReactElement {
           )}
 
           {currentTrack ? (
-            <MiniPlayer
-              track={currentTrack}
-              albums={albums}
-              isPlaying={isPlaying}
-              playbackTime={playbackTime}
-              playbackDuration={playbackDuration || currentTrack.duration}
-              onPlayPause={togglePlayback}
-            />
+            <>
+              {isFullscreenLyricsOpen ? <div className="mini-player-hover-zone no-drag" aria-hidden="true" /> : null}
+              <MiniPlayer
+                track={currentTrack}
+                albums={albums}
+                isPlaying={isPlaying}
+                playbackTime={playbackTime}
+                playbackDuration={playbackDuration || currentTrack.duration}
+                onPlayPause={togglePlayback}
+                onToggleFullscreenLyrics={toggleFullscreenLyrics}
+              />
+            </>
           ) : null}
           {importSyncState ? <ImportSyncCard state={importSyncState} onCancel={() => setImportSyncState(null)} /> : null}
+          {isLyricsSidebarOpen ? (
+            <LyricsSidePanel track={currentTrack} albums={albums} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={seekTo} />
+          ) : null}
         </main>
+        {isFullscreenLyricsOpen ? (
+          <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={seekTo} />
+        ) : null}
       </div>
     </div>
   )
@@ -700,10 +740,14 @@ const ImportSyncCard = React.memo(function ImportSyncCard({
 
 const Toolbar = React.memo(function Toolbar({
   onNavigateHome,
-  onImportAudioFile
+  onImportAudioFile,
+  onToggleLyricsSidebar,
+  isLyricsSidebarOpen
 }: {
   onNavigateHome: () => void
   onImportAudioFile: () => void
+  onToggleLyricsSidebar: () => void
+  isLyricsSidebarOpen: boolean
 }): React.ReactElement {
   return (
     <header className="toolbar chrome-drag">
@@ -749,9 +793,11 @@ const Toolbar = React.memo(function Toolbar({
           <CircleX size={17} className="search-clear" />
         </label>
         <button
-          className="toolbar-circle toolbar-liquid-pad glass-panel"
+          className={`toolbar-circle toolbar-liquid-pad glass-panel ${isLyricsSidebarOpen ? 'active' : ''}`}
           type="button"
           aria-label="歌词"
+          aria-pressed={isLyricsSidebarOpen}
+          onClick={onToggleLyricsSidebar}
           style={{ '--filter-url': 'url(#lg-circle)' } as React.CSSProperties}
         >
           <MessageSquareQuote size={20} />
@@ -971,6 +1017,191 @@ const HomeStatCard = React.memo(function HomeStatCard({
   )
 })
 
+type ParsedLyricLine = {
+  id: string
+  time: number | null
+  text: string
+}
+
+function parseLyricTimestamp(rawTimestamp: string): number | null {
+  const match = rawTimestamp.match(/^(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?$/)
+  if (!match) return null
+  const minutes = Number(match[1])
+  const seconds = Number(match[2])
+  const fraction = match[3] ? Number(`0.${match[3].padEnd(3, '0').slice(0, 3)}`) : 0
+  return minutes * 60 + seconds + fraction
+}
+
+function parseLyrics(track: Track | null | undefined): ParsedLyricLine[] {
+  const rawLyrics = track?.syncedLyrics || track?.lyricsText || ''
+  const rawLines = rawLyrics
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (!rawLines.length) return []
+
+  const parsed: ParsedLyricLine[] = []
+  rawLines.forEach((line, lineIndex) => {
+    const timestampMatches = [...line.matchAll(/\[([0-9]{1,2}:[0-9]{2}(?:[.:][0-9]{1,3})?)\]/g)]
+    const text = line.replace(/\[[^\]]+\]/g, '').trim()
+    if (!timestampMatches.length) {
+      parsed.push({ id: `plain-${lineIndex}`, time: null, text: line })
+      return
+    }
+
+    timestampMatches.forEach((match, timestampIndex) => {
+      const time = parseLyricTimestamp(match[1])
+      if (time === null) return
+      parsed.push({
+        id: `${lineIndex}-${timestampIndex}-${time}`,
+        time,
+        text: text || '♪'
+      })
+    })
+  })
+
+  return parsed.sort((a, b) => (a.time ?? Number.MAX_SAFE_INTEGER) - (b.time ?? Number.MAX_SAFE_INTEGER))
+}
+
+function activeLyricIndex(lines: ParsedLyricLine[], playbackTime: number): number {
+  let activeIndex = -1
+  lines.forEach((line, index) => {
+    if (line.time !== null && line.time <= playbackTime + 0.18) {
+      activeIndex = index
+    }
+  })
+  return activeIndex
+}
+
+type LyricsSurfaceProps = {
+  track: Track | null | undefined
+  albums: Map<string, HomeAlbumCard>
+  playbackTime: number
+  isPlaying: boolean
+  onSeek: (seconds: number) => void
+}
+
+const LyricsLineList = React.memo(function LyricsLineList({
+  lines,
+  currentLineIndex,
+  onSeek,
+  variant
+}: {
+  lines: ParsedLyricLine[]
+  currentLineIndex: number
+  onSeek: (seconds: number) => void
+  variant: 'side' | 'fullscreen'
+}): React.ReactElement {
+  const activeLineRef = React.useRef<HTMLButtonElement | null>(null)
+
+  React.useEffect(() => {
+    if (currentLineIndex < 0) return
+    activeLineRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [currentLineIndex])
+
+  return (
+    <div className={`lyrics-line-list ${variant}`}>
+      {lines.map((line, index) => (
+        <button
+          className={`lyrics-line ${index === currentLineIndex ? 'active' : ''} ${line.time === null ? 'plain' : ''}`}
+          key={line.id}
+          ref={index === currentLineIndex ? activeLineRef : undefined}
+          type="button"
+          disabled={line.time === null}
+          onClick={() => line.time !== null && onSeek(line.time)}
+        >
+          {line.text}
+        </button>
+      ))}
+    </div>
+  )
+})
+
+const LyricsSidePanel = React.memo(function LyricsSidePanel({
+  track,
+  albums,
+  playbackTime,
+  isPlaying,
+  onSeek
+}: LyricsSurfaceProps): React.ReactElement {
+  const lines = React.useMemo(() => parseLyrics(track), [track])
+  const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
+  const artwork = trackArtwork(track, albums)
+  const hasTimedLyrics = lines.some((line) => line.time !== null)
+
+  return (
+    <aside className="lyrics-side-panel glass-panel no-drag" style={{ '--filter-url': 'url(#lg-home-liquid)' } as React.CSSProperties}>
+      <img className="lyrics-side-bg" src={artwork} alt="" />
+      <div className="lyrics-side-head">
+        <img src={artwork} alt="" />
+        <div>
+          <span>{isPlaying ? '正在播放' : '已暂停'}</span>
+          <strong>{track?.title ?? '未选择歌曲'}</strong>
+          <small>{track ? `${track.artist} · ${track.album}` : '选择一首歌曲后显示歌词'}</small>
+        </div>
+      </div>
+
+      <div className="lyrics-panel-head">
+        <div>
+          <span>歌词</span>
+          <strong>{hasTimedLyrics ? '同步歌词' : lines.length ? '文本歌词' : '暂无歌词'}</strong>
+        </div>
+        <time>{formatDuration(playbackTime)}</time>
+      </div>
+
+      {lines.length ? (
+        <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="side" />
+      ) : (
+        <LyricsEmptyState />
+      )}
+    </aside>
+  )
+})
+
+const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
+  track,
+  albums,
+  playbackTime,
+  isPlaying,
+  onSeek
+}: LyricsSurfaceProps): React.ReactElement {
+  const lines = React.useMemo(() => parseLyrics(track), [track])
+  const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
+  const artwork = trackArtwork(track, albums)
+
+  return (
+    <section className="fullscreen-lyrics-page no-drag">
+      <img className="fullscreen-lyrics-bg" src={artwork} alt="" />
+      <div className="fullscreen-lyrics-art">
+        <img src={artwork} alt="" />
+      </div>
+      <div className="fullscreen-lyrics-copy">
+        <span>{isPlaying ? '正在播放' : '已暂停'}</span>
+        <strong>{track?.title ?? '未选择歌曲'}</strong>
+        <small>{track ? `${track.artist} · ${track.album}` : '选择一首歌曲后显示歌词'}</small>
+      </div>
+      <div className="fullscreen-lyrics-lines">
+        {lines.length ? (
+          <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="fullscreen" />
+        ) : (
+          <LyricsEmptyState />
+        )}
+      </div>
+    </section>
+  )
+})
+
+const LyricsEmptyState = React.memo(function LyricsEmptyState(): React.ReactElement {
+  return (
+    <div className="lyrics-empty">
+      <MessageSquareQuote size={38} />
+      <strong>还没有歌词</strong>
+      <span>导入歌曲后会自动尝试补全歌词；补全成功后会显示在这里。</span>
+    </div>
+  )
+})
+
 const LibraryDetailPage = React.memo(function LibraryDetailPage({
   route,
   snapshot,
@@ -979,7 +1210,7 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
   onNavigate,
   onSelect
 }: {
-  route: Exclude<AppRoute, { name: 'home' }>
+  route: DetailRoute
   snapshot: HomeSnapshot
   albums: Map<string, HomeAlbumCard>
   currentId: string
@@ -1096,7 +1327,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
   isPlaying,
   playbackTime,
   playbackDuration,
-  onPlayPause
+  onPlayPause,
+  onToggleFullscreenLyrics
 }: {
   track: Track
   albums: Map<string, HomeAlbumCard>
@@ -1104,18 +1336,19 @@ const MiniPlayer = React.memo(function MiniPlayer({
   playbackTime: number
   playbackDuration: number
   onPlayPause: () => void
+  onToggleFullscreenLyrics: () => void
 }): React.ReactElement {
   const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
 
   return (
     <div className="mini-player glass-panel no-drag" style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
-      <div className="mini-track">
+      <button className="mini-track" type="button" aria-label="打开或关闭完整歌词界面" onClick={onToggleFullscreenLyrics}>
         <img src={trackArtwork(track, albums)} alt="" />
         <div>
           <strong>{track.title}</strong>
           <span>{track.artist}</span>
         </div>
-      </div>
+      </button>
       <div className="mini-controls">
         <button type="button" aria-label="上一首">
           <SkipBack size={19} fill="currentColor" />

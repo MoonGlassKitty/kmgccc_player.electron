@@ -25,12 +25,21 @@ const albumArtwork =
 const altArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e9/c4/38/e9c43893-e743-269a-6a47-c11120717177/artwork.jpg/600x600bb.jpg'
 
+const demoSyncedLyrics = [
+  '[00:00.00]歌词预览已准备',
+  '[00:06.00]导入单曲后会自动同步真实歌词',
+  '[00:12.00]当前播放行会停在视觉中心',
+  '[00:18.00]点击带时间轴的行可以跳转播放',
+  '[00:24.00]右侧侧栏和完整界面共用同一套时间轴',
+  '[00:30.00]后续可以替换为 AMLL 渲染组件'
+].join('\n')
+
 const demoTracks = [
   { id: 'renascence', title: '!renascence!', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 113 },
   { id: 'basin', title: 'Basin', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 320 },
   { id: 'bones', title: 'Bones', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 232 },
   { id: 'float', title: 'Float', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 270 },
-  { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241 },
+  { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241, syncedLyrics: demoSyncedLyrics },
   { id: 'udong', title: '乌东', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', album: '乌东', albumId: 'album-udong', duration: 163 }
 ]
 
