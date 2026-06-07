@@ -222,6 +222,176 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
   } as React.CSSProperties
 }
 
+type RgbColor = {
+  r: number
+  g: number
+  b: number
+}
+
+type HslColor = {
+  h: number
+  s: number
+  l: number
+}
+
+const artworkThemeCache = new Map<string, React.CSSProperties>()
+
+function rgbToHsl({ r, g, b }: RgbColor): HslColor {
+  const red = r / 255
+  const green = g / 255
+  const blue = b / 255
+  const max = Math.max(red, green, blue)
+  const min = Math.min(red, green, blue)
+  const lightness = (max + min) / 2
+
+  if (max === min) {
+    return { h: 0, s: 0, l: lightness }
+  }
+
+  const delta = max - min
+  const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min)
+  let hue = 0
+  if (max === red) hue = (green - blue) / delta + (green < blue ? 6 : 0)
+  if (max === green) hue = (blue - red) / delta + 2
+  if (max === blue) hue = (red - green) / delta + 4
+  return { h: hue * 60, s: saturation, l: lightness }
+}
+
+function hslToRgb({ h, s, l }: HslColor): RgbColor {
+  const chroma = (1 - Math.abs(2 * l - 1)) * s
+  const hue = h / 60
+  const x = chroma * (1 - Math.abs((hue % 2) - 1))
+  const match = l - chroma / 2
+  let red = 0
+  let green = 0
+  let blue = 0
+
+  if (hue >= 0 && hue < 1) [red, green, blue] = [chroma, x, 0]
+  else if (hue < 2) [red, green, blue] = [x, chroma, 0]
+  else if (hue < 3) [red, green, blue] = [0, chroma, x]
+  else if (hue < 4) [red, green, blue] = [0, x, chroma]
+  else if (hue < 5) [red, green, blue] = [x, 0, chroma]
+  else [red, green, blue] = [chroma, 0, x]
+
+  return {
+    r: Math.round((red + match) * 255),
+    g: Math.round((green + match) * 255),
+    b: Math.round((blue + match) * 255)
+  }
+}
+
+function boostThemeColor(color: RgbColor): RgbColor {
+  const hsl = rgbToHsl(color)
+  return hslToRgb({
+    h: hsl.h,
+    s: clampNumber(hsl.s * 1.28 + 0.08, 0, 0.86),
+    l: clampNumber(hsl.l * 0.94 + 0.05, 0.22, 0.72)
+  })
+}
+
+function rgbaString(color: RgbColor, alpha: number): string {
+  return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`
+}
+
+function hexString(color: RgbColor): string {
+  const channel = (value: number): string => value.toString(16).padStart(2, '0')
+  return `#${channel(color.r)}${channel(color.g)}${channel(color.b)}`
+}
+
+function colorDistance(first: RgbColor, second: RgbColor): number {
+  return Math.hypot(first.r - second.r, first.g - second.g, first.b - second.b)
+}
+
+function hueDistance(first: RgbColor, second: RgbColor): number {
+  const a = rgbToHsl(first).h
+  const b = rgbToHsl(second).h
+  const delta = Math.abs(a - b)
+  return Math.min(delta, 360 - delta)
+}
+
+function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+    image.decoding = 'async'
+    image.onload = () => resolve(image)
+    image.onerror = reject
+    image.src = src
+  })
+}
+
+async function extractArtworkThemeColors(artworkUrl: string): Promise<RgbColor[]> {
+  const image = await loadImageElement(artworkUrl)
+  const canvas = document.createElement('canvas')
+  const side = 72
+  canvas.width = side
+  canvas.height = side
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  if (!context) return []
+  context.drawImage(image, 0, 0, side, side)
+
+  const buckets = new Map<string, { color: RgbColor; count: number; score: number }>()
+  const pixels = context.getImageData(0, 0, side, side).data
+  for (let index = 0; index < pixels.length; index += 16) {
+    const alpha = pixels[index + 3]
+    if (alpha < 160) continue
+    const r = pixels[index]
+    const g = pixels[index + 1]
+    const b = pixels[index + 2]
+    const hsl = rgbToHsl({ r, g, b })
+    if (hsl.l > 0.96 && hsl.s < 0.12) continue
+    if (hsl.l < 0.06) continue
+    if (hsl.s < 0.28) continue
+
+    const key = `${r >> 4}-${g >> 4}-${b >> 4}`
+    const color = {
+      r: (r >> 4) * 16 + 8,
+      g: (g >> 4) * 16 + 8,
+      b: (b >> 4) * 16 + 8
+    }
+    const existing = buckets.get(key)
+    const chroma = Math.max(r, g, b) - Math.min(r, g, b)
+    const score = (0.55 + hsl.s * 1.45) * (0.72 + Math.min(1, chroma / 96))
+    if (existing) {
+      existing.count += 1
+      existing.score += score
+    } else {
+      buckets.set(key, { color, count: 1, score })
+    }
+  }
+
+  const ranked = Array.from(buckets.values()).sort((a, b) => b.score * Math.sqrt(b.count) - a.score * Math.sqrt(a.count))
+  const picked: RgbColor[] = []
+  for (const entry of ranked) {
+    const color = boostThemeColor(entry.color)
+    if (rgbToHsl(color).s < 0.36) continue
+    if (picked.every((item) => colorDistance(item, color) > 46 || hueDistance(item, color) > 24)) {
+      picked.push(color)
+    }
+    if (picked.length >= 3) break
+  }
+
+  return picked
+}
+
+function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSProperties): React.CSSProperties {
+  const first = colors[0]
+  const second = colors[1] ?? colors[0]
+  const third = colors[2] ?? colors[1] ?? colors[0]
+  if (!first || !second || !third) return fallback
+
+  return {
+    ...fallback,
+    '--cover-accent': rgbaString(first, 0.42),
+    '--cover-accent-border': rgbaString(first, 0.28),
+    '--cover-accent-text': hexString(boostThemeColor(first)),
+    '--cover-accent-shadow': rgbaString(first, 0.1),
+    '--ambient-shape-1': rgbaString(first, 0.54),
+    '--ambient-shape-2': rgbaString(second, 0.5),
+    '--ambient-shape-3': rgbaString(third, 0.48)
+  } as React.CSSProperties
+}
+
 type AmbientSizeTier = 'small' | 'medium' | 'large' | 'ultra'
 type AmbientSide = 'left' | 'right'
 
@@ -265,10 +435,7 @@ const ambientShapeAssets: AmbientShapeAsset[] = [
 const ambientShapeColors = [
   'var(--ambient-shape-1)',
   'var(--ambient-shape-2)',
-  'var(--ambient-shape-3)',
-  'rgba(175, 224, 213, 0.36)',
-  'rgba(189, 196, 229, 0.32)',
-  'rgba(205, 220, 190, 0.34)'
+  'var(--ambient-shape-3)'
 ]
 
 function clampNumber(value: number, min: number, max: number): number {
@@ -868,7 +1035,36 @@ function App(): React.ReactElement {
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
     [currentId, homeSnapshot]
   )
-  const coverThemeStyle = React.useMemo(() => coverThemeFor(currentTrack, albums), [albums, currentTrack])
+  const fallbackCoverThemeStyle = React.useMemo(() => coverThemeFor(currentTrack, albums), [albums, currentTrack])
+  const currentArtworkUrl = React.useMemo(() => currentTrack ? trackArtwork(currentTrack, albums) : '', [albums, currentTrack])
+  const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
+
+  React.useEffect(() => {
+    let cancelled = false
+    setCoverThemeStyle(fallbackCoverThemeStyle)
+    if (!currentTrack || !currentArtworkUrl) return
+
+    const cached = artworkThemeCache.get(currentArtworkUrl)
+    if (cached) {
+      setCoverThemeStyle(cached)
+      return
+    }
+
+    extractArtworkThemeColors(currentArtworkUrl)
+      .then((colors) => {
+        if (cancelled) return
+        const nextTheme = themeStyleFromExtractedColors(colors, fallbackCoverThemeStyle)
+        artworkThemeCache.set(currentArtworkUrl, nextTheme)
+        setCoverThemeStyle(nextTheme)
+      })
+      .catch(() => {
+        if (!cancelled) setCoverThemeStyle(fallbackCoverThemeStyle)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentArtworkUrl, currentTrack, fallbackCoverThemeStyle])
 
   React.useEffect(() => {
     let cancelled = false
