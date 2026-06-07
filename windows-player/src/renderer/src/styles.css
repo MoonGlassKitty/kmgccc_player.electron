@@ -1919,14 +1919,14 @@ input {
 
 .mini-player {
   position: absolute;
-  right: 24px;
   bottom: 16px;
-  left: 24px;
+  left: 50%;
   z-index: 12;
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) 118px 50px clamp(120px, 12vw, 190px);
+  grid-template-columns: minmax(150px, 220px) 118px 50px 148px;
   align-items: center;
   gap: 14px;
+  width: min(780px, calc(100% - 48px));
   height: 54px;
   padding: 7px 20px;
   border-radius: 27px;
@@ -1940,6 +1940,7 @@ input {
     transform 220ms ease,
     background-color 140ms ease,
     box-shadow 140ms ease;
+  transform: translateX(-50%);
 }
 
 .mini-progress-rail {
@@ -2014,14 +2015,14 @@ input {
   z-index: 56;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(24px);
+  transform: translate(-50%, 24px);
 }
 
 .fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-player,
 .fullscreen-lyrics-open .mini-player:hover {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
+  transform: translate(-50%, 0);
 }
 
 .mini-track img {
@@ -2078,6 +2079,14 @@ input {
     0 1px 4px rgba(31, 132, 174, 0.055);
 }
 
+.mode-button.active {
+  color: #0b6f98;
+  background: rgba(69, 174, 214, 0.42);
+  box-shadow:
+    0 0 0 1px rgba(27, 118, 158, 0.18) inset,
+    0 2px 7px rgba(20, 97, 130, 0.09);
+}
+
 .mini-timeline {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -2093,6 +2102,7 @@ input {
 }
 
 .volume-track {
+  position: relative;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
@@ -2105,12 +2115,17 @@ input {
   position: relative;
   min-width: 0;
   height: 4px;
-  background: linear-gradient(90deg, rgba(43, 143, 184, 0.28) 0 72%, rgba(31, 64, 82, 0.06) 72%);
+  background:
+    linear-gradient(
+      90deg,
+      rgba(43, 143, 184, 0.28) 0 var(--volume-progress, 72%),
+      rgba(31, 64, 82, 0.06) var(--volume-progress, 72%)
+    );
 }
 
 .volume-bar span {
   display: block;
-  width: 72%;
+  width: var(--volume-progress, 72%);
   height: 100%;
   background: transparent;
 }
@@ -2118,13 +2133,23 @@ input {
 .volume-bar i {
   position: absolute;
   top: 50%;
-  left: 72%;
+  left: var(--volume-progress, 72%);
   width: 14px;
   height: 14px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   transform: translate(-50%, -50%);
+}
+
+.volume-track input {
+  position: absolute;
+  inset: -9px 0 -9px 26px;
+  width: calc(100% - 26px);
+  height: 22px;
+  margin: 0;
+  cursor: pointer;
+  opacity: 0;
 }
 
 .lyrics-pane {
@@ -2288,7 +2313,8 @@ input {
   }
 
   .mini-player {
-    grid-template-columns: minmax(120px, 1fr) 104px 44px;
+    grid-template-columns: minmax(110px, 1fr) 104px 44px;
+    width: min(560px, calc(100% - 36px));
   }
 
   .mini-timeline {

@@ -26,6 +26,7 @@ import {
   Sun,
   UserRound,
   Volume2,
+  VolumeX,
   X
 } from 'lucide-react'
 import { LiquidGlassFilters } from './LiquidGlassFilter'
@@ -1027,6 +1028,8 @@ function App(): React.ReactElement {
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
   const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
   const [isPlaying, setIsPlaying] = React.useState(false)
+  const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(false)
+  const [volume, setVolume] = React.useState(0.72)
   const [playbackTime, setPlaybackTime] = React.useState(0)
   const [playbackDuration, setPlaybackDuration] = React.useState(0)
   const [importSyncState, setImportSyncState] = React.useState<ImportSyncState | null>(null)
@@ -1087,8 +1090,51 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const seekTo = React.useCallback((seconds: number) => {
+    const audio = audioRef.current
+    if (!audio || !Number.isFinite(seconds)) return
+    audio.currentTime = Math.max(0, seconds)
+    lastPlaybackTimeRef.current = audio.currentTime
+    setPlaybackTime(audio.currentTime)
+  }, [])
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
+  }, [])
+  const playTrackByIndex = React.useCallback((index: number) => {
+    const tracks = homeSnapshot.tracks
+    if (!tracks.length) return
+    const nextIndex = ((index % tracks.length) + tracks.length) % tracks.length
+    setCurrentId(tracks[nextIndex].id)
+    setPlaybackTime(0)
+    setPlaybackDuration(0)
+    setIsPlaying(true)
+  }, [homeSnapshot.tracks])
+  const playPreviousTrack = React.useCallback(() => {
+    const currentIndex = homeSnapshot.tracks.findIndex((track) => track.id === currentId)
+    if (currentIndex < 0) return
+    if (playbackTime > 3) {
+      seekTo(0)
+      return
+    }
+    playTrackByIndex(currentIndex - 1)
+  }, [currentId, homeSnapshot.tracks, playTrackByIndex, playbackTime, seekTo])
+  const playNextTrack = React.useCallback(() => {
+    const tracks = homeSnapshot.tracks
+    if (!tracks.length) return
+    const currentIndex = tracks.findIndex((track) => track.id === currentId)
+    if (isShuffleEnabled && tracks.length > 1) {
+      let nextIndex = Math.floor(Math.random() * tracks.length)
+      if (nextIndex === currentIndex) nextIndex = (nextIndex + 1) % tracks.length
+      playTrackByIndex(nextIndex)
+      return
+    }
+    playTrackByIndex(currentIndex >= 0 ? currentIndex + 1 : 0)
+  }, [currentId, homeSnapshot.tracks, isShuffleEnabled, playTrackByIndex])
+  const toggleShuffle = React.useCallback(() => {
+    setIsShuffleEnabled((value) => !value)
+  }, [])
+  const changeVolume = React.useCallback((nextVolume: number) => {
+    setVolume(clampNumber(nextVolume, 0, 1))
   }, [])
   const navigateHome = React.useCallback(() => {
     setRoute({ name: 'home' })
@@ -1248,14 +1294,6 @@ function App(): React.ReactElement {
     window.addEventListener('pointermove', handleMove)
     window.addEventListener('pointerup', handleUp)
   }, [lyricsSidebarWidth])
-  const seekTo = React.useCallback((seconds: number) => {
-    const audio = audioRef.current
-    if (!audio || !Number.isFinite(seconds)) return
-    audio.currentTime = Math.max(0, seconds)
-    lastPlaybackTimeRef.current = audio.currentTime
-    setPlaybackTime(audio.currentTime)
-  }, [])
-
   React.useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
@@ -1294,6 +1332,12 @@ function App(): React.ReactElement {
     }
   }, [currentTrack?.sourceUrl, isPlaying])
 
+  React.useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.volume = volume
+  }, [volume])
+
   const updateAudioMetadata = React.useCallback(() => {
     const audio = audioRef.current
     if (!audio || !currentTrack || !Number.isFinite(audio.duration)) return
@@ -1314,9 +1358,13 @@ function App(): React.ReactElement {
   }, [])
 
   const handleAudioEnded = React.useCallback(() => {
+    if (homeSnapshot.tracks.length > 1) {
+      playNextTrack()
+      return
+    }
     setIsPlaying(false)
     setPlaybackTime(0)
-  }, [])
+  }, [homeSnapshot.tracks.length, playNextTrack])
 
   return (
     <div className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''}`} style={coverThemeStyle}>
@@ -1370,9 +1418,15 @@ function App(): React.ReactElement {
                 track={currentTrack}
                 albums={albums}
                 isPlaying={isPlaying}
+                isShuffleEnabled={isShuffleEnabled}
+                volume={volume}
                 playbackTime={playbackTime}
                 playbackDuration={playbackDuration || currentTrack.duration}
                 onPlayPause={togglePlayback}
+                onPrevious={playPreviousTrack}
+                onNext={playNextTrack}
+                onToggleShuffle={toggleShuffle}
+                onVolumeChange={changeVolume}
                 onToggleFullscreenLyrics={toggleFullscreenLyrics}
                 onSeek={seekTo}
               />
@@ -2163,22 +2217,35 @@ const MiniPlayer = React.memo(function MiniPlayer({
   track,
   albums,
   isPlaying,
+  isShuffleEnabled,
+  volume,
   playbackTime,
   playbackDuration,
   onPlayPause,
+  onPrevious,
+  onNext,
+  onToggleShuffle,
+  onVolumeChange,
   onToggleFullscreenLyrics,
   onSeek
 }: {
   track: Track
   albums: Map<string, HomeAlbumCard>
   isPlaying: boolean
+  isShuffleEnabled: boolean
+  volume: number
   playbackTime: number
   playbackDuration: number
   onPlayPause: () => void
+  onPrevious: () => void
+  onNext: () => void
+  onToggleShuffle: () => void
+  onVolumeChange: (volume: number) => void
   onToggleFullscreenLyrics: () => void
   onSeek: (seconds: number) => void
 }): React.ReactElement {
   const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
+  const volumeProgress = Math.round(volume * 100)
 
   return (
     <div className="mini-player glass-panel no-drag" style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
@@ -2203,27 +2270,37 @@ const MiniPlayer = React.memo(function MiniPlayer({
         </div>
       </button>
       <div className="mini-controls">
-        <button type="button" aria-label="上一首">
+        <button type="button" aria-label="上一首" onClick={onPrevious}>
           <SkipBack size={19} fill="currentColor" />
         </button>
         <button type="button" aria-label="播放暂停" onClick={onPlayPause}>
           {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
         </button>
-        <button type="button" aria-label="下一首">
+        <button type="button" aria-label="下一首" onClick={onNext}>
           <SkipForward size={19} fill="currentColor" />
         </button>
       </div>
-      <button className="mode-button" type="button" aria-label="随机">
+      <button className={`mode-button ${isShuffleEnabled ? 'active' : ''}`} type="button" aria-pressed={isShuffleEnabled} aria-label="随机" onClick={onToggleShuffle}>
         <Shuffle size={18} />
       </button>
       <div className="mini-timeline">
-        <div className="volume-track">
-          <Volume2 size={16} />
+        <label className="volume-track" style={{ '--volume-progress': `${volumeProgress}%` } as React.CSSProperties}>
+          {volume <= 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
           <div className="volume-bar">
             <span />
             <i />
           </div>
-        </div>
+          <input
+            aria-label="音量"
+            max="1"
+            min="0"
+            step="0.01"
+            type="range"
+            value={volume}
+            onInput={(event) => onVolumeChange(Number(event.currentTarget.value))}
+            onChange={(event) => onVolumeChange(Number(event.currentTarget.value))}
+          />
+        </label>
       </div>
     </div>
   )
