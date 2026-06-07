@@ -13,6 +13,7 @@ type LiquidGlassFilterProps = {
   specularOpacity: number
   specularSaturation: number
   specularWidth?: number
+  includeSpecular?: boolean
   dpr?: number
 }
 
@@ -285,6 +286,7 @@ const LiquidGlassFilter = React.memo(function LiquidGlassFilter({
   specularOpacity,
   specularSaturation,
   specularWidth = 44,
+  includeSpecular = true,
   dpr = 1
 }: LiquidGlassFilterProps): React.ReactElement | null {
   const filterData = React.useMemo(
@@ -302,6 +304,7 @@ const LiquidGlassFilter = React.memo(function LiquidGlassFilter({
         specularOpacity,
         specularSaturation,
         specularWidth,
+        includeSpecular,
         dpr
       }),
     [
@@ -310,6 +313,7 @@ const LiquidGlassFilter = React.memo(function LiquidGlassFilter({
       dpr,
       glassThickness,
       height,
+      includeSpecular,
       id,
       radius,
       refractiveIndex,
@@ -326,7 +330,14 @@ const LiquidGlassFilter = React.memo(function LiquidGlassFilter({
   return (
     <svg className="liquid-glass-def" aria-hidden="true" focusable="false">
       <defs>
-        <filter id={id} colorInterpolationFilters="sRGB" x="-16%" y="-16%" width="132%" height="132%">
+        <filter
+          id={id}
+          colorInterpolationFilters="sRGB"
+          x="-16%"
+          y="-16%"
+          width="132%"
+          height="132%"
+        >
           <feGaussianBlur in="SourceGraphic" stdDeviation={blur} result="blurred_source" />
           <feImage
             href={filterData.displacementUrl}
@@ -345,22 +356,28 @@ const LiquidGlassFilter = React.memo(function LiquidGlassFilter({
             yChannelSelector="G"
             result="displaced"
           />
-          <feColorMatrix in="displaced" type="saturate" values={specularSaturation.toString()} result="saturated" />
-          <feImage
-            href={filterData.specularUrl}
-            x="0"
-            y="0"
-            width={width}
-            height={height}
-            preserveAspectRatio="none"
-            result="specular_layer"
-          />
-          <feComposite in="saturated" in2="specular_layer" operator="in" result="specular_saturated" />
-          <feComponentTransfer in="specular_layer" result="specular_faded">
-            <feFuncA type="linear" slope={specularOpacity.toString()} />
-          </feComponentTransfer>
-          <feBlend in="specular_saturated" in2="displaced" mode="normal" result="with_saturation" />
-          <feBlend in="specular_faded" in2="with_saturation" mode="normal" />
+          {includeSpecular ? (
+            <>
+              <feColorMatrix in="displaced" type="saturate" values={specularSaturation.toString()} result="saturated" />
+              <feImage
+                href={filterData.specularUrl}
+                x="0"
+                y="0"
+                width={width}
+                height={height}
+                preserveAspectRatio="none"
+                result="specular_layer"
+              />
+              <feComposite in="saturated" in2="specular_layer" operator="in" result="specular_saturated" />
+              <feComponentTransfer in="specular_layer" result="specular_faded">
+                <feFuncA type="linear" slope={specularOpacity.toString()} />
+              </feComponentTransfer>
+              <feBlend in="specular_saturated" in2="displaced" mode="normal" result="with_saturation" />
+              <feBlend in="specular_faded" in2="with_saturation" mode="normal" />
+            </>
+          ) : (
+            <feBlend in="displaced" in2="displaced" mode="normal" />
+          )}
         </filter>
       </defs>
     </svg>
@@ -400,6 +417,8 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
         specularOpacity={0.82}
         specularSaturation={8}
         specularWidth={56}
+        includeSpecular={false}
+        dpr={0.2}
       />
       <LiquidGlassFilter
         id="lg-mini"
