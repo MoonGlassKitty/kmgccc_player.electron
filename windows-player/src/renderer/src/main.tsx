@@ -207,9 +207,9 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
   const border = isAltArtwork ? 'rgba(92, 110, 75, 0.34)' : 'rgba(38, 137, 174, 0.24)'
   const text = isAltArtwork ? '#66754e' : '#1680ad'
   const shadow = isAltArtwork ? 'rgba(92, 110, 75, 0.11)' : 'rgba(15, 85, 120, 0.09)'
-  const ambient1 = isAltArtwork ? 'rgba(187, 202, 170, 0.36)' : 'rgba(168, 211, 236, 0.42)'
-  const ambient2 = isAltArtwork ? 'rgba(226, 190, 186, 0.31)' : 'rgba(236, 178, 190, 0.34)'
-  const ambient3 = isAltArtwork ? 'rgba(231, 222, 178, 0.32)' : 'rgba(236, 222, 174, 0.34)'
+  const ambient1 = isAltArtwork ? 'rgba(138, 176, 96, 0.5)' : 'rgba(66, 178, 235, 0.54)'
+  const ambient2 = isAltArtwork ? 'rgba(224, 132, 142, 0.42)' : 'rgba(238, 106, 142, 0.45)'
+  const ambient3 = isAltArtwork ? 'rgba(218, 188, 72, 0.42)' : 'rgba(232, 197, 70, 0.42)'
 
   return {
     '--cover-accent': accent,
@@ -368,8 +368,18 @@ function makeAmbientSeed(): number {
 
 function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
   const random = makeAmbientRandom(seed)
-  const count = 16
-  const visibleCount = 8
+  const largeCount = random() < 0.55 ? 2 : 3
+  const mediumCount = random() < 0.5 ? 3 : 4
+  let smallCount = random() < 0.5 ? 2 : 3
+  if (largeCount + mediumCount + smallCount < 8) smallCount += 1
+  if (largeCount + mediumCount + smallCount > 10) smallCount -= 1
+  const tiers: AmbientSizeTier[] = [
+    ...Array.from({ length: largeCount }, () => 'large' as const),
+    ...Array.from({ length: mediumCount }, () => 'medium' as const),
+    ...Array.from({ length: smallCount }, () => 'small' as const)
+  ]
+  const count = tiers.length
+  const visibleCount = 3
   let previousAsset: AmbientShapeAsset | null = null
   const featuredAssets = ambientShapeAssets.filter((asset) => asset.kind !== 'normal')
 
@@ -379,45 +389,34 @@ function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
       return {
         asset: ambientPick(featuredAssets, random),
         side: 'left',
-        tier: 'ultra',
-        baseYViewport: ambientRange(random, 0.18, 0.48),
-        nominalSide: ambientRange(random, 560, 760),
+        tier: 'large',
+        baseYViewport: ambientRange(random, 0.2, 0.48),
+        nominalSide: ambientRange(random, 470, 640),
         boundaryOffset: ambientRange(random, -250, -80),
         color: ambientShapeColors[0],
-        opacity: ambientRange(random, 0.38, 0.48)
+        opacity: ambientRange(random, 0.46, 0.58)
       }
     case 1:
       return {
         asset: ambientPick(featuredAssets, random),
         side: 'right',
         tier: 'large',
-        baseYViewport: ambientRange(random, 0.48, 0.78),
-        nominalSide: ambientRange(random, 420, 620),
+        baseYViewport: ambientRange(random, 0.5, 0.82),
+        nominalSide: ambientRange(random, 430, 620),
         boundaryOffset: ambientRange(random, -230, -70),
         color: ambientShapeColors[1],
         opacity: ambientRange(random, 0.46, 0.58)
       }
     case 2:
       return {
-        asset: ambientPick(featuredAssets, random),
-        side: 'left',
-        tier: 'large',
-        baseYViewport: ambientRange(random, 0.98, 1.2),
-        nominalSide: ambientRange(random, 340, 520),
-        boundaryOffset: ambientRange(random, -90, 120),
+        asset: ambientPick(ambientShapeAssets, random),
+        side: random() < 0.5 ? 'left' : 'right',
+        tier: 'medium',
+        baseYViewport: ambientRange(random, 0.86, 1.14),
+        nominalSide: ambientRange(random, 220, 360),
+        boundaryOffset: random() < 0.5 ? ambientRange(random, -80, 130) : ambientRange(random, -180, -40),
         color: ambientShapeColors[2],
-        opacity: ambientRange(random, 0.38, 0.5)
-      }
-    case 3:
-      return {
-        asset: ambientPick(featuredAssets, random),
-        side: 'right',
-        tier: 'large',
-        baseYViewport: ambientRange(random, 1.3, 1.52),
-        nominalSide: ambientRange(random, 320, 500),
-        boundaryOffset: ambientRange(random, -260, -60),
-        color: ambientShapeColors[0],
-        opacity: ambientRange(random, 0.44, 0.56)
+        opacity: ambientRange(random, 0.48, 0.6)
       }
     default:
       return null
@@ -426,19 +425,16 @@ function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
 
   return Array.from({ length: count }, (_entry, index) => {
     const anchored = edgeSlot(index)
-    const forceUltra = index === 6
-    const pool = forceUltra
-      ? ambientShapeAssets.filter((asset) => asset.kind === 'ultra')
-      : ambientShapeAssets.filter((asset) => asset !== previousAsset)
+    const pool = (index < largeCount ? featuredAssets : ambientShapeAssets).filter((asset) => asset !== previousAsset)
     const asset = anchored?.asset ?? ambientPick(pool.length ? pool : ambientShapeAssets, random)
     previousAsset = asset
-    const tier = anchored?.tier ?? ambientTierFor(asset, random)
+    const tier = anchored?.tier ?? tiers[index]
     const side = anchored?.side ?? ambientSideFor(index, random)
     const visible = index < visibleCount
-    const visibleBand = (index - 4) / Math.max(1, visibleCount - 4)
+    const laterBand = (index - visibleCount) / Math.max(1, count - visibleCount)
     const baseYViewport = anchored?.baseYViewport ?? (visible
-      ? clampNumber(-0.12 + visibleBand * 1.48 + ambientRange(random, -0.1, 0.1), -0.16, 1.42)
-      : ambientRange(random, 1.48, 2.24))
+      ? ambientRange(random, 0.2, 1.14)
+      : clampNumber(1.22 + laterBand * 1.16 + ambientRange(random, -0.08, 0.12), 1.2, 2.38))
     const isUltra = tier === 'ultra'
     const boundaryOffset = anchored?.boundaryOffset ?? (side === 'left'
       ? ambientRange(random, isUltra ? -460 : -220, isUltra ? -90 : 170)
@@ -458,7 +454,7 @@ function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
       parallax: ambientParallax(tier, random),
       rotationPerPoint: ambientRotationPerPoint(tier, random),
       rotationClamp: ambientRotationClamp(tier),
-      opacity: anchored?.opacity ?? (tier === 'ultra' ? 0.46 : tier === 'large' ? 0.48 : 0.5)
+      opacity: anchored?.opacity ?? (tier === 'ultra' ? 0.5 : tier === 'large' ? 0.52 : tier === 'medium' ? 0.5 : 0.46)
     }
   })
 }
