@@ -62,11 +62,79 @@ type LocalAudioImport = {
   duration: number
   sourcePath: string
   sourceUrl: string
+  artworkUrl?: string
+  lyricsText?: string
+  syncedLyrics?: string
+  metadataSource?: string
+}
+
+type TrackMetadataSyncResult = {
+  track: LocalAudioImport
+  album: {
+    id: string
+    title: string
+    artist: string
+    artistId: string
+    artworkUrl?: string
+  }
+  statuses: {
+    track: 'completed' | 'noResults' | 'failed'
+    lyrics: 'completed' | 'noResults' | 'failed'
+    album: 'completed' | 'noResults' | 'failed'
+  }
+}
+
+type ItunesSearchResult = {
+  trackName?: string
+  artistName?: string
+  collectionName?: string
+  artworkUrl100?: string
+  trackTimeMillis?: number
+}
+
+type LrcLibResult = {
+  trackName?: string
+  artistName?: string
+  albumName?: string
+  plainLyrics?: string | null
+  syncedLyrics?: string | null
 }
 
 function mediaUrlForPath(audioPath: string): string {
   const encodedPath = Buffer.from(audioPath, 'utf8').toString('base64url')
   return `kmgccc-media://audio/${encodedPath}`
+}
+
+function dataUrlForImage(data: Uint8Array, mimeType = 'image/jpeg'): string {
+  return `data:${mimeType};base64,${Buffer.from(data).toString('base64')}`
+}
+
+function normalizedSlug(value: string, fallback: string): string {
+  const normalized = value
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return normalized || fallback
+}
+
+function idsForMetadata(artist: string, album: string): { artistId: string; albumId: string } {
+  const artistSlug = normalizedSlug(artist, 'unknown-artist')
+  const albumSlug = normalizedSlug(`${artist}-${album}`, 'unknown-album')
+  return {
+    artistId: `artist-${artistSlug}`,
+    albumId: `album-${albumSlug}`
+  }
+}
+
+function parseTitleArtistFromFilename(audioPath: string): { title: string; artist: string } {
+  const baseName = basename(audioPath, extname(audioPath)).trim()
+  const [first, second] = baseName.split(/\s+-\s+/).map((part) => part.trim())
+  if (first && second) {
+    return { title: first, artist: second }
+  }
+  return { title: baseName || '未命名单曲', artist: '未知艺人' }
 }
 
 function installLocalMediaProtocol(): void {
@@ -87,21 +155,189 @@ function installLocalMediaProtocol(): void {
   })
 }
 
-function localAudioImportFromPath(audioPath: string): LocalAudioImport {
+async function localAudioImportFromPath(audioPath: string): Promise<LocalAudioImport> {
   const extension = extname(audioPath)
-  const title = basename(audioPath, extension) || '未命名单曲'
+  const filenameMetadata = parseTitleArtistFromFilename(audioPath)
   const stableId = Buffer.from(audioPath, 'utf8').toString('base64url').slice(0, 24)
+  let title = filenameMetadata.title
+  let artist = filenameMetadata.artist
+  let album = '未知专辑'
+  let duration = 0
+  let artworkUrl: string | undefined
+
+  try {
+    const { parseFile, selectCover } = await import('music-metadata')
+    const metadata = await parseFile(audioPath)
+    title = metadata.common.title?.trim() || title
+    artist = metadata.common.artist?.trim() || artist
+    album = metadata.common.album?.trim() || album
+    duration = metadata.format.duration ? Math.round(metadata.format.duration) : 0
+    const picture = selectCover(metadata.common.picture)
+    if (picture) {
+      artworkUrl = dataUrlForImage(picture.data, picture.format)
+    }
+  } catch {
+    // Audio tag parsing is best-effort; Chromium playback remains the source of truth for duration.
+  }
+
+  const ids = idsForMetadata(artist, album)
 
   return {
     id: `local-track-${stableId}`,
     title,
-    artist: '未知艺人',
-    artistId: 'artist-local-unknown',
-    album: '未知专辑',
-    albumId: 'album-local-unknown',
-    duration: 0,
+    artist,
+    artistId: ids.artistId,
+    album,
+    albumId: ids.albumId,
+    duration,
     sourcePath: audioPath,
-    sourceUrl: mediaUrlForPath(audioPath)
+    sourceUrl: mediaUrlForPath(audioPath),
+    artworkUrl
+  }
+}
+
+function isUnknown(value: string): boolean {
+  return /^未知/.test(value.trim())
+}
+
+function upgradeArtworkUrl(rawUrl?: string): string | undefined {
+  if (!rawUrl) return undefined
+  return rawUrl.replace(/\/\d+x\d+bb\./, '/1000x1000bb.')
+}
+
+function scoreItunesCandidate(track: LocalAudioImport, candidate: ItunesSearchResult): number {
+  const title = track.title.toLowerCase()
+  const artist = track.artist.toLowerCase()
+  const album = track.album.toLowerCase()
+  let score = 0
+
+  if (candidate.trackName?.toLowerCase() === title) score += 5
+  else if (candidate.trackName?.toLowerCase().includes(title) || title.includes(candidate.trackName?.toLowerCase() ?? '')) score += 2
+
+  if (!isUnknown(track.artist)) {
+    if (candidate.artistName?.toLowerCase() === artist) score += 4
+    else if (candidate.artistName?.toLowerCase().includes(artist) || artist.includes(candidate.artistName?.toLowerCase() ?? '')) score += 2
+  }
+
+  if (!isUnknown(track.album)) {
+    if (candidate.collectionName?.toLowerCase() === album) score += 3
+    else if (candidate.collectionName?.toLowerCase().includes(album) || album.includes(candidate.collectionName?.toLowerCase() ?? '')) score += 1
+  }
+
+  if (track.duration > 0 && candidate.trackTimeMillis) {
+    const delta = Math.abs(track.duration - Math.round(candidate.trackTimeMillis / 1000))
+    if (delta <= 3) score += 3
+    else if (delta <= 12) score += 1
+  }
+
+  return score
+}
+
+async function fetchItunesMetadata(track: LocalAudioImport): Promise<ItunesSearchResult | null> {
+  const queryParts = [track.title, isUnknown(track.artist) ? '' : track.artist, isUnknown(track.album) ? '' : track.album]
+  const term = queryParts.join(' ').trim()
+  if (!term) return null
+
+  const url = new URL('https://itunes.apple.com/search')
+  url.searchParams.set('term', term)
+  url.searchParams.set('media', 'music')
+  url.searchParams.set('entity', 'song')
+  url.searchParams.set('limit', '10')
+
+  const response = await fetch(url, { signal: AbortSignal.timeout(12000) })
+  if (!response.ok) return null
+  const payload = (await response.json()) as { results?: ItunesSearchResult[] }
+  const candidates = payload.results ?? []
+  if (!candidates.length) return null
+  return candidates
+    .map((candidate) => ({ candidate, score: scoreItunesCandidate(track, candidate) }))
+    .sort((a, b) => b.score - a.score)[0]?.candidate ?? null
+}
+
+function scoreLyricsCandidate(track: LocalAudioImport, candidate: LrcLibResult): number {
+  let score = 0
+  if (candidate.trackName?.toLowerCase() === track.title.toLowerCase()) score += 4
+  if (!isUnknown(track.artist) && candidate.artistName?.toLowerCase().includes(track.artist.toLowerCase())) score += 3
+  if (!isUnknown(track.album) && candidate.albumName?.toLowerCase() === track.album.toLowerCase()) score += 2
+  if (candidate.syncedLyrics) score += 1
+  return score
+}
+
+async function fetchLyrics(track: LocalAudioImport): Promise<Pick<LocalAudioImport, 'lyricsText' | 'syncedLyrics'> | null> {
+  const url = new URL('https://lrclib.net/api/search')
+  url.searchParams.set('track_name', track.title)
+  if (!isUnknown(track.artist)) url.searchParams.set('artist_name', track.artist)
+  if (!isUnknown(track.album)) url.searchParams.set('album_name', track.album)
+
+  const response = await fetch(url, {
+    headers: { 'User-Agent': 'kmgccc-player-electron/0.1.0' },
+    signal: AbortSignal.timeout(12000)
+  })
+  if (!response.ok) return null
+  const candidates = (await response.json()) as LrcLibResult[]
+  const selected = candidates
+    .filter((candidate) => candidate.plainLyrics || candidate.syncedLyrics)
+    .map((candidate) => ({ candidate, score: scoreLyricsCandidate(track, candidate) }))
+    .sort((a, b) => b.score - a.score)[0]?.candidate
+
+  if (!selected) return null
+  return {
+    lyricsText: selected.plainLyrics ?? undefined,
+    syncedLyrics: selected.syncedLyrics ?? undefined
+  }
+}
+
+async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSyncResult> {
+  let syncedTrack = { ...track }
+  const statuses: TrackMetadataSyncResult['statuses'] = {
+    track: 'noResults',
+    lyrics: 'noResults',
+    album: 'noResults'
+  }
+
+  try {
+    const metadata = await fetchItunesMetadata(syncedTrack)
+    if (metadata) {
+      syncedTrack = {
+        ...syncedTrack,
+        title: metadata.trackName?.trim() || syncedTrack.title,
+        artist: metadata.artistName?.trim() || syncedTrack.artist,
+        album: metadata.collectionName?.trim() || syncedTrack.album,
+        duration: metadata.trackTimeMillis ? Math.round(metadata.trackTimeMillis / 1000) : syncedTrack.duration,
+        artworkUrl: upgradeArtworkUrl(metadata.artworkUrl100) || syncedTrack.artworkUrl,
+        metadataSource: 'itunes'
+      }
+      const ids = idsForMetadata(syncedTrack.artist, syncedTrack.album)
+      syncedTrack.artistId = ids.artistId
+      syncedTrack.albumId = ids.albumId
+      statuses.track = 'completed'
+      statuses.album = syncedTrack.artworkUrl ? 'completed' : 'noResults'
+    }
+  } catch {
+    statuses.track = 'failed'
+    statuses.album = 'failed'
+  }
+
+  try {
+    const lyrics = await fetchLyrics(syncedTrack)
+    if (lyrics) {
+      syncedTrack = { ...syncedTrack, ...lyrics }
+      statuses.lyrics = 'completed'
+    }
+  } catch {
+    statuses.lyrics = 'failed'
+  }
+
+  return {
+    track: syncedTrack,
+    album: {
+      id: syncedTrack.albumId,
+      title: syncedTrack.album,
+      artist: syncedTrack.artist,
+      artistId: syncedTrack.artistId,
+      artworkUrl: syncedTrack.artworkUrl
+    },
+    statuses
   }
 }
 
@@ -333,3 +569,4 @@ ipcMain.handle('library:import-audio-file', async (event): Promise<LocalAudioImp
   if (result.canceled || !result.filePaths[0]) return null
   return localAudioImportFromPath(result.filePaths[0])
 })
+ipcMain.handle('library:sync-track-info', (_event, track: LocalAudioImport): Promise<TrackMetadataSyncResult> => syncTrackInfo(track))

@@ -40,6 +40,21 @@ type Track = {
   albumId: string
   duration: number
   artworkUrl?: string
+  sourcePath?: string
+  sourceUrl?: string
+  lyricsText?: string
+  syncedLyrics?: string
+  metadataSource?: string
+}
+
+type ImportSyncState = {
+  title: string
+  artist: string
+  detail: string
+  status: 'running' | 'completed' | 'failed'
+  progress: number
+  processedCount: number
+  totalCount: number
 }
 
 const albumArtwork =
@@ -210,6 +225,61 @@ function snapshotWithImportedTrack(snapshot: HomeSnapshot, importedTrack: LocalA
   }
 }
 
+function snapshotWithSyncedTrack(snapshot: HomeSnapshot, result: TrackMetadataSyncResult): HomeSnapshot {
+  const syncedTrack = result.track
+  const tracks = snapshot.tracks.map((track) => (track.id === syncedTrack.id ? { ...track, ...syncedTrack } : track))
+  const hasTrack = tracks.some((track) => track.id === syncedTrack.id)
+  const nextTracks = hasTrack ? tracks : [syncedTrack, ...tracks]
+  const albumTrackCount = nextTracks.filter((track) => track.albumId === syncedTrack.albumId).length
+  const nextAlbum = {
+    id: result.album.id,
+    title: result.album.title,
+    artist: result.album.artist,
+    artistId: result.album.artistId,
+    artworkUrl: result.album.artworkUrl,
+    trackCount: albumTrackCount
+  }
+  const albums = snapshot.albums.some((album) => album.id === nextAlbum.id)
+    ? snapshot.albums.map((album) => (album.id === nextAlbum.id ? { ...album, ...nextAlbum } : album))
+    : [nextAlbum, ...snapshot.albums]
+  const artistTrackCount = nextTracks.filter((track) => track.artistId === syncedTrack.artistId).length
+  const artistAlbumCount = albums.filter((album) => album.artistId === syncedTrack.artistId).length
+  const artists = snapshot.artists.some((artist) => artist.id === syncedTrack.artistId)
+    ? snapshot.artists.map((artist) =>
+      artist.id === syncedTrack.artistId
+        ? { ...artist, name: syncedTrack.artist, artworkUrl: syncedTrack.artworkUrl || artist.artworkUrl, trackCount: artistTrackCount, albumCount: artistAlbumCount }
+        : artist
+    )
+    : [
+      {
+        id: syncedTrack.artistId,
+        name: syncedTrack.artist,
+        artworkUrl: syncedTrack.artworkUrl,
+        trackCount: artistTrackCount,
+        albumCount: artistAlbumCount
+      },
+      ...snapshot.artists
+    ]
+  const playlists = snapshot.playlists.map((playlist) =>
+    playlist.id === 'playlist-local-imports' && !playlist.trackIds.includes(syncedTrack.id)
+      ? { ...playlist, trackCount: playlist.trackCount + 1, trackIds: [syncedTrack.id, ...playlist.trackIds] }
+      : playlist
+  )
+
+  return {
+    ...snapshot,
+    heroTrack: snapshot.heroTrack?.id === syncedTrack.id ? { ...snapshot.heroTrack, ...syncedTrack } : snapshot.heroTrack,
+    tracks: nextTracks,
+    artists,
+    albums,
+    playlists,
+    stats: {
+      ...snapshot.stats,
+      totalTrackCount: nextTracks.length
+    }
+  }
+}
+
 function snapshotWithTrackDuration(snapshot: HomeSnapshot, trackId: string, duration: number): HomeSnapshot {
   const normalizedDuration = Math.max(0, Math.round(duration))
   return {
@@ -277,6 +347,7 @@ function App(): React.ReactElement {
   const [isPlaying, setIsPlaying] = React.useState(false)
   const [playbackTime, setPlaybackTime] = React.useState(0)
   const [playbackDuration, setPlaybackDuration] = React.useState(0)
+  const [importSyncState, setImportSyncState] = React.useState<ImportSyncState | null>(null)
   const audioRef = React.useRef<HTMLAudioElement>(null)
   const albums = React.useMemo(() => albumById(homeSnapshot), [homeSnapshot])
   const currentTrack = React.useMemo(
@@ -317,6 +388,44 @@ function App(): React.ReactElement {
     setPlaybackTime(0)
     setPlaybackDuration(0)
     setIsPlaying(true)
+
+    setImportSyncState({
+      title: importedTrack.title,
+      artist: importedTrack.artist,
+      detail: '正在补全歌词、歌曲信息、歌手信息、专辑信息',
+      status: 'running',
+      progress: 0.18,
+      processedCount: 0,
+      totalCount: 1
+    })
+
+    try {
+      const result = await window.kmgccc?.syncTrackInfo(importedTrack)
+      if (!result) throw new Error('sync unavailable')
+
+      setHomeSnapshot((snapshot) => snapshotWithSyncedTrack(snapshot, result))
+      setCurrentId(result.track.id)
+      setImportSyncState({
+        title: result.track.title,
+        artist: result.track.artist,
+        detail: result.statuses.lyrics === 'completed' ? '已补全歌曲信息、专辑信息与歌词' : '已补全可用的歌曲信息与专辑信息',
+        status: 'completed',
+        progress: 1,
+        processedCount: 1,
+        totalCount: 1
+      })
+      window.setTimeout(() => setImportSyncState(null), 1400)
+    } catch {
+      setImportSyncState({
+        title: importedTrack.title,
+        artist: importedTrack.artist,
+        detail: '补全失败，已保留本地导入信息',
+        status: 'failed',
+        progress: 1,
+        processedCount: 1,
+        totalCount: 1
+      })
+    }
   }, [])
   const toggleSidebar = React.useCallback(() => {
     setIsSidebarCollapsed((value) => !value)
@@ -421,6 +530,7 @@ function App(): React.ReactElement {
               onPlayPause={togglePlayback}
             />
           ) : null}
+          {importSyncState ? <ImportSyncCard state={importSyncState} onCancel={() => setImportSyncState(null)} /> : null}
         </main>
       </div>
     </div>
@@ -542,6 +652,48 @@ const WindowControls = React.memo(function WindowControls(): React.ReactElement 
       <button className="close" type="button" aria-label="关闭" onClick={() => window.kmgccc?.close()}>
         <X size={17} />
       </button>
+    </div>
+  )
+})
+
+const ImportSyncCard = React.memo(function ImportSyncCard({
+  state,
+  onCancel
+}: {
+  state: ImportSyncState
+  onCancel: () => void
+}): React.ReactElement {
+  const statusText = state.status === 'running' ? '进行中' : state.status === 'completed' ? '完成' : '失败'
+  return (
+    <div className="import-sync-backdrop no-drag">
+      <div className="import-sync-card glass-panel" style={{ '--filter-url': 'url(#lg-home-liquid)' } as React.CSSProperties}>
+        <div className="import-sync-head">
+          <h2>{state.status === 'running' ? '正在补全导入信息' : state.status === 'completed' ? '导入信息补全完成' : '导入信息补全失败'}</h2>
+          <span>
+            {state.processedCount}/{state.totalCount}
+          </span>
+        </div>
+        <div className="import-sync-progress" aria-hidden="true">
+          <span style={{ width: `${Math.round(state.progress * 100)}%` }} />
+        </div>
+        <p>{state.detail}</p>
+        <div className="import-sync-item">
+          <span className={`import-sync-spinner ${state.status}`} />
+          <div>
+            <strong>
+              {state.title}
+              {state.artist ? ` - ${state.artist}` : ''}
+            </strong>
+            <small>
+              补全信息 <b>{statusText}</b>
+            </small>
+            <em>{state.detail}</em>
+          </div>
+        </div>
+        <button type="button" onClick={onCancel}>
+          取消
+        </button>
+      </div>
     </div>
   )
 })

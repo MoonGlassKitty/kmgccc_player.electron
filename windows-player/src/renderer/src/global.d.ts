@@ -12,6 +12,9 @@ declare global {
     artworkUrl?: string
     sourcePath?: string
     sourceUrl?: string
+    lyricsText?: string
+    syncedLyrics?: string
+    metadataSource?: string
   }
 
   type HomeArtistCard = {
@@ -80,6 +83,22 @@ declare global {
     sourceUrl: string
   }
 
+  type TrackMetadataSyncResult = {
+    track: LocalAudioImport
+    album: {
+      id: string
+      title: string
+      artist: string
+      artistId: string
+      artworkUrl?: string
+    }
+    statuses: {
+      track: 'completed' | 'noResults' | 'failed'
+      lyrics: 'completed' | 'noResults' | 'failed'
+      album: 'completed' | 'noResults' | 'failed'
+    }
+  }
+
   interface Window {
     kmgccc?: {
       minimize: () => void
@@ -87,6 +106,7 @@ declare global {
       close: () => void
       getHomeSnapshot: () => Promise<HomeSnapshot>
       importAudioFile: () => Promise<LocalAudioImport | null>
+      syncTrackInfo: (track: LocalAudioImport) => Promise<TrackMetadataSyncResult>
       getWallpaperTint: () => Promise<WallpaperTint>
     }
   }

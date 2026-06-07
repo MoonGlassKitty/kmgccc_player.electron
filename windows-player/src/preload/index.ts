@@ -6,5 +6,6 @@ contextBridge.exposeInMainWorld('kmgccc', {
   close: () => ipcRenderer.send('window:close'),
   getHomeSnapshot: () => ipcRenderer.invoke('library:get-home-snapshot'),
   importAudioFile: () => ipcRenderer.invoke('library:import-audio-file'),
+  syncTrackInfo: (track: unknown) => ipcRenderer.invoke('library:sync-track-info', track),
   getWallpaperTint: () => ipcRenderer.invoke('system:get-wallpaper-tint')
 })

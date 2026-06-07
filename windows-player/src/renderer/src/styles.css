@@ -293,6 +293,162 @@ input {
   pointer-events: auto;
 }
 
+.import-sync-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  background: rgba(230, 237, 240, 0.34);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.import-sync-card {
+  display: grid;
+  width: min(860px, calc(100vw - 120px));
+  min-height: 480px;
+  padding: 30px 32px 26px;
+  border-radius: 30px;
+  --glass-alpha: 0.62;
+  --glass-shadow: rgba(18, 42, 58, 0.08);
+  color: #102c3a;
+}
+
+.import-sync-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.import-sync-head h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 880;
+  letter-spacing: 0;
+}
+
+.import-sync-head span {
+  color: rgba(13, 34, 44, 0.72);
+  font-size: 18px;
+  font-weight: 760;
+}
+
+.import-sync-progress {
+  height: 8px;
+  margin-top: 28px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(12, 38, 52, 0.12);
+}
+
+.import-sync-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #0a84ff;
+  transition: width 260ms ease;
+}
+
+.import-sync-card > p {
+  margin: 24px 0 34px;
+  color: rgba(16, 45, 62, 0.72);
+  font-size: 17px;
+  font-weight: 720;
+}
+
+.import-sync-item {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  min-height: 92px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.26);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+    0 4px 18px rgba(12, 33, 46, 0.035);
+}
+
+.import-sync-spinner {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(10, 132, 255, 0.22);
+  border-top-color: #0a84ff;
+  border-radius: 50%;
+  animation: import-spin 900ms linear infinite;
+}
+
+.import-sync-spinner.completed {
+  border-color: #36b66d;
+  animation: none;
+}
+
+.import-sync-spinner.failed {
+  border-color: #d85a5a;
+  animation: none;
+}
+
+.import-sync-item strong,
+.import-sync-item small,
+.import-sync-item em {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-sync-item strong {
+  font-size: 18px;
+  font-weight: 820;
+}
+
+.import-sync-item small {
+  margin-top: 5px;
+  color: rgba(8, 33, 46, 0.76);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.import-sync-item small b,
+.import-sync-item em {
+  color: #0a84ff;
+  font-style: normal;
+}
+
+.import-sync-item em {
+  margin-top: 5px;
+  font-size: 14px;
+  font-weight: 720;
+}
+
+.import-sync-card > button {
+  justify-self: end;
+  align-self: end;
+  min-width: 88px;
+  height: 44px;
+  margin-top: 34px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.64);
+  color: #071f2f;
+  font-size: 18px;
+  font-weight: 840;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.34) inset,
+    0 4px 14px rgba(12, 33, 46, 0.055);
+}
+
+@keyframes import-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .sidebar-source {
   display: grid;
   grid-template-columns: 1fr 1fr;

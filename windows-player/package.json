@@ -13,6 +13,7 @@
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
     "lucide-react": "^0.560.0",
+    "music-metadata": "^11.12.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },
