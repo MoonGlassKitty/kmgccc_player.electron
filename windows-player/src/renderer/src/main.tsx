@@ -368,8 +368,8 @@ function makeAmbientSeed(): number {
 
 function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
   const random = makeAmbientRandom(seed)
-  const count = 22
-  const visibleCount = 12
+  const count = 16
+  const visibleCount = 8
   let previousAsset: AmbientShapeAsset | null = null
   const featuredAssets = ambientShapeAssets.filter((asset) => asset.kind !== 'normal')
 
@@ -379,45 +379,45 @@ function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
       return {
         asset: ambientPick(featuredAssets, random),
         side: 'left',
-        tier: random() < 0.62 ? 'ultra' : 'large',
-        baseYViewport: ambientRange(random, 0.34, 0.86),
-        nominalSide: ambientRange(random, 620, 880),
-        boundaryOffset: ambientRange(random, -300, -70),
+        tier: 'ultra',
+        baseYViewport: ambientRange(random, 0.18, 0.48),
+        nominalSide: ambientRange(random, 560, 760),
+        boundaryOffset: ambientRange(random, -250, -80),
         color: ambientShapeColors[0],
-        opacity: ambientRange(random, 0.26, 0.34)
+        opacity: ambientRange(random, 0.38, 0.48)
       }
     case 1:
       return {
         asset: ambientPick(featuredAssets, random),
         side: 'right',
-        tier: random() < 0.42 ? 'ultra' : 'large',
-        baseYViewport: ambientRange(random, 0.28, 0.78),
-        nominalSide: ambientRange(random, 480, 760),
-        boundaryOffset: ambientRange(random, 70, 260),
+        tier: 'large',
+        baseYViewport: ambientRange(random, 0.48, 0.78),
+        nominalSide: ambientRange(random, 420, 620),
+        boundaryOffset: ambientRange(random, -230, -70),
         color: ambientShapeColors[1],
-        opacity: ambientRange(random, 0.28, 0.36)
+        opacity: ambientRange(random, 0.46, 0.58)
       }
     case 2:
       return {
         asset: ambientPick(featuredAssets, random),
         side: 'left',
         tier: 'large',
-        baseYViewport: ambientRange(random, 0.88, 1.34),
-        nominalSide: ambientRange(random, 380, 620),
-        boundaryOffset: ambientRange(random, -120, 120),
+        baseYViewport: ambientRange(random, 0.98, 1.2),
+        nominalSide: ambientRange(random, 340, 520),
+        boundaryOffset: ambientRange(random, -90, 120),
         color: ambientShapeColors[2],
-        opacity: ambientRange(random, 0.28, 0.36)
+        opacity: ambientRange(random, 0.38, 0.5)
       }
     case 3:
       return {
         asset: ambientPick(featuredAssets, random),
         side: 'right',
         tier: 'large',
-        baseYViewport: ambientRange(random, 0.92, 1.42),
-        nominalSide: ambientRange(random, 360, 620),
-        boundaryOffset: ambientRange(random, -120, 150),
+        baseYViewport: ambientRange(random, 1.3, 1.52),
+        nominalSide: ambientRange(random, 320, 500),
+        boundaryOffset: ambientRange(random, -260, -60),
         color: ambientShapeColors[0],
-        opacity: ambientRange(random, 0.28, 0.35)
+        opacity: ambientRange(random, 0.44, 0.56)
       }
     default:
       return null
@@ -435,13 +435,14 @@ function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
     const tier = anchored?.tier ?? ambientTierFor(asset, random)
     const side = anchored?.side ?? ambientSideFor(index, random)
     const visible = index < visibleCount
+    const visibleBand = (index - 4) / Math.max(1, visibleCount - 4)
     const baseYViewport = anchored?.baseYViewport ?? (visible
-      ? ambientRange(random, -0.18, 1.28)
-      : ambientRange(random, 0.92, 2.18))
+      ? clampNumber(-0.12 + visibleBand * 1.48 + ambientRange(random, -0.1, 0.1), -0.16, 1.42)
+      : ambientRange(random, 1.48, 2.24))
     const isUltra = tier === 'ultra'
     const boundaryOffset = anchored?.boundaryOffset ?? (side === 'left'
       ? ambientRange(random, isUltra ? -460 : -220, isUltra ? -90 : 170)
-      : ambientRange(random, isUltra ? 90 : -170, isUltra ? 460 : 220))
+      : ambientRange(random, isUltra ? -360 : -260, isUltra ? -90 : 120))
 
     return {
       id: index,
@@ -457,7 +458,7 @@ function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
       parallax: ambientParallax(tier, random),
       rotationPerPoint: ambientRotationPerPoint(tier, random),
       rotationClamp: ambientRotationClamp(tier),
-      opacity: anchored?.opacity ?? (tier === 'ultra' ? 0.28 : tier === 'large' ? 0.34 : 0.38)
+      opacity: anchored?.opacity ?? (tier === 'ultra' ? 0.46 : tier === 'large' ? 0.48 : 0.5)
     }
   })
 }
@@ -706,7 +707,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       const context = canvas.getContext('2d')
       if (!context) return
 
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const dpr = Math.min(window.devicePixelRatio || 1, 1)
       const pixelWidth = Math.max(1, Math.round(rootRect.width * dpr))
       const pixelHeight = Math.max(1, Math.round(rootRect.height * dpr))
       if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -752,10 +753,13 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
           : spec.baseRotation + clampNumber(scrollTop * spec.rotationPerPoint, -spec.rotationClamp, spec.rotationClamp)
         const image = tintedImage(spec.asset, resolveColor(spec.color))
         if (!image) continue
+        const drawX = baseX + scrollX
+        const drawY = baseY + scrollY
+        if (drawX < -side || drawX > rootRect.width + side || drawY < -side || drawY > rootRect.height + side) continue
 
         context.save()
         context.globalAlpha = spec.opacity
-        context.translate(baseX + scrollX, baseY + scrollY)
+        context.translate(drawX, drawY)
         context.rotate((rotation * Math.PI) / 180)
         context.drawImage(image, -side / 2, -side / 2, side, side)
         context.restore()
