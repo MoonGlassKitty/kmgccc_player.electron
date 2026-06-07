@@ -882,6 +882,8 @@ input {
   color: rgba(255, 255, 255, 0.94);
   background: #25333a;
   box-shadow: 0 10px 28px rgba(15, 38, 52, 0.08);
+  contain: layout paint style;
+  isolation: isolate;
 }
 
 .home-hero-bg {
@@ -893,6 +895,8 @@ input {
   opacity: 0.62;
   filter: blur(20px) saturate(112%);
   transform: scale(1.05);
+  backface-visibility: hidden;
+  pointer-events: none;
 }
 
 .home-hero::after {
@@ -919,6 +923,7 @@ input {
   overflow: hidden;
   border-radius: 18px;
   box-shadow: 0 18px 34px rgba(0, 0, 0, 0.18);
+  contain: paint;
 }
 
 .home-hero-cover img,
@@ -928,6 +933,7 @@ input {
   height: 100%;
   display: block;
   object-fit: cover;
+  contain: paint;
 }
 
 .home-hero-copy {
@@ -1127,6 +1133,28 @@ input {
     0 8px 20px var(--glass-shadow),
     0 2px 7px rgba(25, 58, 80, 0.022);
   transform: translateY(-4.5px);
+}
+
+.home-page.is-scrolling .home-liquid-card,
+.home-page.is-scrolling .home-liquid-card::before {
+  transition: none;
+}
+
+.home-page.is-scrolling .home-liquid-card:hover {
+  --glass-shadow: rgba(25, 58, 80, 0.07);
+  border-color: var(--glass-border);
+  background-color: rgba(255, 255, 255, var(--glass-alpha));
+  box-shadow:
+    0 14px 34px var(--glass-shadow),
+    0 3px 11px rgba(25, 58, 80, 0.034);
+  transform: none;
+}
+
+.home-page.is-scrolling .home-liquid-card:hover::before {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent 24%, transparent 80%, rgba(255, 255, 255, 0.12)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 38%);
+  opacity: 0.55;
 }
 
 .home-liquid-card:hover::before {
@@ -1840,7 +1868,8 @@ input {
   --glass-alpha: 0.7;
   --glass-shadow: rgba(12, 33, 48, 0.0525);
   overflow: visible;
-  contain: layout;
+  contain: layout style;
+  isolation: isolate;
   transition:
     opacity 220ms ease,
     transform 220ms ease,
@@ -1857,6 +1886,7 @@ input {
   z-index: 2;
   height: 12px;
   pointer-events: auto;
+  contain: layout paint style;
 }
 
 .mini-progress-base,

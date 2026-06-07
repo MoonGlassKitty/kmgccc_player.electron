@@ -114,12 +114,38 @@ function useElasticScroll<T extends HTMLElement>(): {
   scrollRef: React.RefObject<T | null>
   elasticOffset: number
   isSettling: boolean
+  isScrolling: boolean
   onWheel: (event: React.WheelEvent<T>) => void
+  onScroll: () => void
 } {
   const scrollRef = React.useRef<T>(null)
+  const scrollEndTimerRef = React.useRef<number | null>(null)
+  const scrollingRef = React.useRef(false)
+  const [isScrolling, setIsScrolling] = React.useState(false)
   const onWheel = React.useCallback((_event: React.WheelEvent<T>) => {}, [])
+  const onScroll = React.useCallback(() => {
+    if (!scrollingRef.current) {
+      scrollingRef.current = true
+      setIsScrolling(true)
+    }
 
-  return { scrollRef, elasticOffset: 0, isSettling: false, onWheel }
+    if (scrollEndTimerRef.current !== null) {
+      window.clearTimeout(scrollEndTimerRef.current)
+    }
+    scrollEndTimerRef.current = window.setTimeout(() => {
+      scrollingRef.current = false
+      scrollEndTimerRef.current = null
+      setIsScrolling(false)
+    }, 140)
+  }, [])
+
+  React.useEffect(() => () => {
+    if (scrollEndTimerRef.current !== null) {
+      window.clearTimeout(scrollEndTimerRef.current)
+    }
+  }, [])
+
+  return { scrollRef, elasticOffset: 0, isSettling: false, isScrolling, onWheel, onScroll }
 }
 
 type AppRoute =
@@ -857,6 +883,11 @@ const Toolbar = React.memo(function Toolbar({
   )
 })
 
+const HOME_ARTIST_PREVIEW_LIMIT = 8
+const HOME_ALBUM_PREVIEW_LIMIT = 8
+const HOME_PLAYLIST_PREVIEW_LIMIT = 4
+const HOME_RANKING_PREVIEW_LIMIT = 6
+
 const HomePage = React.memo(function HomePage({
   snapshot,
   albums,
@@ -870,9 +901,12 @@ const HomePage = React.memo(function HomePage({
 }): React.ReactElement {
   const homeScroll = useElasticScroll<HTMLElement>()
   const heroTrack = snapshot.heroTrack ?? snapshot.tracks[0] ?? null
+  const previewArtists = React.useMemo(() => snapshot.artists.slice(0, HOME_ARTIST_PREVIEW_LIMIT), [snapshot.artists])
+  const previewAlbums = React.useMemo(() => snapshot.albums.slice(0, HOME_ALBUM_PREVIEW_LIMIT), [snapshot.albums])
+  const previewPlaylists = React.useMemo(() => snapshot.playlists.slice(0, HOME_PLAYLIST_PREVIEW_LIMIT), [snapshot.playlists])
 
   return (
-    <section className="home-page" ref={homeScroll.scrollRef} onWheel={homeScroll.onWheel}>
+    <section className={`home-page ${homeScroll.isScrolling ? 'is-scrolling' : ''}`} ref={homeScroll.scrollRef} onWheel={homeScroll.onWheel} onScroll={homeScroll.onScroll}>
       <div
         className={`home-scroll-content ${homeScroll.elasticOffset !== 0 ? 'elastic-active' : ''} ${
           homeScroll.isSettling ? 'settling' : ''
@@ -883,7 +917,7 @@ const HomePage = React.memo(function HomePage({
 
         <HomeSectionBlock title="艺人" onShowAll={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
           <div className="home-card-grid compact">
-            {snapshot.artists.map((artist) => (
+            {previewArtists.map((artist) => (
               <button
                 className="home-person-card home-liquid-card glass-panel"
                 key={artist.id}
@@ -903,7 +937,7 @@ const HomePage = React.memo(function HomePage({
 
         <HomeSectionBlock title="专辑" onShowAll={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
           <div className="home-card-grid">
-            {snapshot.albums.map((album) => (
+            {previewAlbums.map((album) => (
               <button
                 className="home-album-card home-liquid-card glass-panel"
                 key={album.id}
@@ -920,7 +954,7 @@ const HomePage = React.memo(function HomePage({
 
         <HomeSectionBlock title="播放列表">
           <div className="home-playlist-grid">
-            {snapshot.playlists.map((playlist) => (
+            {previewPlaylists.map((playlist) => (
               <button
                 className="home-playlist-card home-liquid-card glass-panel"
                 key={playlist.id}
@@ -1008,6 +1042,8 @@ const HomeSectionBlock = React.memo(function HomeSectionBlock({
 })
 
 const HomeStatsSection = React.memo(function HomeStatsSection({ stats }: { stats: HomeStats }): React.ReactElement {
+  const previewRanking = React.useMemo(() => stats.ranking.slice(0, HOME_RANKING_PREVIEW_LIMIT), [stats.ranking])
+
   return (
     <section className="home-section-block home-stats-block">
       <div className="home-section-heading">
@@ -1033,7 +1069,7 @@ const HomeStatsSection = React.memo(function HomeStatsSection({ stats }: { stats
       </div>
       <div className="home-insight-grid">
         <div className="home-rank-panel home-liquid-card glass-panel">
-          {stats.ranking.map((item, index) => (
+          {previewRanking.map((item, index) => (
             <div className="home-rank-row" key={item.trackId}>
               <span>{index + 1}</span>
               <img src={item.artworkUrl || albumArtwork} alt="" loading="lazy" decoding="async" />
