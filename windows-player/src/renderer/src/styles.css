@@ -1947,7 +1947,7 @@ input {
   --mini-progress: 0;
   position: absolute;
   right: 25px;
-  bottom: calc(100% - 1px);
+  bottom: calc(100% - 10px);
   left: 25px;
   z-index: 2;
   height: 12px;
