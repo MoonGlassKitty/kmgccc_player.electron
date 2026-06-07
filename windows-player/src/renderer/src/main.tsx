@@ -29,6 +29,17 @@ import {
   X
 } from 'lucide-react'
 import { LiquidGlassFilters } from './LiquidGlassFilter'
+import shape1 from './assets/bk-themes/shapes/shape1.png'
+import shape2 from './assets/bk-themes/shapes/shape2.png'
+import shape3 from './assets/bk-themes/shapes/shape3.png'
+import shape4 from './assets/bk-themes/shapes/shape4.png'
+import shape5 from './assets/bk-themes/shapes/shape5.png'
+import shape6 from './assets/bk-themes/shapes/shape6.png'
+import shape7 from './assets/bk-themes/shapes/shape7.png'
+import shape8 from './assets/bk-themes/shapes/shape8.png'
+import shape9 from './assets/bk-themes/shapes/shape9.png'
+import shape10 from './assets/bk-themes/shapes/shape10.png'
+import shape11 from './assets/bk-themes/shapes/shape11.png'
 import './styles.css'
 
 type Track = {
@@ -184,13 +195,239 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
   const border = isAltArtwork ? 'rgba(92, 110, 75, 0.34)' : 'rgba(38, 137, 174, 0.24)'
   const text = isAltArtwork ? '#66754e' : '#1680ad'
   const shadow = isAltArtwork ? 'rgba(92, 110, 75, 0.11)' : 'rgba(15, 85, 120, 0.09)'
+  const ambient1 = isAltArtwork ? 'rgba(187, 202, 170, 0.36)' : 'rgba(168, 211, 236, 0.42)'
+  const ambient2 = isAltArtwork ? 'rgba(226, 190, 186, 0.31)' : 'rgba(236, 178, 190, 0.34)'
+  const ambient3 = isAltArtwork ? 'rgba(231, 222, 178, 0.32)' : 'rgba(236, 222, 174, 0.34)'
 
   return {
     '--cover-accent': accent,
     '--cover-accent-border': border,
     '--cover-accent-text': text,
-    '--cover-accent-shadow': shadow
+    '--cover-accent-shadow': shadow,
+    '--ambient-shape-1': ambient1,
+    '--ambient-shape-2': ambient2,
+    '--ambient-shape-3': ambient3
   } as React.CSSProperties
+}
+
+type AmbientSizeTier = 'small' | 'medium' | 'large' | 'ultra'
+type AmbientSide = 'left' | 'right'
+
+type AmbientShapeAsset = {
+  name: string
+  url: string
+  kind: 'normal' | 'featuredLarge' | 'ultra'
+}
+
+type AmbientShapeSpec = {
+  id: number
+  asset: AmbientShapeAsset
+  color: string
+  side: AmbientSide
+  tier: AmbientSizeTier
+  baseYViewport: number
+  nominalSide: number
+  boundaryOffset: number
+  baseRotation: number
+  parallaxX: number
+  parallax: number
+  rotationPerPoint: number
+  rotationClamp: number
+  opacity: number
+}
+
+const ambientShapeAssets: AmbientShapeAsset[] = [
+  { name: 'shape1.png', url: shape1, kind: 'normal' },
+  { name: 'shape2.png', url: shape2, kind: 'normal' },
+  { name: 'shape3.png', url: shape3, kind: 'normal' },
+  { name: 'shape4.png', url: shape4, kind: 'normal' },
+  { name: 'shape5.png', url: shape5, kind: 'normal' },
+  { name: 'shape6.png', url: shape6, kind: 'normal' },
+  { name: 'shape7.png', url: shape7, kind: 'normal' },
+  { name: 'shape8.png', url: shape8, kind: 'normal' },
+  { name: 'shape9.png', url: shape9, kind: 'featuredLarge' },
+  { name: 'shape10.png', url: shape10, kind: 'ultra' },
+  { name: 'shape11.png', url: shape11, kind: 'featuredLarge' }
+]
+
+const ambientShapeColors = [
+  'var(--ambient-shape-1)',
+  'var(--ambient-shape-2)',
+  'var(--ambient-shape-3)',
+  'rgba(175, 224, 213, 0.36)',
+  'rgba(189, 196, 229, 0.32)',
+  'rgba(205, 220, 190, 0.34)'
+]
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
+function makeAmbientRandom(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state += 0x6d2b79f5
+    let value = state
+    value = Math.imul(value ^ (value >>> 15), value | 1)
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61)
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function ambientRange(random: () => number, min: number, max: number): number {
+  return min + (max - min) * random()
+}
+
+function ambientPick<T>(items: T[], random: () => number): T {
+  return items[Math.floor(random() * items.length) % items.length]
+}
+
+function ambientTierFor(asset: AmbientShapeAsset, random: () => number): AmbientSizeTier {
+  if (asset.kind === 'ultra') return 'ultra'
+  if (asset.kind === 'featuredLarge') return 'large'
+  const roll = random()
+  if (roll < 0.46) return 'small'
+  if (roll < 0.84) return 'medium'
+  return 'large'
+}
+
+function ambientSideFor(index: number, random: () => number): AmbientSide {
+  const side = index % 2 === 0 ? 'left' : 'right'
+  return random() < 0.18 ? (side === 'left' ? 'right' : 'left') : side
+}
+
+function ambientNominalSide(tier: AmbientSizeTier, random: () => number): number {
+  switch (tier) {
+  case 'small':
+    return ambientRange(random, 86, 240)
+  case 'medium':
+    return ambientRange(random, 190, 410)
+  case 'large':
+    return ambientRange(random, 330, 660)
+  case 'ultra':
+    return ambientRange(random, 620, 980)
+  }
+}
+
+function ambientParallax(tier: AmbientSizeTier, random: () => number): number {
+  switch (tier) {
+  case 'small':
+    return ambientRange(random, 0.45, 0.95)
+  case 'medium':
+    return ambientRange(random, 0.28, 0.65)
+  case 'large':
+    return ambientRange(random, 0.12, 0.32)
+  case 'ultra':
+    return ambientRange(random, 0.08, 0.22)
+  }
+}
+
+function ambientRotationPerPoint(tier: AmbientSizeTier, random: () => number): number {
+  switch (tier) {
+  case 'small':
+    return random() < 0.5 ? ambientRange(random, -0.18, 0.08) : ambientRange(random, -0.08, 0.18)
+  case 'medium':
+    return random() < 0.5 ? ambientRange(random, -0.08, 0.04) : ambientRange(random, -0.04, 0.08)
+  case 'large':
+    return ambientRange(random, -0.018, 0.018)
+  case 'ultra':
+    return ambientRange(random, -0.01, 0.01)
+  }
+}
+
+function ambientRotationClamp(tier: AmbientSizeTier): number {
+  switch (tier) {
+  case 'small':
+    return 110
+  case 'medium':
+    return 92
+  case 'large':
+    return 44
+  case 'ultra':
+    return 18
+  }
+}
+
+function ambientAssetNamed(name: string): AmbientShapeAsset {
+  return ambientShapeAssets.find((asset) => asset.name === name) ?? ambientShapeAssets[0]
+}
+
+function makeAmbientShapeSpecs(): AmbientShapeSpec[] {
+  const random = makeAmbientRandom(0x5eedd1ed)
+  const count = 19
+  const visibleCount = 9
+  let previousAsset: AmbientShapeAsset | null = null
+
+  return Array.from({ length: count }, (_entry, index) => {
+    const anchored: Partial<AmbientShapeSpec> | null =
+      index === 0
+        ? {
+          asset: ambientAssetNamed('shape10.png'),
+          side: 'left',
+          tier: 'ultra',
+          baseYViewport: 0.88,
+          nominalSide: 820,
+          boundaryOffset: -150,
+          color: ambientShapeColors[0],
+          opacity: 0.3
+        }
+        : index === 1
+          ? {
+            asset: ambientAssetNamed('shape9.png'),
+            side: 'right',
+            tier: 'large',
+            baseYViewport: 0.62,
+            nominalSide: 560,
+            boundaryOffset: 165,
+            color: ambientShapeColors[1],
+            opacity: 0.33
+          }
+          : index === 2
+            ? {
+              asset: ambientAssetNamed('shape11.png'),
+              side: 'left',
+              tier: 'large',
+              baseYViewport: 1.36,
+              nominalSide: 520,
+              boundaryOffset: 80,
+              color: ambientShapeColors[2],
+              opacity: 0.34
+            }
+            : null
+    const forceUltra = index === 5
+    const pool = forceUltra
+      ? ambientShapeAssets.filter((asset) => asset.kind === 'ultra')
+      : ambientShapeAssets.filter((asset) => asset !== previousAsset)
+    const asset = anchored?.asset ?? ambientPick(pool.length ? pool : ambientShapeAssets, random)
+    previousAsset = asset
+    const tier = anchored?.tier ?? ambientTierFor(asset, random)
+    const side = anchored?.side ?? ambientSideFor(index, random)
+    const visible = index < visibleCount
+    const baseYViewport = anchored?.baseYViewport ?? (visible
+      ? ambientRange(random, -0.28, 1.16)
+      : ambientRange(random, 1.14, 2.65))
+    const isUltra = tier === 'ultra'
+    const boundaryOffset = anchored?.boundaryOffset ?? (side === 'left'
+      ? ambientRange(random, isUltra ? -680 : -300, isUltra ? -80 : 185)
+      : ambientRange(random, isUltra ? 80 : -185, isUltra ? 680 : 300))
+
+    return {
+      id: index,
+      asset,
+      color: anchored?.color ?? ambientShapeColors[index % ambientShapeColors.length],
+      side,
+      tier,
+      baseYViewport,
+      nominalSide: anchored?.nominalSide ?? ambientNominalSide(tier, random),
+      boundaryOffset,
+      baseRotation: tier === 'ultra' ? ambientRange(random, -48, 48) : ambientRange(random, -70, 70),
+      parallaxX: ambientRange(random, -0.0025, 0.0025),
+      parallax: ambientParallax(tier, random),
+      rotationPerPoint: ambientRotationPerPoint(tier, random),
+      rotationClamp: ambientRotationClamp(tier),
+      opacity: anchored?.opacity ?? (tier === 'ultra' ? 0.28 : tier === 'large' ? 0.34 : 0.38)
+    }
+  })
 }
 
 function snapshotWithImportedTrack(snapshot: HomeSnapshot, importedTrack: LocalAudioImport): HomeSnapshot {
@@ -379,6 +616,220 @@ function detailSubtitle(route: DetailRoute, snapshot: HomeSnapshot, tracks: Home
   if (route.name === 'artistDetail') return `${snapshot.artists.length} 位艺人`
   return `${tracks.length} 首歌曲`
 }
+
+const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
+  isActive
+}: {
+  isActive: boolean
+}): React.ReactElement {
+  const rootRef = React.useRef<HTMLDivElement>(null)
+  const canvasRef = React.useRef<HTMLCanvasElement>(null)
+  const specs = React.useMemo(() => makeAmbientShapeSpecs(), [])
+
+  React.useEffect(() => {
+    const root = rootRef.current
+    const canvas = canvasRef.current
+    if (!root || !canvas) return
+
+    let frame = 0
+    let scrollTrackingFrame = 0
+    let scrollTrackingStopTimer = 0
+    let scrollElement: HTMLElement | null = null
+    let disposed = false
+    let loadedImages = new Map<string, HTMLImageElement>()
+    const tintedCache = new Map<string, HTMLCanvasElement>()
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    const resolveColor = (color: string): string => {
+      const variableMatch = color.match(/^var\((--[^)]+)\)$/)
+      if (!variableMatch) return color
+      return getComputedStyle(root).getPropertyValue(variableMatch[1]).trim() || color
+    }
+
+    const tintedImage = (asset: AmbientShapeAsset, color: string): HTMLCanvasElement | null => {
+      const image = loadedImages.get(asset.name)
+      if (!image) return null
+      const cacheKey = `${asset.name}|${color}`
+      const cached = tintedCache.get(cacheKey)
+      if (cached) return cached
+
+      const tintCanvas = document.createElement('canvas')
+      tintCanvas.width = image.naturalWidth
+      tintCanvas.height = image.naturalHeight
+      const context = tintCanvas.getContext('2d')
+      if (!context) return null
+      context.drawImage(image, 0, 0)
+      context.globalCompositeOperation = 'source-in'
+      context.fillStyle = color
+      context.fillRect(0, 0, tintCanvas.width, tintCanvas.height)
+      tintedCache.set(cacheKey, tintCanvas)
+      return tintCanvas
+    }
+
+    const applyTransforms = (): void => {
+      frame = 0
+      if (!loadedImages.size) return
+      const rootRect = root.getBoundingClientRect()
+      if (rootRect.width <= 0 || rootRect.height <= 0) return
+      const context = canvas.getContext('2d')
+      if (!context) return
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const pixelWidth = Math.max(1, Math.round(rootRect.width * dpr))
+      const pixelHeight = Math.max(1, Math.round(rootRect.height * dpr))
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth
+        canvas.height = pixelHeight
+        canvas.style.width = `${rootRect.width}px`
+        canvas.style.height = `${rootRect.height}px`
+      }
+
+      const sidebarRect = document.querySelector('.sidebar')?.getBoundingClientRect()
+      const lyricsRect = document.querySelector('.lyrics-side-panel')?.getBoundingClientRect()
+      const scrollTop = isActive ? (scrollElement?.scrollTop ?? 0) : 0
+      const viewportHeight = Math.max(rootRect.height, 680)
+      const virtualHeight = Math.max(viewportHeight * 2.6, viewportHeight + 1400)
+      const centerMinX = sidebarRect ? sidebarRect.right - rootRect.left : 280
+      const centerMaxX = lyricsRect ? lyricsRect.left - rootRect.left : rootRect.width
+      const centerWidth = Math.max(520, centerMaxX - centerMinX)
+      const layoutProgress = clampNumber((centerWidth - 560) / 620, 0, 1)
+      const fluidProgress = layoutProgress * layoutProgress * (3 - 2 * layoutProgress)
+      const fluidBoundaryScale = 0.48 + fluidProgress * 0.52
+      const shapeScale = 0.72 + fluidProgress * 0.28
+
+      context.setTransform(dpr, 0, 0, dpr, 0, 0)
+      context.clearRect(0, 0, rootRect.width, rootRect.height)
+
+      for (const spec of specs) {
+        const isUltra = spec.tier === 'ultra'
+        const side = clampNumber(spec.nominalSide * shapeScale, spec.tier === 'small' ? 54 : 96, isUltra ? 980 : 760)
+        const boundary = spec.side === 'left' ? centerMinX : centerMaxX
+        const boundaryOffset = isUltra
+          ? (spec.side === 'left' ? -1 : 1) * Math.max(Math.abs(spec.boundaryOffset), side * 0.7)
+          : spec.boundaryOffset * fluidBoundaryScale
+        const baseX = clampNumber(
+          boundary + boundaryOffset,
+          -side * (isUltra ? 1.15 : 0.72),
+          rootRect.width + side * (isUltra ? 1.15 : 0.72)
+        )
+        const baseY = spec.baseYViewport * viewportHeight
+        const scrollX = reducedMotion ? 0 : clampNumber(scrollTop * spec.parallaxX, -8, 8)
+        const scrollY = reducedMotion ? 0 : clampNumber(-scrollTop * spec.parallax, -virtualHeight, virtualHeight)
+        const rotation = reducedMotion
+          ? spec.baseRotation
+          : spec.baseRotation + clampNumber(scrollTop * spec.rotationPerPoint, -spec.rotationClamp, spec.rotationClamp)
+        const image = tintedImage(spec.asset, resolveColor(spec.color))
+        if (!image) continue
+
+        context.save()
+        context.globalAlpha = spec.opacity
+        context.translate(baseX + scrollX, baseY + scrollY)
+        context.rotate((rotation * Math.PI) / 180)
+        context.drawImage(image, -side / 2, -side / 2, side, side)
+        context.restore()
+      }
+    }
+
+    const requestApply = (): void => {
+      if (frame) return
+      frame = window.requestAnimationFrame(applyTransforms)
+    }
+
+    const stopScrollTracking = (): void => {
+      scrollTrackingFrame = 0
+    }
+
+    const trackScrolling = (): void => {
+      if (!isActive || !scrollElement || disposed) {
+        stopScrollTracking()
+        return
+      }
+      applyTransforms()
+      scrollTrackingFrame = window.requestAnimationFrame(trackScrolling)
+    }
+
+    const startScrollTracking = (): void => {
+      if (scrollTrackingFrame === 0) {
+        scrollTrackingFrame = window.requestAnimationFrame(trackScrolling)
+      }
+      if (scrollTrackingStopTimer) {
+        window.clearTimeout(scrollTrackingStopTimer)
+      }
+      scrollTrackingStopTimer = window.setTimeout(() => {
+        if (scrollTrackingFrame) {
+          window.cancelAnimationFrame(scrollTrackingFrame)
+          scrollTrackingFrame = 0
+        }
+        requestApply()
+      }, 180)
+    }
+
+    const handleScroll = (): void => {
+      startScrollTracking()
+      requestApply()
+    }
+
+    const handleWheel = (): void => {
+      startScrollTracking()
+    }
+
+    const bindScrollElement = (): void => {
+      scrollElement?.removeEventListener('wheel', handleWheel)
+      scrollElement?.removeEventListener('scroll', handleScroll)
+      scrollElement = isActive ? document.querySelector<HTMLElement>('.home-page') : null
+      scrollElement?.addEventListener('wheel', handleWheel, { passive: true })
+      scrollElement?.addEventListener('scroll', handleScroll, { passive: true })
+      requestApply()
+    }
+
+    const resizeObserver = new ResizeObserver(requestApply)
+    resizeObserver.observe(root)
+    const themeObserver = new MutationObserver(() => {
+      tintedCache.clear()
+      requestApply()
+    })
+    const themeRoot = document.querySelector('.desktop-root')
+    if (themeRoot) themeObserver.observe(themeRoot, { attributes: true, attributeFilter: ['style'] })
+    Promise.all(
+      ambientShapeAssets.map((asset) => new Promise<[string, HTMLImageElement]>((resolve, reject) => {
+        const image = new Image()
+        image.decoding = 'async'
+        image.onload = () => resolve([asset.name, image])
+        image.onerror = reject
+        image.src = asset.url
+      }))
+    )
+      .then((entries) => {
+        if (disposed) return
+        loadedImages = new Map(entries)
+        requestApply()
+      })
+      .catch(() => {
+        loadedImages = new Map()
+      })
+
+    bindScrollElement()
+    const bindTimer = window.setTimeout(bindScrollElement, 80)
+
+    return () => {
+      disposed = true
+      window.clearTimeout(bindTimer)
+      if (scrollTrackingStopTimer) window.clearTimeout(scrollTrackingStopTimer)
+      if (frame) window.cancelAnimationFrame(frame)
+      if (scrollTrackingFrame) window.cancelAnimationFrame(scrollTrackingFrame)
+      scrollElement?.removeEventListener('wheel', handleWheel)
+      scrollElement?.removeEventListener('scroll', handleScroll)
+      themeObserver.disconnect()
+      resizeObserver.disconnect()
+    }
+  }, [isActive, specs])
+
+  return (
+    <div className="home-ambient-layer" ref={rootRef} aria-hidden="true">
+      <canvas className="home-ambient-canvas" ref={canvasRef} />
+    </div>
+  )
+})
 
 function App(): React.ReactElement {
   const [homeSnapshot, setHomeSnapshot] = React.useState<HomeSnapshot>(fallbackHomeSnapshot)
@@ -601,6 +1052,7 @@ function App(): React.ReactElement {
       <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
       <LiquidGlassFilters />
       <div className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''}`}>
+        <HomeAmbientShapesLayer isActive={route.name === 'home'} />
         <Sidebar snapshot={homeSnapshot} route={route} onNavigate={setRoute} isCollapsed={isSidebarCollapsed} onToggle={toggleSidebar} />
         <WindowControls />
         <div className="titlebar-drag-region chrome-drag" aria-hidden="true" />

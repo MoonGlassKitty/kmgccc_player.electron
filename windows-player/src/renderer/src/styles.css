@@ -196,6 +196,21 @@ input {
   opacity: 0.95;
 }
 
+.home-ambient-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: layout paint style;
+}
+
+.home-ambient-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .glass-panel {
   --glass-alpha: 0.42;
   --glass-border: rgba(255, 255, 255, 0.46);
@@ -1140,29 +1155,30 @@ input {
   transition: none;
 }
 
-.home-page.is-scrolling .home-liquid-card:hover {
-  --glass-shadow: rgba(25, 58, 80, 0.07);
-  border-color: var(--glass-border);
-  background-color: rgba(255, 255, 255, var(--glass-alpha));
-  box-shadow:
-    0 14px 34px var(--glass-shadow),
-    0 3px 11px rgba(25, 58, 80, 0.034);
-  transform: none;
-}
-
-.home-page.is-scrolling .home-liquid-card:hover::before {
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent 24%, transparent 80%, rgba(255, 255, 255, 0.12)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 38%);
-  opacity: 0.55;
-}
-
 .home-liquid-card:hover::before {
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.36), transparent 24%, transparent 80%, rgba(255, 255, 255, 0.2)),
     linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 42%),
     radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.3), transparent 55%);
   opacity: 0.86;
+}
+
+.home-stats-block .home-liquid-card:hover {
+  --glass-shadow: rgba(16, 36, 52, 0.0525);
+  border-color: var(--glass-border);
+  background-color: rgba(255, 255, 255, var(--glass-alpha));
+  box-shadow:
+    0 2px 9px var(--glass-shadow),
+    0 1px 15px var(--glass-inner-shadow) inset,
+    0 -1px 12px var(--glass-inner-highlight) inset;
+  transform: none;
+}
+
+.home-stats-block .home-liquid-card:hover::before {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent 24%, transparent 80%, rgba(255, 255, 255, 0.12)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 38%);
+  opacity: 0.55;
 }
 
 .home-liquid-card > * {
