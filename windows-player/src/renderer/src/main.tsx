@@ -137,6 +137,88 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
   } as React.CSSProperties
 }
 
+function snapshotWithImportedTrack(snapshot: HomeSnapshot, importedTrack: LocalAudioImport): HomeSnapshot {
+  const tracks = [importedTrack, ...snapshot.tracks.filter((track) => track.id !== importedTrack.id)]
+  const albumTrackCount = tracks.filter((track) => track.albumId === importedTrack.albumId).length
+  const albums = snapshot.albums.some((album) => album.id === importedTrack.albumId)
+    ? snapshot.albums.map((album) =>
+      album.id === importedTrack.albumId
+        ? { ...album, artist: importedTrack.artist, artistId: importedTrack.artistId, trackCount: albumTrackCount }
+        : album
+    )
+    : [
+      {
+        id: importedTrack.albumId,
+        title: importedTrack.album,
+        artist: importedTrack.artist,
+        artistId: importedTrack.artistId,
+        artworkUrl: importedTrack.artworkUrl,
+        trackCount: albumTrackCount
+      },
+      ...snapshot.albums
+    ]
+  const artists = snapshot.artists.some((artist) => artist.id === importedTrack.artistId)
+    ? snapshot.artists.map((artist) =>
+      artist.id === importedTrack.artistId
+        ? {
+          ...artist,
+          trackCount: tracks.filter((track) => track.artistId === importedTrack.artistId).length,
+          albumCount: albums.filter((album) => album.artistId === importedTrack.artistId).length
+        }
+        : artist
+    )
+    : [
+      {
+        id: importedTrack.artistId,
+        name: importedTrack.artist,
+        artworkUrl: importedTrack.artworkUrl,
+        trackCount: tracks.filter((track) => track.artistId === importedTrack.artistId).length,
+        albumCount: albums.filter((album) => album.artistId === importedTrack.artistId).length
+      },
+      ...snapshot.artists
+    ]
+  const importPlaylist = snapshot.playlists.find((playlist) => playlist.id === 'playlist-local-imports')
+  const importedTrackIds = importPlaylist ? [importedTrack.id, ...importPlaylist.trackIds.filter((id) => id !== importedTrack.id)] : [importedTrack.id]
+  const playlists = importPlaylist
+    ? snapshot.playlists.map((playlist) =>
+      playlist.id === importPlaylist.id
+        ? { ...playlist, trackCount: importedTrackIds.length, trackIds: importedTrackIds }
+        : playlist
+    )
+    : [
+      {
+        id: 'playlist-local-imports',
+        name: '本地导入',
+        artworkUrl: importedTrack.artworkUrl,
+        trackCount: importedTrackIds.length,
+        trackIds: importedTrackIds
+      },
+      ...snapshot.playlists
+    ]
+
+  return {
+    ...snapshot,
+    heroTrack: importedTrack,
+    tracks,
+    artists,
+    albums,
+    playlists,
+    stats: {
+      ...snapshot.stats,
+      totalTrackCount: tracks.length
+    }
+  }
+}
+
+function snapshotWithTrackDuration(snapshot: HomeSnapshot, trackId: string, duration: number): HomeSnapshot {
+  const normalizedDuration = Math.max(0, Math.round(duration))
+  return {
+    ...snapshot,
+    heroTrack: snapshot.heroTrack?.id === trackId ? { ...snapshot.heroTrack, duration: normalizedDuration } : snapshot.heroTrack,
+    tracks: snapshot.tracks.map((track) => (track.id === trackId ? { ...track, duration: normalizedDuration } : track))
+  }
+}
+
 function tracksForRoute(route: Exclude<AppRoute, { name: 'home' }>, snapshot: HomeSnapshot): HomeTrack[] {
   switch (route.name) {
   case 'allTracks':
@@ -192,7 +274,10 @@ function App(): React.ReactElement {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
   const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
   const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
-  const [isPlaying, setIsPlaying] = React.useState(true)
+  const [isPlaying, setIsPlaying] = React.useState(false)
+  const [playbackTime, setPlaybackTime] = React.useState(0)
+  const [playbackDuration, setPlaybackDuration] = React.useState(0)
+  const audioRef = React.useRef<HTMLAudioElement>(null)
   const albums = React.useMemo(() => albumById(homeSnapshot), [homeSnapshot])
   const currentTrack = React.useMemo(
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
@@ -222,6 +307,17 @@ function App(): React.ReactElement {
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
   }, [])
+  const importAudioFile = React.useCallback(async () => {
+    const importedTrack = await window.kmgccc?.importAudioFile()
+    if (!importedTrack) return
+
+    setHomeSnapshot((snapshot) => snapshotWithImportedTrack(snapshot, importedTrack))
+    setCurrentId(importedTrack.id)
+    setRoute({ name: 'allTracks' })
+    setPlaybackTime(0)
+    setPlaybackDuration(0)
+    setIsPlaying(true)
+  }, [])
   const toggleSidebar = React.useCallback(() => {
     setIsSidebarCollapsed((value) => !value)
   }, [])
@@ -234,8 +330,66 @@ function App(): React.ReactElement {
     setIsPlaying(true)
   }, [])
 
+  React.useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    if (!currentTrack?.sourceUrl) {
+      audio.pause()
+      audio.removeAttribute('src')
+      audio.load()
+      setPlaybackTime(0)
+      setPlaybackDuration(0)
+      setIsPlaying(false)
+      return
+    }
+
+    if (audio.src !== currentTrack.sourceUrl) {
+      audio.src = currentTrack.sourceUrl
+      audio.load()
+      setPlaybackTime(0)
+    }
+
+    if (isPlaying) {
+      void audio.play().catch(() => setIsPlaying(false))
+    }
+  }, [currentTrack, isPlaying])
+
+  React.useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !currentTrack?.sourceUrl) return
+
+    if (isPlaying) {
+      void audio.play().catch(() => setIsPlaying(false))
+    } else {
+      audio.pause()
+    }
+  }, [currentTrack?.sourceUrl, isPlaying])
+
+  const updateAudioMetadata = React.useCallback(() => {
+    const audio = audioRef.current
+    if (!audio || !currentTrack || !Number.isFinite(audio.duration)) return
+
+    setPlaybackDuration(audio.duration)
+    if (currentTrack.duration <= 0) {
+      setHomeSnapshot((snapshot) => snapshotWithTrackDuration(snapshot, currentTrack.id, audio.duration))
+    }
+  }, [currentTrack])
+
+  const updateAudioTime = React.useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    setPlaybackTime(audio.currentTime)
+  }, [])
+
+  const handleAudioEnded = React.useCallback(() => {
+    setIsPlaying(false)
+    setPlaybackTime(0)
+  }, [])
+
   return (
     <div className="desktop-root" style={coverThemeStyle}>
+      <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
       <LiquidGlassFilters />
       <div className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <Sidebar snapshot={homeSnapshot} route={route} onNavigate={setRoute} isCollapsed={isSidebarCollapsed} onToggle={toggleSidebar} />
@@ -243,7 +397,7 @@ function App(): React.ReactElement {
         <div className="titlebar-drag-region chrome-drag" aria-hidden="true" />
 
         <main className="content-pane">
-          <Toolbar onNavigateHome={() => setRoute({ name: 'home' })} />
+          <Toolbar onNavigateHome={() => setRoute({ name: 'home' })} onImportAudioFile={importAudioFile} />
           {route.name === 'home' ? (
             <HomePage snapshot={homeSnapshot} albums={albums} onNavigate={setRoute} onPlayTrack={playHomeTrack} />
           ) : (
@@ -257,7 +411,16 @@ function App(): React.ReactElement {
             />
           )}
 
-          {currentTrack ? <MiniPlayer track={currentTrack} albums={albums} isPlaying={isPlaying} onPlayPause={togglePlayback} /> : null}
+          {currentTrack ? (
+            <MiniPlayer
+              track={currentTrack}
+              albums={albums}
+              isPlaying={isPlaying}
+              playbackTime={playbackTime}
+              playbackDuration={playbackDuration || currentTrack.duration}
+              onPlayPause={togglePlayback}
+            />
+          ) : null}
         </main>
       </div>
     </div>
@@ -383,7 +546,13 @@ const WindowControls = React.memo(function WindowControls(): React.ReactElement 
   )
 })
 
-const Toolbar = React.memo(function Toolbar({ onNavigateHome }: { onNavigateHome: () => void }): React.ReactElement {
+const Toolbar = React.memo(function Toolbar({
+  onNavigateHome,
+  onImportAudioFile
+}: {
+  onNavigateHome: () => void
+  onImportAudioFile: () => void
+}): React.ReactElement {
   return (
     <header className="toolbar chrome-drag">
       <div className="toolbar-left no-drag">
@@ -415,7 +584,7 @@ const Toolbar = React.memo(function Toolbar({ onNavigateHome }: { onNavigateHome
             <Play size={20} fill="currentColor" />
           </button>
           <span className="toolbar-divider" />
-          <button type="button" aria-label="导入">
+          <button type="button" aria-label="导入单曲" onClick={onImportAudioFile}>
             <Plus size={22} />
           </button>
         </div>
@@ -773,13 +942,19 @@ const MiniPlayer = React.memo(function MiniPlayer({
   track,
   albums,
   isPlaying,
+  playbackTime,
+  playbackDuration,
   onPlayPause
 }: {
   track: Track
   albums: Map<string, HomeAlbumCard>
   isPlaying: boolean
+  playbackTime: number
+  playbackDuration: number
   onPlayPause: () => void
 }): React.ReactElement {
+  const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
+
   return (
     <div className="mini-player glass-panel no-drag" style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
       <div className="mini-track">
@@ -805,7 +980,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
       </button>
       <div className="mini-timeline">
         <div className="progress-track" aria-hidden="true">
-          <span />
+          <span style={{ width: `${progress}%` }} />
         </div>
         <div className="volume-track">
           <Volume2 size={16} />

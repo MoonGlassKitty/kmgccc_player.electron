@@ -1,11 +1,23 @@
-import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol } from 'electron'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { basename, extname, join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL)
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'kmgccc-media',
+    privileges: {
+      standard: true,
+      stream: true,
+      supportFetchAPI: true,
+      corsEnabled: true
+    }
+  }
+])
 
 const albumArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/15/a4/a4/15a4a47c-62db-07c3-d14f-e78c3c8dec85/artwork.jpg/600x600bb.jpg'
@@ -38,6 +50,59 @@ type WallpaperTint = {
   secondary: string
   wallpaperPath?: string
   wallpaperDataUrl?: string
+}
+
+type LocalAudioImport = {
+  id: string
+  title: string
+  artist: string
+  artistId: string
+  album: string
+  albumId: string
+  duration: number
+  sourcePath: string
+  sourceUrl: string
+}
+
+function mediaUrlForPath(audioPath: string): string {
+  const encodedPath = Buffer.from(audioPath, 'utf8').toString('base64url')
+  return `kmgccc-media://audio/${encodedPath}`
+}
+
+function installLocalMediaProtocol(): void {
+  protocol.handle('kmgccc-media', (request) => {
+    const url = new URL(request.url)
+    if (url.hostname !== 'audio') {
+      return new Response('Unsupported media host', { status: 404 })
+    }
+
+    const encodedPath = decodeURIComponent(url.pathname.replace(/^\//, ''))
+    const audioPath = Buffer.from(encodedPath, 'base64url').toString('utf8')
+
+    if (!existsSync(audioPath)) {
+      return new Response('Media file not found', { status: 404 })
+    }
+
+    return net.fetch(pathToFileURL(audioPath).toString())
+  })
+}
+
+function localAudioImportFromPath(audioPath: string): LocalAudioImport {
+  const extension = extname(audioPath)
+  const title = basename(audioPath, extension) || '未命名单曲'
+  const stableId = Buffer.from(audioPath, 'utf8').toString('base64url').slice(0, 24)
+
+  return {
+    id: `local-track-${stableId}`,
+    title,
+    artist: '未知艺人',
+    artistId: 'artist-local-unknown',
+    album: '未知专辑',
+    albumId: 'album-local-unknown',
+    duration: 0,
+    sourcePath: audioPath,
+    sourceUrl: mediaUrlForPath(audioPath)
+  }
 }
 
 function runCommand(command: string, args: string[]): string {
@@ -217,6 +282,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  installLocalMediaProtocol()
   createWindow()
 
   app.on('activate', () => {
@@ -252,3 +318,18 @@ ipcMain.on('window:close', (event) => {
 
 ipcMain.handle('library:get-home-snapshot', () => getHomeSnapshot())
 ipcMain.handle('system:get-wallpaper-tint', () => getWallpaperTint())
+ipcMain.handle('library:import-audio-file', async (event): Promise<LocalAudioImport | null> => {
+  const owner = BrowserWindow.fromWebContents(event.sender)
+  const options: Electron.OpenDialogOptions = {
+    title: '导入单曲',
+    properties: ['openFile'],
+    filters: [
+      { name: '音频文件', extensions: ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg', 'opus'] },
+      { name: '所有文件', extensions: ['*'] }
+    ]
+  }
+  const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
+
+  if (result.canceled || !result.filePaths[0]) return null
+  return localAudioImportFromPath(result.filePaths[0])
+})

@@ -5,5 +5,6 @@ contextBridge.exposeInMainWorld('kmgccc', {
   toggleMaximize: () => ipcRenderer.send('window:toggle-maximize'),
   close: () => ipcRenderer.send('window:close'),
   getHomeSnapshot: () => ipcRenderer.invoke('library:get-home-snapshot'),
+  importAudioFile: () => ipcRenderer.invoke('library:import-audio-file'),
   getWallpaperTint: () => ipcRenderer.invoke('system:get-wallpaper-tint')
 })

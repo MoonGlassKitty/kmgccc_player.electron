@@ -39,6 +39,22 @@ Prioritize:
 6. Cassette/CD/fullscreen skins and visualizer effects.
 7. Later integrations such as NCM, LDDC, cover search, and other metadata services.
 
+## Functional Roadmap Notes
+
+- Runtime verification should prefer the Electron application when app behavior, local file access, playback, window chrome, or screenshots are involved. The web renderer port is still useful for fast layout iteration, but local media features must be validated in Electron.
+- First functional milestone: import a single local audio file, decode/play it through Chromium/Electron media playback, show it in the local library, and wire it to the mini player.
+- Library model should become album-centered: every track must belong to at least one album. A minimal synced album record only needs artist and album artwork at first.
+- Metadata sync milestone: use API integration to sync single-track metadata, including lyrics, artist, album cover, and album-level information.
+- Lyrics milestone: add a dedicated lyrics playback page after local import/playback and metadata sync are stable.
+- Approved/reference libraries and services from the macOS app/settings page:
+  - `applemusic-like-lyrics` / AMLL for lyric rendering and Apple Music-like lyrics behavior.
+  - `apple-audio-visualization` for later audio visualization.
+  - `LDDC` for lyrics and lyric metadata workflows.
+  - `QQMusicApi` for music metadata lookup where appropriate.
+  - `sacad` as a cover-art lookup reference.
+  - `ncmdump` for NetEase encrypted audio conversion support later.
+  - `WhatsNewKit` is a macOS-side reference only unless a Windows/Electron equivalent is needed.
+
 ## Visual Requirements
 
 - Build a custom glass system inspired by macOS 26 Liquid Glass and the referenced generator page.

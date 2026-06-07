@@ -10,6 +10,8 @@ declare global {
     albumId: string
     duration: number
     artworkUrl?: string
+    sourcePath?: string
+    sourceUrl?: string
   }
 
   type HomeArtistCard = {
@@ -73,12 +75,18 @@ declare global {
     wallpaperDataUrl?: string
   }
 
+  type LocalAudioImport = HomeTrack & {
+    sourcePath: string
+    sourceUrl: string
+  }
+
   interface Window {
     kmgccc?: {
       minimize: () => void
       toggleMaximize: () => void
       close: () => void
       getHomeSnapshot: () => Promise<HomeSnapshot>
+      importAudioFile: () => Promise<LocalAudioImport | null>
       getWallpaperTint: () => Promise<WallpaperTint>
     }
   }
