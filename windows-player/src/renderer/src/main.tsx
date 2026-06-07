@@ -1020,8 +1020,10 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 function App(): React.ReactElement {
   const [homeSnapshot, setHomeSnapshot] = React.useState<HomeSnapshot>(fallbackHomeSnapshot)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
+  const [sidebarWidth, setSidebarWidth] = React.useState(280)
   const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
+  const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
   const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
   const [isPlaying, setIsPlaying] = React.useState(false)
@@ -1176,8 +1178,14 @@ function App(): React.ReactElement {
     }
   }, [])
   const toggleSidebar = React.useCallback(() => {
-    setIsSidebarCollapsed((value) => !value)
-  }, [])
+    setIsSidebarCollapsed((value) => {
+      const next = !value
+      if (!next && sidebarWidth < 220) {
+        setSidebarWidth(280)
+      }
+      return next
+    })
+  }, [sidebarWidth])
   const selectTrack = React.useCallback((id: string) => {
     setCurrentId(id)
     setIsPlaying(true)
@@ -1192,6 +1200,54 @@ function App(): React.ReactElement {
   const toggleFullscreenLyrics = React.useCallback(() => {
     setIsFullscreenLyricsOpen((value) => !value)
   }, [])
+  const handleSidebarResizeStart = React.useCallback((event: React.PointerEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const startX = event.clientX
+    const startWidth = isSidebarCollapsed ? 82 : sidebarWidth
+    const minWidth = 82
+    const maxWidth = 360
+    const collapseThreshold = 118
+
+    const handleMove = (moveEvent: PointerEvent) => {
+      const nextWidth = clampNumber(startWidth + (moveEvent.clientX - startX), minWidth, maxWidth)
+      if (nextWidth <= collapseThreshold) {
+        setIsSidebarCollapsed(true)
+        setSidebarWidth(minWidth)
+      } else {
+        setIsSidebarCollapsed(false)
+        setSidebarWidth(nextWidth)
+      }
+    }
+
+    const handleUp = () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+    }
+
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+  }, [isSidebarCollapsed, sidebarWidth])
+  const handleLyricsResizeStart = React.useCallback((event: React.PointerEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const startX = event.clientX
+    const startWidth = lyricsSidebarWidth
+    const minWidth = 380
+    const maxWidth = 640
+
+    const handleMove = (moveEvent: PointerEvent) => {
+      setLyricsSidebarWidth(clampNumber(startWidth + (startX - moveEvent.clientX), minWidth, maxWidth))
+    }
+
+    const handleUp = () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+    }
+
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+  }, [lyricsSidebarWidth])
   const seekTo = React.useCallback((seconds: number) => {
     const audio = audioRef.current
     if (!audio || !Number.isFinite(seconds)) return
@@ -1266,9 +1322,24 @@ function App(): React.ReactElement {
     <div className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''}`} style={coverThemeStyle}>
       <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
       <LiquidGlassFilters />
-      <div className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''}`}>
+      <div
+        className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''}`}
+        style={
+          {
+            '--sidebar-width': `${isSidebarCollapsed ? 82 : sidebarWidth}px`,
+            '--lyrics-width': `${isLyricsSidebarOpen ? lyricsSidebarWidth : 0}px`
+          } as React.CSSProperties
+        }
+      >
         <HomeAmbientShapesLayer isActive={route.name === 'home'} />
-        <Sidebar snapshot={homeSnapshot} route={route} onNavigate={setRoute} isCollapsed={isSidebarCollapsed} onToggle={toggleSidebar} />
+        <Sidebar
+          snapshot={homeSnapshot}
+          route={route}
+          onNavigate={setRoute}
+          isCollapsed={isSidebarCollapsed}
+          onToggle={toggleSidebar}
+          onResizeStart={handleSidebarResizeStart}
+        />
         <WindowControls />
         <div className="titlebar-drag-region chrome-drag" aria-hidden="true" />
 
@@ -1310,7 +1381,14 @@ function App(): React.ReactElement {
           {importSyncState ? <ImportSyncCard state={importSyncState} onCancel={() => setImportSyncState(null)} /> : null}
         </main>
         {isLyricsSidebarOpen ? (
-          <LyricsSidePanel track={currentTrack} albums={albums} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={seekTo} />
+          <LyricsSidePanel
+            track={currentTrack}
+            albums={albums}
+            playbackTime={playbackTime}
+            isPlaying={isPlaying}
+            onSeek={seekTo}
+            onResizeStart={handleLyricsResizeStart}
+          />
         ) : null}
         {isFullscreenLyricsOpen ? (
           <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={seekTo} />
@@ -1335,17 +1413,20 @@ const Sidebar = React.memo(function Sidebar({
   route,
   onNavigate,
   isCollapsed,
-  onToggle
+  onToggle,
+  onResizeStart
 }: {
   snapshot: HomeSnapshot
   route: AppRoute
   onNavigate: (route: AppRoute) => void
   isCollapsed: boolean
   onToggle: () => void
+  onResizeStart: (event: React.PointerEvent) => void
 }): React.ReactElement {
   const primaryPlaylist = snapshot.playlists[0]
   return (
     <aside className="sidebar glass-panel chrome-drag">
+      <div className="sidebar-resize-handle no-drag" role="separator" aria-orientation="vertical" aria-label="调整侧边栏宽度" onPointerDown={onResizeStart} />
       <div className="sidebar-titlebar no-drag">
         <button className="sidebar-toggle" type="button" aria-label={isCollapsed ? '展开侧边栏' : '收起侧边栏'} onClick={onToggle}>
           <SidebarToggleIcon size={24} />
@@ -1876,8 +1957,11 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
   albums,
   playbackTime,
   isPlaying,
-  onSeek
-}: LyricsSurfaceProps): React.ReactElement {
+  onSeek,
+  onResizeStart
+}: LyricsSurfaceProps & {
+  onResizeStart: (event: React.PointerEvent) => void
+}): React.ReactElement {
   const lines = React.useMemo(() => parseLyrics(track), [track])
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
   const artwork = trackArtwork(track, albums)
@@ -1885,6 +1969,7 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
 
   return (
     <aside className="lyrics-side-panel glass-panel no-drag" style={{ '--filter-url': 'url(#lg-home-liquid)' } as React.CSSProperties}>
+      <div className="lyrics-side-resize-handle" role="separator" aria-orientation="vertical" aria-label="调整歌词侧栏宽度" onPointerDown={onResizeStart} />
       <img className="lyrics-side-bg" src={artwork} alt="" decoding="async" />
       <div className="lyrics-side-head">
         <img src={artwork} alt="" decoding="async" />
