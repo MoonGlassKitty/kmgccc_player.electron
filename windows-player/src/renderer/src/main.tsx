@@ -1385,10 +1385,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
   return (
     <div className="mini-player glass-panel no-drag" style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
       <div className="mini-progress-rail" style={{ '--mini-progress': progress } as React.CSSProperties}>
-        <svg className="mini-snake-progress" viewBox="0 0 1000 18" preserveAspectRatio="none" aria-hidden="true">
-          <path className="mini-snake-base" pathLength="100" d="M3 9 L997 9" />
-          <path className="mini-snake-fill" pathLength="100" d="M3 9 C 52 1, 86 17, 136 9 S 220 1, 270 9 S 354 17, 404 9 S 488 1, 538 9 S 622 17, 672 9 S 756 1, 806 9 S 890 17, 997 9" />
-        </svg>
+        <span className="mini-progress-base" aria-hidden="true" />
+        <span className="mini-progress-fill" aria-hidden="true" />
         <input
           aria-label="播放进度"
           max={Math.max(1, playbackDuration)}
