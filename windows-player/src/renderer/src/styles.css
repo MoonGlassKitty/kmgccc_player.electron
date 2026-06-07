@@ -969,12 +969,15 @@ input {
   margin-top: 42px;
   position: relative;
   overflow: visible;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 360px;
 }
 
 .home-stats-block {
   display: grid;
   grid-template-columns: minmax(560px, 1.55fr) minmax(360px, 0.85fr);
   gap: 16px;
+  contain-intrinsic-size: auto 620px;
 }
 
 .home-stats-block .home-section-heading,
@@ -1074,7 +1077,7 @@ input {
   --glass-shadow: rgba(25, 58, 80, 0.07);
   position: relative;
   overflow: hidden;
-  contain: layout;
+  contain: layout paint style;
   border: 1px solid var(--glass-border);
   background-color: rgba(255, 255, 255, var(--glass-alpha));
   backdrop-filter: blur(18px) saturate(170%);
@@ -1775,7 +1778,9 @@ input {
   color: #0d3044;
   text-align: left;
   background: transparent;
-  contain: layout paint;
+  content-visibility: auto;
+  contain: layout paint style;
+  contain-intrinsic-size: auto 58px;
 }
 
 .track-row.current {

@@ -366,6 +366,7 @@ function App(): React.ReactElement {
   const [playbackDuration, setPlaybackDuration] = React.useState(0)
   const [importSyncState, setImportSyncState] = React.useState<ImportSyncState | null>(null)
   const audioRef = React.useRef<HTMLAudioElement>(null)
+  const lastPlaybackTimeRef = React.useRef(0)
   const albums = React.useMemo(() => albumById(homeSnapshot), [homeSnapshot])
   const currentTrack = React.useMemo(
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
@@ -394,6 +395,9 @@ function App(): React.ReactElement {
 
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
+  }, [])
+  const navigateHome = React.useCallback(() => {
+    setRoute({ name: 'home' })
   }, [])
   const importAudioFile = React.useCallback(async () => {
     setImportSyncState({
@@ -500,6 +504,7 @@ function App(): React.ReactElement {
     const audio = audioRef.current
     if (!audio || !Number.isFinite(seconds)) return
     audio.currentTime = Math.max(0, seconds)
+    lastPlaybackTimeRef.current = audio.currentTime
     setPlaybackTime(audio.currentTime)
   }, [])
 
@@ -511,6 +516,7 @@ function App(): React.ReactElement {
       audio.pause()
       audio.removeAttribute('src')
       audio.load()
+      lastPlaybackTimeRef.current = 0
       setPlaybackTime(0)
       setPlaybackDuration(0)
       setIsPlaying(false)
@@ -520,6 +526,7 @@ function App(): React.ReactElement {
     if (audio.src !== currentTrack.sourceUrl) {
       audio.src = currentTrack.sourceUrl
       audio.load()
+      lastPlaybackTimeRef.current = 0
       setPlaybackTime(0)
     }
 
@@ -552,7 +559,10 @@ function App(): React.ReactElement {
   const updateAudioTime = React.useCallback(() => {
     const audio = audioRef.current
     if (!audio) return
-    setPlaybackTime(audio.currentTime)
+    const nextTime = audio.currentTime
+    if (!audio.paused && Math.abs(nextTime - lastPlaybackTimeRef.current) < 0.18) return
+    lastPlaybackTimeRef.current = nextTime
+    setPlaybackTime(nextTime)
   }, [])
 
   const handleAudioEnded = React.useCallback(() => {
@@ -571,7 +581,7 @@ function App(): React.ReactElement {
 
         <main className="content-pane">
           <Toolbar
-            onNavigateHome={() => setRoute({ name: 'home' })}
+            onNavigateHome={navigateHome}
             onImportAudioFile={importAudioFile}
             onToggleLyricsSidebar={toggleLyricsSidebar}
             isLyricsSidebarOpen={isLyricsSidebarOpen}
@@ -881,7 +891,7 @@ const HomePage = React.memo(function HomePage({
                 onClick={() => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
               >
                 {artist.artworkUrl ? (
-                  <img src={artist.artworkUrl} alt="" />
+                  <img src={artist.artworkUrl} alt="" loading="lazy" decoding="async" />
                 ) : (
                   <span className="artist-avatar">{artist.name}</span>
                 )}
@@ -900,7 +910,7 @@ const HomePage = React.memo(function HomePage({
                 type="button"
                 onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
               >
-                <img src={albumArtworkFor(album)} alt="" />
+                <img src={albumArtworkFor(album)} alt="" loading="lazy" decoding="async" />
                 <strong>{album.title}</strong>
                 <span>{album.artist}</span>
               </button>
@@ -947,9 +957,9 @@ const HomeHero = React.memo(function HomeHero({
   const artwork = trackArtwork(track, albums)
   return (
     <header className="home-hero">
-      <img className="home-hero-bg" src={artwork} alt="" />
+      <img className="home-hero-bg" src={artwork} alt="" decoding="async" />
       <div className="home-hero-cover">
-        <img src={artwork} alt="" />
+        <img src={artwork} alt="" decoding="async" />
       </div>
       <div className="home-hero-copy">
         <span>{track.artist}</span>
@@ -1026,7 +1036,7 @@ const HomeStatsSection = React.memo(function HomeStatsSection({ stats }: { stats
           {stats.ranking.map((item, index) => (
             <div className="home-rank-row" key={item.trackId}>
               <span>{index + 1}</span>
-              <img src={item.artworkUrl || albumArtwork} alt="" />
+              <img src={item.artworkUrl || albumArtwork} alt="" loading="lazy" decoding="async" />
               <strong>{item.title}</strong>
               <small>{item.artist}</small>
               <i style={{ width: `${Math.max(18, item.score * 120)}px` }} />
@@ -1172,9 +1182,9 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
 
   return (
     <aside className="lyrics-side-panel glass-panel no-drag" style={{ '--filter-url': 'url(#lg-home-liquid)' } as React.CSSProperties}>
-      <img className="lyrics-side-bg" src={artwork} alt="" />
+      <img className="lyrics-side-bg" src={artwork} alt="" decoding="async" />
       <div className="lyrics-side-head">
-        <img src={artwork} alt="" />
+        <img src={artwork} alt="" decoding="async" />
         <div>
           <span>{isPlaying ? '正在播放' : '已暂停'}</span>
           <strong>{track?.title ?? '未选择歌曲'}</strong>
@@ -1212,9 +1222,9 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
 
   return (
     <section className="fullscreen-lyrics-page no-drag">
-      <img className="fullscreen-lyrics-bg" src={artwork} alt="" />
+      <img className="fullscreen-lyrics-bg" src={artwork} alt="" decoding="async" />
       <div className="fullscreen-lyrics-art">
-        <img src={artwork} alt="" />
+        <img src={artwork} alt="" decoding="async" />
       </div>
       <div className="fullscreen-lyrics-copy">
         <span>{isPlaying ? '正在播放' : '已暂停'}</span>
@@ -1273,7 +1283,7 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
       >
         <header className="artist-header">
           <div className={`artist-image-frame ${artworkShape === 'square' ? 'square-artwork' : ''}`}>
-            <img src={detailArtwork(route, snapshot, albums)} alt="" />
+            <img src={detailArtwork(route, snapshot, albums)} alt="" decoding="async" />
           </div>
           <div className="artist-copy">
             <h1>{route.name === 'allTracks' ? '所有歌曲' : route.title}</h1>
@@ -1315,13 +1325,13 @@ const CollectionGrid = React.memo(function CollectionGrid({
     <div className="collection-grid">
       {artists?.map((artist) => (
         <button className="home-person-card home-liquid-card glass-panel" key={artist.id} type="button" onClick={() => onArtist?.(artist)}>
-          {artist.artworkUrl ? <img src={artist.artworkUrl} alt="" /> : <span className="artist-avatar">{artist.name}</span>}
+          {artist.artworkUrl ? <img src={artist.artworkUrl} alt="" loading="lazy" decoding="async" /> : <span className="artist-avatar">{artist.name}</span>}
           <strong>{artist.name}</strong>
         </button>
       ))}
       {albums?.map((album) => (
         <button className="home-album-card home-liquid-card glass-panel" key={album.id} type="button" onClick={() => onAlbum?.(album)}>
-          <img src={albumArtworkFor(album)} alt="" />
+          <img src={albumArtworkFor(album)} alt="" loading="lazy" decoding="async" />
           <strong>{album.title}</strong>
           <span>{album.artist}</span>
         </button>
@@ -1350,7 +1360,7 @@ const TrackRows = React.memo(function TrackRows({
           type="button"
           onClick={() => onSelect(track.id)}
         >
-          <img className="track-art" src={trackArtwork(track, albums)} alt="" />
+          <img className="track-art" src={trackArtwork(track, albums)} alt="" loading="lazy" decoding="async" />
           <span className="track-title">{track.title}</span>
           <span className="track-artist">{track.artist}</span>
           <span className="track-duration">{formatDuration(track.duration)}</span>
@@ -1398,7 +1408,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
         />
       </div>
       <button className="mini-track" type="button" aria-label="打开或关闭完整歌词界面" onClick={onToggleFullscreenLyrics}>
-        <img src={trackArtwork(track, albums)} alt="" />
+        <img src={trackArtwork(track, albums)} alt="" decoding="async" />
         <div>
           <strong>{track.title}</strong>
           <span>{track.artist}</span>
