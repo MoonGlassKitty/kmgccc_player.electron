@@ -7,8 +7,31 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "package:win": "npm run build && electron-builder --win portable --x64",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "com.kmgccc.player.windows",
+    "productName": "kmgccc Player",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
@@ -23,6 +46,7 @@
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
     "electron": "^31.7.7",
+    "electron-builder": "^26.15.0",
     "electron-vite": "^4.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.2.7"
