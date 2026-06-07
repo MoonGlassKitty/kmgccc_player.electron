@@ -189,6 +189,18 @@ function albumArtworkFor(album?: Pick<HomeAlbumCard, 'artworkUrl'> | null): stri
 }
 
 function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<string, HomeAlbumCard>): React.CSSProperties {
+  if (!track) {
+    return {
+      '--cover-accent': 'rgba(116, 124, 132, 0.34)',
+      '--cover-accent-border': 'rgba(66, 72, 78, 0.22)',
+      '--cover-accent-text': '#68717a',
+      '--cover-accent-shadow': 'rgba(20, 24, 28, 0.08)',
+      '--ambient-shape-1': 'rgba(110, 116, 123, 0.3)',
+      '--ambient-shape-2': 'rgba(154, 158, 164, 0.24)',
+      '--ambient-shape-3': 'rgba(82, 87, 94, 0.18)'
+    } as React.CSSProperties
+  }
+
   const artwork = trackArtwork(track, albums)
   const isAltArtwork = artwork === altArtwork || track?.albumId === 'album-myth' || track?.albumId === 'album-udong'
   const accent = isAltArtwork ? 'rgba(124, 143, 104, 0.42)' : 'rgba(88, 190, 229, 0.38)'
@@ -348,53 +360,73 @@ function ambientRotationClamp(tier: AmbientSizeTier): number {
   }
 }
 
-function ambientAssetNamed(name: string): AmbientShapeAsset {
-  return ambientShapeAssets.find((asset) => asset.name === name) ?? ambientShapeAssets[0]
+function makeAmbientSeed(): number {
+  const values = new Uint32Array(1)
+  window.crypto?.getRandomValues(values)
+  return values[0] || Math.floor(Math.random() * 0xffffffff)
 }
 
-function makeAmbientShapeSpecs(): AmbientShapeSpec[] {
-  const random = makeAmbientRandom(0x5eedd1ed)
-  const count = 19
-  const visibleCount = 9
+function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
+  const random = makeAmbientRandom(seed)
+  const count = 22
+  const visibleCount = 12
   let previousAsset: AmbientShapeAsset | null = null
+  const featuredAssets = ambientShapeAssets.filter((asset) => asset.kind !== 'normal')
+
+  const edgeSlot = (index: number): Partial<AmbientShapeSpec> | null => {
+    switch (index) {
+    case 0:
+      return {
+        asset: ambientPick(featuredAssets, random),
+        side: 'left',
+        tier: random() < 0.62 ? 'ultra' : 'large',
+        baseYViewport: ambientRange(random, 0.34, 0.86),
+        nominalSide: ambientRange(random, 620, 880),
+        boundaryOffset: ambientRange(random, -300, -70),
+        color: ambientShapeColors[0],
+        opacity: ambientRange(random, 0.26, 0.34)
+      }
+    case 1:
+      return {
+        asset: ambientPick(featuredAssets, random),
+        side: 'right',
+        tier: random() < 0.42 ? 'ultra' : 'large',
+        baseYViewport: ambientRange(random, 0.28, 0.78),
+        nominalSide: ambientRange(random, 480, 760),
+        boundaryOffset: ambientRange(random, 70, 260),
+        color: ambientShapeColors[1],
+        opacity: ambientRange(random, 0.28, 0.36)
+      }
+    case 2:
+      return {
+        asset: ambientPick(featuredAssets, random),
+        side: 'left',
+        tier: 'large',
+        baseYViewport: ambientRange(random, 0.88, 1.34),
+        nominalSide: ambientRange(random, 380, 620),
+        boundaryOffset: ambientRange(random, -120, 120),
+        color: ambientShapeColors[2],
+        opacity: ambientRange(random, 0.28, 0.36)
+      }
+    case 3:
+      return {
+        asset: ambientPick(featuredAssets, random),
+        side: 'right',
+        tier: 'large',
+        baseYViewport: ambientRange(random, 0.92, 1.42),
+        nominalSide: ambientRange(random, 360, 620),
+        boundaryOffset: ambientRange(random, -120, 150),
+        color: ambientShapeColors[0],
+        opacity: ambientRange(random, 0.28, 0.35)
+      }
+    default:
+      return null
+    }
+  }
 
   return Array.from({ length: count }, (_entry, index) => {
-    const anchored: Partial<AmbientShapeSpec> | null =
-      index === 0
-        ? {
-          asset: ambientAssetNamed('shape10.png'),
-          side: 'left',
-          tier: 'ultra',
-          baseYViewport: 0.88,
-          nominalSide: 820,
-          boundaryOffset: -150,
-          color: ambientShapeColors[0],
-          opacity: 0.3
-        }
-        : index === 1
-          ? {
-            asset: ambientAssetNamed('shape9.png'),
-            side: 'right',
-            tier: 'large',
-            baseYViewport: 0.62,
-            nominalSide: 560,
-            boundaryOffset: 165,
-            color: ambientShapeColors[1],
-            opacity: 0.33
-          }
-          : index === 2
-            ? {
-              asset: ambientAssetNamed('shape11.png'),
-              side: 'left',
-              tier: 'large',
-              baseYViewport: 1.36,
-              nominalSide: 520,
-              boundaryOffset: 80,
-              color: ambientShapeColors[2],
-              opacity: 0.34
-            }
-            : null
-    const forceUltra = index === 5
+    const anchored = edgeSlot(index)
+    const forceUltra = index === 6
     const pool = forceUltra
       ? ambientShapeAssets.filter((asset) => asset.kind === 'ultra')
       : ambientShapeAssets.filter((asset) => asset !== previousAsset)
@@ -404,12 +436,12 @@ function makeAmbientShapeSpecs(): AmbientShapeSpec[] {
     const side = anchored?.side ?? ambientSideFor(index, random)
     const visible = index < visibleCount
     const baseYViewport = anchored?.baseYViewport ?? (visible
-      ? ambientRange(random, -0.28, 1.16)
-      : ambientRange(random, 1.14, 2.65))
+      ? ambientRange(random, -0.18, 1.28)
+      : ambientRange(random, 0.92, 2.18))
     const isUltra = tier === 'ultra'
     const boundaryOffset = anchored?.boundaryOffset ?? (side === 'left'
-      ? ambientRange(random, isUltra ? -680 : -300, isUltra ? -80 : 185)
-      : ambientRange(random, isUltra ? 80 : -185, isUltra ? 680 : 300))
+      ? ambientRange(random, isUltra ? -460 : -220, isUltra ? -90 : 170)
+      : ambientRange(random, isUltra ? 90 : -170, isUltra ? 460 : 220))
 
     return {
       id: index,
@@ -624,7 +656,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 }): React.ReactElement {
   const rootRef = React.useRef<HTMLDivElement>(null)
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
-  const specs = React.useMemo(() => makeAmbientShapeSpecs(), [])
+  const specs = React.useMemo(() => makeAmbientShapeSpecs(makeAmbientSeed()), [])
 
   React.useEffect(() => {
     const root = rootRef.current
@@ -705,7 +737,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
         const side = clampNumber(spec.nominalSide * shapeScale, spec.tier === 'small' ? 54 : 96, isUltra ? 980 : 760)
         const boundary = spec.side === 'left' ? centerMinX : centerMaxX
         const boundaryOffset = isUltra
-          ? (spec.side === 'left' ? -1 : 1) * Math.max(Math.abs(spec.boundaryOffset), side * 0.7)
+          ? spec.boundaryOffset * (0.82 + fluidProgress * 0.18)
           : spec.boundaryOffset * fluidBoundaryScale
         const baseX = clampNumber(
           boundary + boundaryOffset,
