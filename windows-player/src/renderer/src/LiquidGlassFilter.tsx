@@ -418,7 +418,7 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
         specularSaturation={8}
         specularWidth={56}
         includeSpecular={false}
-        dpr={0.2}
+        dpr={0.5}
       />
       <LiquidGlassFilter
         id="lg-mini"
