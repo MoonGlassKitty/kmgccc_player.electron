@@ -565,10 +565,10 @@ function App(): React.ReactElement {
             </>
           ) : null}
           {importSyncState ? <ImportSyncCard state={importSyncState} onCancel={() => setImportSyncState(null)} /> : null}
-          {isLyricsSidebarOpen ? (
-            <LyricsSidePanel track={currentTrack} albums={albums} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={seekTo} />
-          ) : null}
         </main>
+        {isLyricsSidebarOpen ? (
+          <LyricsSidePanel track={currentTrack} albums={albums} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={seekTo} />
+        ) : null}
         {isFullscreenLyricsOpen ? (
           <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={seekTo} />
         ) : null}
