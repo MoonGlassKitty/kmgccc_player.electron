@@ -294,20 +294,6 @@ function ambientPick<T>(items: T[], random: () => number): T {
   return items[Math.floor(random() * items.length) % items.length]
 }
 
-function ambientTierFor(asset: AmbientShapeAsset, random: () => number): AmbientSizeTier {
-  if (asset.kind === 'ultra') return 'ultra'
-  if (asset.kind === 'featuredLarge') return 'large'
-  const roll = random()
-  if (roll < 0.46) return 'small'
-  if (roll < 0.84) return 'medium'
-  return 'large'
-}
-
-function ambientSideFor(index: number, random: () => number): AmbientSide {
-  const side = index % 2 === 0 ? 'left' : 'right'
-  return random() < 0.18 ? (side === 'left' ? 'right' : 'left') : side
-}
-
 function ambientNominalSide(tier: AmbientSizeTier, random: () => number): number {
   switch (tier) {
   case 'small':
@@ -392,7 +378,7 @@ function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
         tier: 'large',
         baseYViewport: ambientRange(random, 0.2, 0.48),
         nominalSide: ambientRange(random, 470, 640),
-        boundaryOffset: ambientRange(random, -250, -80),
+        boundaryOffset: ambientRange(random, -420, -230),
         color: ambientShapeColors[0],
         opacity: ambientRange(random, 0.46, 0.58)
       }
@@ -401,20 +387,20 @@ function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
         asset: ambientPick(featuredAssets, random),
         side: 'right',
         tier: 'large',
-        baseYViewport: ambientRange(random, 0.5, 0.82),
+        baseYViewport: ambientRange(random, 0.66, 0.84),
         nominalSide: ambientRange(random, 430, 620),
-        boundaryOffset: ambientRange(random, -230, -70),
+        boundaryOffset: ambientRange(random, -40, 90),
         color: ambientShapeColors[1],
         opacity: ambientRange(random, 0.46, 0.58)
       }
     case 2:
       return {
-        asset: ambientPick(ambientShapeAssets, random),
-        side: random() < 0.5 ? 'left' : 'right',
-        tier: 'medium',
-        baseYViewport: ambientRange(random, 0.86, 1.14),
-        nominalSide: ambientRange(random, 220, 360),
-        boundaryOffset: random() < 0.5 ? ambientRange(random, -80, 130) : ambientRange(random, -180, -40),
+        asset: largeCount > 2 ? ambientPick(featuredAssets, random) : ambientPick(ambientShapeAssets, random),
+        side: 'left',
+        tier: largeCount > 2 ? 'large' : 'medium',
+        baseYViewport: ambientRange(random, 1.04, 1.24),
+        nominalSide: largeCount > 2 ? ambientRange(random, 360, 520) : ambientRange(random, 220, 360),
+        boundaryOffset: largeCount > 2 ? ambientRange(random, -320, -150) : ambientRange(random, -70, 150),
         color: ambientShapeColors[2],
         opacity: ambientRange(random, 0.48, 0.6)
       }
@@ -429,16 +415,17 @@ function makeAmbientShapeSpecs(seed: number): AmbientShapeSpec[] {
     const asset = anchored?.asset ?? ambientPick(pool.length ? pool : ambientShapeAssets, random)
     previousAsset = asset
     const tier = anchored?.tier ?? tiers[index]
-    const side = anchored?.side ?? ambientSideFor(index, random)
+    const side = anchored?.side ?? (index % 2 === 0 ? 'left' : 'right')
     const visible = index < visibleCount
-    const laterBand = (index - visibleCount) / Math.max(1, count - visibleCount)
+    const laneIndex = Math.floor(index / 2)
+    const laterLaneIndex = Math.floor((index - visibleCount) / 2)
     const baseYViewport = anchored?.baseYViewport ?? (visible
-      ? ambientRange(random, 0.2, 1.14)
-      : clampNumber(1.22 + laterBand * 1.16 + ambientRange(random, -0.08, 0.12), 1.2, 2.38))
+      ? clampNumber(0.28 + laneIndex * 0.52 + (side === 'right' ? 0.2 : 0) + ambientRange(random, -0.06, 0.08), 0.18, 1.18)
+      : clampNumber(1.26 + laterLaneIndex * 0.48 + (side === 'right' ? 0.24 : 0) + ambientRange(random, -0.08, 0.1), 1.2, 2.42))
     const isUltra = tier === 'ultra'
     const boundaryOffset = anchored?.boundaryOffset ?? (side === 'left'
-      ? ambientRange(random, isUltra ? -460 : -220, isUltra ? -90 : 170)
-      : ambientRange(random, isUltra ? -360 : -260, isUltra ? -90 : 120))
+      ? ambientRange(random, tier === 'large' || isUltra ? -380 : -180, tier === 'large' || isUltra ? -160 : 160)
+      : ambientRange(random, tier === 'large' || isUltra ? -40 : -220, tier === 'large' || isUltra ? 110 : 120))
 
     return {
       id: index,
