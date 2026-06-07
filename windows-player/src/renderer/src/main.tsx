@@ -1416,7 +1416,9 @@ function App(): React.ReactElement {
               {isFullscreenLyricsOpen ? <div className="mini-player-hover-zone no-drag" aria-hidden="true" /> : null}
               <MiniPlayer
                 track={currentTrack}
+                tracks={homeSnapshot.tracks}
                 albums={albums}
+                currentId={currentId}
                 isPlaying={isPlaying}
                 isShuffleEnabled={isShuffleEnabled}
                 volume={volume}
@@ -1427,6 +1429,7 @@ function App(): React.ReactElement {
                 onNext={playNextTrack}
                 onToggleShuffle={toggleShuffle}
                 onVolumeChange={changeVolume}
+                onSelectTrack={selectTrack}
                 onToggleFullscreenLyrics={toggleFullscreenLyrics}
                 onSeek={seekTo}
               />
@@ -2215,7 +2218,9 @@ const TrackRows = React.memo(function TrackRows({
 
 const MiniPlayer = React.memo(function MiniPlayer({
   track,
+  tracks,
   albums,
+  currentId,
   isPlaying,
   isShuffleEnabled,
   volume,
@@ -2226,11 +2231,14 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onNext,
   onToggleShuffle,
   onVolumeChange,
+  onSelectTrack,
   onToggleFullscreenLyrics,
   onSeek
 }: {
   track: Track
+  tracks: Track[]
   albums: Map<string, HomeAlbumCard>
+  currentId: string
   isPlaying: boolean
   isShuffleEnabled: boolean
   volume: number
@@ -2241,11 +2249,14 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onNext: () => void
   onToggleShuffle: () => void
   onVolumeChange: (volume: number) => void
+  onSelectTrack: (id: string) => void
   onToggleFullscreenLyrics: () => void
   onSeek: (seconds: number) => void
 }): React.ReactElement {
+  const [isQueueOpen, setIsQueueOpen] = React.useState(false)
   const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
   const volumeProgress = Math.round(volume * 100)
+  const queueTracks = tracks.length ? tracks : [track]
 
   return (
     <div className="mini-player glass-panel no-drag" style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
@@ -2269,6 +2280,37 @@ const MiniPlayer = React.memo(function MiniPlayer({
           <span>{track.artist}</span>
         </div>
       </button>
+      <button className={`mini-queue-button ${isQueueOpen ? 'active' : ''}`} type="button" aria-label="播放列表" aria-expanded={isQueueOpen} onClick={() => setIsQueueOpen((value) => !value)}>
+        <ListMusic size={18} />
+      </button>
+      {isQueueOpen ? (
+        <div className="mini-queue-popover glass-panel" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
+          <div className="mini-queue-head">
+            <span>播放列表</span>
+            <strong>{queueTracks.length} 首</strong>
+          </div>
+          <div className="mini-queue-list">
+            {queueTracks.map((queueTrack) => (
+              <button
+                className={`mini-queue-row ${queueTrack.id === currentId ? 'current' : ''}`}
+                key={queueTrack.id}
+                type="button"
+                onClick={() => {
+                  onSelectTrack(queueTrack.id)
+                  setIsQueueOpen(false)
+                }}
+              >
+                <img src={trackArtwork(queueTrack, albums)} alt="" loading="lazy" decoding="async" />
+                <span>
+                  <strong>{queueTrack.title}</strong>
+                  <small>{queueTrack.artist}</small>
+                </span>
+                <time>{formatDuration(queueTrack.duration)}</time>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="mini-controls">
         <button type="button" aria-label="上一首" onClick={onPrevious}>
           <SkipBack size={19} fill="currentColor" />
