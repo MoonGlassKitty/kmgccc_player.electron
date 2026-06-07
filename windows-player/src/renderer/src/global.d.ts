@@ -81,6 +81,10 @@ declare global {
   type LocalAudioImport = HomeTrack & {
     sourcePath: string
     sourceUrl: string
+    originalSourcePath?: string
+    convertedFromNcm?: boolean
+    conversionOutputPath?: string
+    conversionFormat?: string
   }
 
   type TrackMetadataSyncResult = {

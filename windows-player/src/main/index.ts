@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol } from 'electron'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { createDecipheriv } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, extname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -71,10 +72,32 @@ type LocalAudioImport = {
   duration: number
   sourcePath: string
   sourceUrl: string
+  originalSourcePath?: string
+  convertedFromNcm?: boolean
+  conversionOutputPath?: string
+  conversionFormat?: string
   artworkUrl?: string
   lyricsText?: string
   syncedLyrics?: string
   metadataSource?: string
+}
+
+type NcmMetadata = {
+  musicName?: string
+  artist?: Array<[string, number]>
+  album?: string
+  albumPic?: string
+  albumPicDocId?: string
+  format?: string
+  duration?: number
+}
+
+type NcmConversionResult = {
+  audioPath: string
+  originalPath: string
+  format: string
+  metadata: NcmMetadata | null
+  artworkUrl?: string
 }
 
 type TrackMetadataSyncResult = {
@@ -146,6 +169,102 @@ function parseTitleArtistFromFilename(audioPath: string): { title: string; artis
   return { title: baseName || '未命名单曲', artist: '未知艺人' }
 }
 
+function decryptAes128Ecb(key: string, payload: Buffer): Buffer {
+  const decipher = createDecipheriv('aes-128-ecb', Buffer.from(key, 'utf8'), null)
+  decipher.setAutoPadding(true)
+  return Buffer.concat([decipher.update(payload), decipher.final()])
+}
+
+function createNcmKeyBox(key: Buffer): Uint8Array {
+  const keyBox = new Uint8Array(256)
+  for (let index = 0; index < keyBox.length; index += 1) {
+    keyBox[index] = index
+  }
+
+  let lastByte = 0
+  let keyOffset = 0
+  for (let index = 0; index < keyBox.length; index += 1) {
+    const swap = keyBox[index]
+    lastByte = (lastByte + swap + key[keyOffset]) & 0xff
+    keyOffset = (keyOffset + 1) % key.length
+    keyBox[index] = keyBox[lastByte]
+    keyBox[lastByte] = swap
+  }
+
+  return keyBox
+}
+
+function decryptNcmAudioPayload(payload: Buffer, keyBox: Uint8Array): Buffer {
+  const output = Buffer.from(payload)
+  for (let index = 0; index < output.length; index += 1) {
+    const j = (index + 1) & 0xff
+    output[index] ^= keyBox[(keyBox[j] + keyBox[(keyBox[j] + j) & 0xff]) & 0xff]
+  }
+  return output
+}
+
+function safeNcmOutputName(sourcePath: string, metadata: NcmMetadata | null, format: string): string {
+  const filenameMetadata = parseTitleArtistFromFilename(sourcePath)
+  const title = metadata?.musicName?.trim() || filenameMetadata.title
+  const artist = metadata?.artist?.map((entry) => entry[0]).filter(Boolean).join(', ') || filenameMetadata.artist
+  const stableId = Buffer.from(sourcePath, 'utf8').toString('base64url').slice(0, 18)
+  return `${normalizedSlug(`${artist}-${title}`, 'netease-track')}-${stableId}.${format}`
+}
+
+function parseNcmMetadata(rawMetadata: Buffer): NcmMetadata | null {
+  try {
+    const xored = Buffer.from(rawMetadata.map((byte) => byte ^ 0x63)).toString('utf8')
+    const encoded = xored.replace(/^163 key\(Don't modify\):/, '')
+    const decrypted = decryptAes128Ecb('#14ljk_!\\]&0U<\'(', Buffer.from(encoded, 'base64')).toString('utf8')
+    return JSON.parse(decrypted.replace(/^music:/, '')) as NcmMetadata
+  } catch {
+    return null
+  }
+}
+
+function convertNcmToLocalAudio(sourcePath: string): NcmConversionResult {
+  const payload = readFileSync(sourcePath)
+  if (payload.subarray(0, 8).toString('utf8') !== 'CTENFDAM') {
+    throw new Error('Invalid NCM header')
+  }
+
+  let offset = 10
+  const keyLength = payload.readUInt32LE(offset)
+  offset += 4
+  const encryptedKey = Buffer.from(payload.subarray(offset, offset + keyLength).map((byte) => byte ^ 0x64))
+  offset += keyLength
+  const decryptedKey = decryptAes128Ecb('hzHRAmso5kInbaxW', encryptedKey)
+  const musicKey = decryptedKey.subarray(17)
+  const keyBox = createNcmKeyBox(musicKey)
+
+  const metadataLength = payload.readUInt32LE(offset)
+  offset += 4
+  const metadata = parseNcmMetadata(payload.subarray(offset, offset + metadataLength))
+  offset += metadataLength
+
+  offset += 4
+  offset += 5
+  const imageLength = payload.readUInt32LE(offset)
+  offset += 4
+  const imageData = payload.subarray(offset, offset + imageLength)
+  offset += imageLength
+
+  const format = (metadata?.format || 'mp3').toLowerCase() === 'flac' ? 'flac' : 'mp3'
+  const audioData = decryptNcmAudioPayload(payload.subarray(offset), keyBox)
+  const outputDir = join(app.getPath('userData'), 'converted-ncm')
+  mkdirSync(outputDir, { recursive: true })
+  const audioPath = join(outputDir, safeNcmOutputName(sourcePath, metadata, format))
+  writeFileSync(audioPath, audioData)
+
+  return {
+    audioPath,
+    originalPath: sourcePath,
+    format,
+    metadata,
+    artworkUrl: imageData.length > 0 ? dataUrlForImage(imageData) : undefined
+  }
+}
+
 function installLocalMediaProtocol(): void {
   protocol.handle('kmgccc-media', (request) => {
     const url = new URL(request.url)
@@ -166,6 +285,32 @@ function installLocalMediaProtocol(): void {
 
 async function localAudioImportFromPath(audioPath: string): Promise<LocalAudioImport> {
   const extension = extname(audioPath)
+  if (extension.toLowerCase() === '.ncm') {
+    const converted = convertNcmToLocalAudio(audioPath)
+    const imported = await localAudioImportFromPath(converted.audioPath)
+    const convertedTitle = converted.metadata?.musicName?.trim()
+    const convertedArtist = converted.metadata?.artist?.map((entry) => entry[0]).filter(Boolean).join(', ')
+    const convertedAlbum = converted.metadata?.album?.trim()
+    const duration = converted.metadata?.duration ? Math.round(converted.metadata.duration / 1000) : imported.duration
+    const ids = idsForMetadata(convertedArtist || imported.artist, convertedAlbum || imported.album)
+
+    return {
+      ...imported,
+      title: convertedTitle || imported.title,
+      artist: convertedArtist || imported.artist,
+      artistId: ids.artistId,
+      album: convertedAlbum || imported.album,
+      albumId: ids.albumId,
+      duration,
+      artworkUrl: converted.artworkUrl || imported.artworkUrl,
+      originalSourcePath: converted.originalPath,
+      convertedFromNcm: true,
+      conversionOutputPath: converted.audioPath,
+      conversionFormat: converted.format,
+      metadataSource: imported.metadataSource ?? 'ncm'
+    }
+  }
+
   const filenameMetadata = parseTitleArtistFromFilename(audioPath)
   const stableId = Buffer.from(audioPath, 'utf8').toString('base64url').slice(0, 24)
   let title = filenameMetadata.title
@@ -299,23 +444,30 @@ async function fetchLyrics(track: LocalAudioImport): Promise<Pick<LocalAudioImpo
 async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSyncResult> {
   let syncedTrack = { ...track }
   const statuses: TrackMetadataSyncResult['statuses'] = {
-    track: 'noResults',
+    track: track.convertedFromNcm ? 'completed' : 'noResults',
     lyrics: 'noResults',
-    album: 'noResults'
+    album: track.convertedFromNcm ? 'completed' : 'noResults'
   }
+  const preserveNcmIdentity = track.convertedFromNcm && track.metadataSource === 'ncm'
 
   try {
     const metadata = await fetchItunesMetadata(syncedTrack)
     if (metadata) {
-      syncedTrack = {
-        ...syncedTrack,
-        title: metadata.trackName?.trim() || syncedTrack.title,
-        artist: metadata.artistName?.trim() || syncedTrack.artist,
-        album: metadata.collectionName?.trim() || syncedTrack.album,
-        duration: metadata.trackTimeMillis ? Math.round(metadata.trackTimeMillis / 1000) : syncedTrack.duration,
-        artworkUrl: upgradeArtworkUrl(metadata.artworkUrl100) || syncedTrack.artworkUrl,
-        metadataSource: 'itunes'
-      }
+      syncedTrack = preserveNcmIdentity
+        ? {
+          ...syncedTrack,
+          duration: syncedTrack.duration || (metadata.trackTimeMillis ? Math.round(metadata.trackTimeMillis / 1000) : syncedTrack.duration),
+          artworkUrl: syncedTrack.artworkUrl || upgradeArtworkUrl(metadata.artworkUrl100)
+        }
+        : {
+          ...syncedTrack,
+          title: metadata.trackName?.trim() || syncedTrack.title,
+          artist: metadata.artistName?.trim() || syncedTrack.artist,
+          album: metadata.collectionName?.trim() || syncedTrack.album,
+          duration: metadata.trackTimeMillis ? Math.round(metadata.trackTimeMillis / 1000) : syncedTrack.duration,
+          artworkUrl: upgradeArtworkUrl(metadata.artworkUrl100) || syncedTrack.artworkUrl,
+          metadataSource: 'itunes'
+        }
       const ids = idsForMetadata(syncedTrack.artist, syncedTrack.album)
       syncedTrack.artistId = ids.artistId
       syncedTrack.albumId = ids.albumId
@@ -569,7 +721,8 @@ ipcMain.handle('library:import-audio-file', async (event): Promise<LocalAudioImp
     title: '导入单曲',
     properties: ['openFile'],
     filters: [
-      { name: '音频文件', extensions: ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg', 'opus'] },
+      { name: '音频文件', extensions: ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg', 'opus', 'ncm'] },
+      { name: '网易云音乐 NCM', extensions: ['ncm'] },
       { name: '所有文件', extensions: ['*'] }
     ]
   }

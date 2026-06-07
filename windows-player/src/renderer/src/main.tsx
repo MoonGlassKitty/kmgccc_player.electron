@@ -42,6 +42,10 @@ type Track = {
   artworkUrl?: string
   sourcePath?: string
   sourceUrl?: string
+  originalSourcePath?: string
+  convertedFromNcm?: boolean
+  conversionOutputPath?: string
+  conversionFormat?: string
   lyricsText?: string
   syncedLyrics?: string
   metadataSource?: string
@@ -392,8 +396,36 @@ function App(): React.ReactElement {
     setIsPlaying((value) => !value)
   }, [])
   const importAudioFile = React.useCallback(async () => {
-    const importedTrack = await window.kmgccc?.importAudioFile()
-    if (!importedTrack) return
+    setImportSyncState({
+      title: '准备导入',
+      artist: '',
+      detail: '选择文件后开始导入；NCM 会先转换为本地可播放音频',
+      status: 'running',
+      progress: 0.06,
+      processedCount: 0,
+      totalCount: 1
+    })
+
+    let importedTrack: LocalAudioImport | null | undefined
+    try {
+      importedTrack = await window.kmgccc?.importAudioFile()
+    } catch {
+      setImportSyncState({
+        title: '导入失败',
+        artist: '',
+        detail: 'NCM 转换或音频导入失败',
+        status: 'failed',
+        progress: 1,
+        processedCount: 0,
+        totalCount: 1
+      })
+      return
+    }
+
+    if (!importedTrack) {
+      setImportSyncState(null)
+      return
+    }
 
     setHomeSnapshot((snapshot) => snapshotWithImportedTrack(snapshot, importedTrack))
     setCurrentId(importedTrack.id)
@@ -405,9 +437,11 @@ function App(): React.ReactElement {
     setImportSyncState({
       title: importedTrack.title,
       artist: importedTrack.artist,
-      detail: '正在补全歌词、歌曲信息、歌手信息、专辑信息',
+      detail: importedTrack.convertedFromNcm
+        ? `NCM 已转换为 ${importedTrack.conversionFormat?.toUpperCase() ?? 'MP3'}，正在补全歌词、歌曲信息、歌手信息、专辑信息`
+        : '正在补全歌词、歌曲信息、歌手信息、专辑信息',
       status: 'running',
-      progress: 0.18,
+      progress: importedTrack.convertedFromNcm ? 0.32 : 0.18,
       processedCount: 0,
       totalCount: 1
     })
@@ -418,10 +452,15 @@ function App(): React.ReactElement {
 
       setHomeSnapshot((snapshot) => snapshotWithSyncedTrack(snapshot, result))
       setCurrentId(result.track.id)
+      const completedDetail = result.track.convertedFromNcm
+        ? `NCM 已转换为 ${result.track.conversionFormat?.toUpperCase() ?? 'MP3'}，${
+          result.statuses.lyrics === 'completed' ? '已补全歌曲信息、专辑信息与歌词' : '已补全可用的歌曲信息与专辑信息'
+        }`
+        : result.statuses.lyrics === 'completed' ? '已补全歌曲信息、专辑信息与歌词' : '已补全可用的歌曲信息与专辑信息'
       setImportSyncState({
         title: result.track.title,
         artist: result.track.artist,
-        detail: result.statuses.lyrics === 'completed' ? '已补全歌曲信息、专辑信息与歌词' : '已补全可用的歌曲信息与专辑信息',
+        detail: completedDetail,
         status: 'completed',
         progress: 1,
         processedCount: 1,
@@ -561,6 +600,7 @@ function App(): React.ReactElement {
                 playbackDuration={playbackDuration || currentTrack.duration}
                 onPlayPause={togglePlayback}
                 onToggleFullscreenLyrics={toggleFullscreenLyrics}
+                onSeek={seekTo}
               />
             </>
           ) : null}
@@ -1328,7 +1368,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
   playbackTime,
   playbackDuration,
   onPlayPause,
-  onToggleFullscreenLyrics
+  onToggleFullscreenLyrics,
+  onSeek
 }: {
   track: Track
   albums: Map<string, HomeAlbumCard>
@@ -1337,11 +1378,27 @@ const MiniPlayer = React.memo(function MiniPlayer({
   playbackDuration: number
   onPlayPause: () => void
   onToggleFullscreenLyrics: () => void
+  onSeek: (seconds: number) => void
 }): React.ReactElement {
   const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
 
   return (
     <div className="mini-player glass-panel no-drag" style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
+      <div className="mini-progress-rail" style={{ '--mini-progress': progress } as React.CSSProperties}>
+        <svg className="mini-snake-progress" viewBox="0 0 1000 18" preserveAspectRatio="none" aria-hidden="true">
+          <path className="mini-snake-base" pathLength="100" d="M3 9 L997 9" />
+          <path className="mini-snake-fill" pathLength="100" d="M3 9 C 52 1, 86 17, 136 9 S 220 1, 270 9 S 354 17, 404 9 S 488 1, 538 9 S 622 17, 672 9 S 756 1, 806 9 S 890 17, 997 9" />
+        </svg>
+        <input
+          aria-label="播放进度"
+          max={Math.max(1, playbackDuration)}
+          min="0"
+          step="0.1"
+          type="range"
+          value={Math.min(playbackTime, Math.max(1, playbackDuration))}
+          onChange={(event) => onSeek(Number(event.currentTarget.value))}
+        />
+      </div>
       <button className="mini-track" type="button" aria-label="打开或关闭完整歌词界面" onClick={onToggleFullscreenLyrics}>
         <img src={trackArtwork(track, albums)} alt="" />
         <div>
@@ -1364,9 +1421,6 @@ const MiniPlayer = React.memo(function MiniPlayer({
         <Shuffle size={18} />
       </button>
       <div className="mini-timeline">
-        <div className="progress-track" aria-hidden="true">
-          <span style={{ width: `${progress}%` }} />
-        </div>
         <div className="volume-track">
           <Volume2 size={16} />
           <div className="volume-bar">

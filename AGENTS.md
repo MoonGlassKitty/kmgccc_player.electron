@@ -43,6 +43,7 @@ Prioritize:
 
 - Runtime verification should prefer the Electron application when app behavior, local file access, playback, window chrome, or screenshots are involved. The web renderer port is still useful for fast layout iteration, but local media features must be validated in Electron.
 - First functional milestone: import a single local audio file, decode/play it through Chromium/Electron media playback, show it in the local library, and wire it to the mini player.
+- NCM import is now part of the local import path: `.ncm` files are decrypted locally into app `userData/converted-ncm` audio files before playback/import, and the conversion step should be surfaced in the import completion card.
 - Library model should become album-centered: every track must belong to at least one album. A minimal synced album record only needs artist and album artwork at first.
 - Metadata sync milestone: use API integration to sync single-track metadata, including lyrics, artist, album cover, and album-level information.
 - Lyrics milestone: add a dedicated lyrics playback page after local import/playback and metadata sync are stable.
