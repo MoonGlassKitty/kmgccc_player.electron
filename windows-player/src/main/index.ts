@@ -143,6 +143,21 @@ type ItunesSearchResult = {
   trackTimeMillis?: number
 }
 
+type ItunesAlbumSearchResult = {
+  collectionName?: string
+  artistName?: string
+  artworkUrl100?: string
+  releaseDate?: string
+  primaryGenreName?: string
+  collectionType?: string
+}
+
+type ItunesArtistSearchResult = {
+  artistName?: string
+  primaryGenreName?: string
+  artistLinkUrl?: string
+}
+
 type NetEaseSongSearchResult = {
   name?: string
   id?: number
@@ -933,6 +948,72 @@ async function fetchItunesMetadata(track: LocalAudioImport): Promise<ItunesSearc
     .sort((a, b) => b.score - a.score)[0]?.candidate ?? null
 }
 
+async function lookupAlbumMetadata(values: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  const title = typeof values.title === 'string' ? values.title.trim() : ''
+  const artist = typeof values.artist === 'string' ? values.artist.trim() : ''
+  const term = [artist, title].filter(Boolean).join(' ')
+  if (!term) return null
+
+  const url = new URL('https://itunes.apple.com/search')
+  url.searchParams.set('term', term)
+  url.searchParams.set('media', 'music')
+  url.searchParams.set('entity', 'album')
+  url.searchParams.set('limit', '8')
+
+  const response = await fetch(url, { signal: AbortSignal.timeout(12000) })
+  if (!response.ok) return null
+  const payload = (await response.json()) as { results?: ItunesAlbumSearchResult[] }
+  const selected = (payload.results ?? [])
+    .map((candidate) => ({
+      candidate,
+      score: textSimilarityScore(title, candidate.collectionName) * 5 + textSimilarityScore(artist, candidate.artistName) * 4
+    }))
+    .sort((a, b) => b.score - a.score)[0]
+  if (!selected || selected.score < 2.5) return null
+
+  const releaseDate = selected.candidate.releaseDate?.slice(0, 10) || ''
+  const releaseYear = releaseDate ? Number(releaseDate.slice(0, 4)) : undefined
+  return {
+    title: selected.candidate.collectionName,
+    artist: selected.candidate.artistName,
+    releaseDate,
+    releaseYear,
+    albumType: selected.candidate.collectionType || '专辑',
+    genreTags: selected.candidate.primaryGenreName ? [selected.candidate.primaryGenreName] : [],
+    artworkUrl: upgradeArtworkUrl(selected.candidate.artworkUrl100),
+    metadataSource: 'itunes',
+    metadataFetchedAt: new Date().toISOString(),
+    metadataConfidence: Math.min(0.92, Math.max(0.62, selected.score / 9))
+  }
+}
+
+async function lookupArtistMetadata(values: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  const name = typeof values.name === 'string' ? values.name.trim() : ''
+  if (!name) return null
+
+  const url = new URL('https://itunes.apple.com/search')
+  url.searchParams.set('term', name)
+  url.searchParams.set('media', 'music')
+  url.searchParams.set('entity', 'musicArtist')
+  url.searchParams.set('limit', '8')
+
+  const response = await fetch(url, { signal: AbortSignal.timeout(12000) })
+  if (!response.ok) return null
+  const payload = (await response.json()) as { results?: ItunesArtistSearchResult[] }
+  const selected = (payload.results ?? [])
+    .map((candidate) => ({ candidate, score: textSimilarityScore(name, candidate.artistName) }))
+    .sort((a, b) => b.score - a.score)[0]
+  if (!selected || selected.score < 0.55) return null
+
+  return {
+    name: selected.candidate.artistName,
+    genreTags: selected.candidate.primaryGenreName ? [selected.candidate.primaryGenreName] : [],
+    metadataSource: 'itunes',
+    metadataFetchedAt: new Date().toISOString(),
+    metadataConfidence: Math.min(0.9, Math.max(0.62, selected.score))
+  }
+}
+
 function scoreLyricsCandidate(track: LocalAudioImport, candidate: LrcLibResult): number {
   let score = 0
   if (candidate.trackName?.toLowerCase() === track.title.toLowerCase()) score += 4
@@ -1323,6 +1404,12 @@ ipcMain.handle('library:sync-track-info', async (_event, track: LocalAudioImport
   const result = await syncTrackInfo(track)
   upsertPersistedTrack(result.track)
   return result
+})
+ipcMain.handle('library:lookup-album-metadata', async (_event, values: Record<string, unknown>) => {
+  return lookupAlbumMetadata(values)
+})
+ipcMain.handle('library:lookup-artist-metadata', async (_event, values: Record<string, unknown>) => {
+  return lookupArtistMetadata(values)
 })
 ipcMain.handle('library:clear', () => {
   rmSync(libraryStorePath(), { force: true })

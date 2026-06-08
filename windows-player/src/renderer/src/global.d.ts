@@ -166,6 +166,8 @@ declare global {
       importAudioFiles: () => Promise<{ tracks: LocalAudioImport[] } | null>
       importAudioFilesFromPaths: (filePaths: string[]) => Promise<{ tracks: LocalAudioImport[] }>
       syncTrackInfo: (track: LocalAudioImport) => Promise<TrackMetadataSyncResult>
+      lookupAlbumMetadata: (values: Record<string, unknown>) => Promise<Record<string, unknown> | null>
+      lookupArtistMetadata: (values: Record<string, unknown>) => Promise<Record<string, unknown> | null>
       clearLibrary: () => Promise<HomeSnapshot>
       updateTrack: (track: LocalAudioImport) => Promise<HomeSnapshot>
       deleteTrack: (trackId: string) => Promise<HomeSnapshot>

@@ -2658,6 +2658,64 @@ const LibraryDialog = React.memo(function LibraryDialog({
       setIsMetadataLookupInFlight(false)
     }
   }, [state, values])
+  const handleAlbumMetadataLookup = React.useCallback(async () => {
+    if (state.kind !== 'editAlbum' || !window.kmgccc?.lookupAlbumMetadata) return
+    setIsMetadataLookupInFlight(true)
+    setMetadataMessage('')
+    try {
+      const result = await window.kmgccc.lookupAlbumMetadata({
+        title: values.title,
+        artist: values.artist
+      })
+      if (!result) {
+        setMetadataMessage('没有可补全字段')
+        return
+      }
+      setValues((current) => ({
+        ...current,
+        title: typeof result.title === 'string' ? result.title : current.title,
+        artist: typeof result.artist === 'string' ? result.artist : current.artist,
+        releaseYear: typeof result.releaseYear === 'number' ? String(result.releaseYear) : current.releaseYear,
+        releaseDate: typeof result.releaseDate === 'string' ? result.releaseDate : current.releaseDate,
+        albumType: typeof result.albumType === 'string' ? result.albumType : current.albumType,
+        genreTags: Array.isArray(result.genreTags) ? result.genreTags.filter((tag): tag is string => typeof tag === 'string').join(', ') : current.genreTags,
+        artworkUrl: typeof result.artworkUrl === 'string' ? result.artworkUrl : current.artworkUrl,
+        metadataSource: typeof result.metadataSource === 'string' ? result.metadataSource : current.metadataSource,
+        metadataFetchedAt: typeof result.metadataFetchedAt === 'string' ? result.metadataFetchedAt : current.metadataFetchedAt,
+        metadataConfidence: typeof result.metadataConfidence === 'number' ? result.metadataConfidence.toFixed(2) : current.metadataConfidence
+      }))
+      setMetadataMessage('已补全缺失字段')
+    } catch {
+      setMetadataMessage('暂未补全元数据')
+    } finally {
+      setIsMetadataLookupInFlight(false)
+    }
+  }, [state, values])
+  const handleArtistMetadataLookup = React.useCallback(async () => {
+    if (state.kind !== 'editArtist' || !window.kmgccc?.lookupArtistMetadata) return
+    setIsMetadataLookupInFlight(true)
+    setMetadataMessage('')
+    try {
+      const result = await window.kmgccc.lookupArtistMetadata({ name: values.name })
+      if (!result) {
+        setMetadataMessage('没有可补全字段')
+        return
+      }
+      setValues((current) => ({
+        ...current,
+        name: typeof result.name === 'string' ? result.name : current.name,
+        genreTags: Array.isArray(result.genreTags) ? result.genreTags.filter((tag): tag is string => typeof tag === 'string').join(', ') : current.genreTags,
+        metadataSource: typeof result.metadataSource === 'string' ? result.metadataSource : current.metadataSource,
+        metadataFetchedAt: typeof result.metadataFetchedAt === 'string' ? result.metadataFetchedAt : current.metadataFetchedAt,
+        metadataConfidence: typeof result.metadataConfidence === 'number' ? result.metadataConfidence.toFixed(2) : current.metadataConfidence
+      }))
+      setMetadataMessage('已补全缺失字段')
+    } catch {
+      setMetadataMessage('暂未补全元数据')
+    } finally {
+      setIsMetadataLookupInFlight(false)
+    }
+  }, [state, values])
 
   const title =
     state.kind === 'editTrack' ? '编辑歌曲信息'
@@ -2716,13 +2774,10 @@ const LibraryDialog = React.memo(function LibraryDialog({
             <LibraryDialogField label="流派 / 标签" placeholder="用逗号分隔" value={values.genreTags ?? ''} onChange={(value) => update('genreTags', value)} />
             <LibraryDialogField label="语言" value={values.language ?? ''} onChange={(value) => update('language', value)} />
             <LibraryDialogField label="厂牌 / 公司" value={values.labelOrCompany ?? ''} onChange={(value) => update('labelOrCompany', value)} />
-            <button className="metadata-pill-button metadata-lookup" type="button" onClick={() => {
-              update('metadataSource', values.metadataSource || 'qqmusic')
-              update('metadataFetchedAt', values.metadataFetchedAt || new Date().toLocaleString('zh-CN', { hour12: false }))
-              update('metadataConfidence', values.metadataConfidence || '0.86')
-            }}>
-              <Search size={15} />查找元数据
+            <button className="metadata-pill-button metadata-lookup" type="button" disabled={isMetadataLookupInFlight} onClick={handleAlbumMetadataLookup}>
+              <Search size={15} />{isMetadataLookupInFlight ? '查找中...' : '查找元数据'}
             </button>
+            {metadataMessage ? <span className="metadata-lookup-message">{metadataMessage}</span> : null}
             <ReadonlyMetadataBlock rows={[
               ['QQMusic Album MID', values.qqMusicAlbumMid ?? ''],
               ['来源', values.metadataSource ?? ''],
@@ -2738,13 +2793,10 @@ const LibraryDialog = React.memo(function LibraryDialog({
             <LibraryDialogField label="流派 / 标签" placeholder="用逗号分隔" value={values.genreTags ?? ''} onChange={(value) => update('genreTags', value)} />
             <LibraryDialogField label="地区" value={values.region ?? ''} onChange={(value) => update('region', value)} />
             <LibraryDialogField label="外文名" value={values.foreignName ?? ''} onChange={(value) => update('foreignName', value)} />
-            <button className="metadata-pill-button metadata-lookup" type="button" onClick={() => {
-              update('metadataSource', values.metadataSource || 'qqmusic')
-              update('metadataFetchedAt', values.metadataFetchedAt || new Date().toLocaleString('zh-CN', { hour12: false }))
-              update('metadataConfidence', values.metadataConfidence || '0.86')
-            }}>
-              <Search size={15} />查找元数据
+            <button className="metadata-pill-button metadata-lookup" type="button" disabled={isMetadataLookupInFlight} onClick={handleArtistMetadataLookup}>
+              <Search size={15} />{isMetadataLookupInFlight ? '查找中...' : '查找元数据'}
             </button>
+            {metadataMessage ? <span className="metadata-lookup-message">{metadataMessage}</span> : null}
             <ReadonlyMetadataBlock rows={[
               ['QQMusic Singer MID', values.qqMusicSingerMid ?? ''],
               ['来源', values.metadataSource ?? ''],
