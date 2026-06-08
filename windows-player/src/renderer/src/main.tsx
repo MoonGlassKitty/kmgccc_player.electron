@@ -99,6 +99,9 @@ const albumArtwork =
 const altArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e9/c4/38/e9c43893-e743-269a-6a47-c11120717177/artwork.jpg/600x600bb.jpg'
 
+const DEFAULT_SIDEBAR_WIDTH = 320
+const COLLAPSED_SIDEBAR_WIDTH = 82
+
 function mediaUrlForLocalPath(audioPath: string): string {
   const bytes = new TextEncoder().encode(audioPath)
   let binary = ''
@@ -1381,7 +1384,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       const lyricsRect = lyricsElement?.getBoundingClientRect()
       const viewportHeight = Math.max(rootRect.height, 680)
       const virtualHeight = Math.max(viewportHeight * 2.6, viewportHeight + 1400)
-      const centerMinX = sidebarRect ? sidebarRect.right - rootRect.left : 280
+      const centerMinX = sidebarRect ? sidebarRect.right - rootRect.left : DEFAULT_SIDEBAR_WIDTH
       const centerMaxX = lyricsRect ? lyricsRect.left - rootRect.left : rootRect.width
       const centerWidth = Math.max(520, centerMaxX - centerMinX)
       const layoutProgress = clampNumber((centerWidth - 560) / 620, 0, 1)
@@ -1483,7 +1486,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 function App(): React.ReactElement {
   const [homeSnapshot, setHomeSnapshot] = React.useState<HomeSnapshot>(fallbackHomeSnapshot)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
-  const [sidebarWidth, setSidebarWidth] = React.useState(280)
+  const [sidebarWidth, setSidebarWidth] = React.useState(DEFAULT_SIDEBAR_WIDTH)
   const [viewportWidth, setViewportWidth] = React.useState(() => window.innerWidth)
   const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
@@ -1565,10 +1568,10 @@ function App(): React.ReactElement {
   const effectiveLyricPlaybackTime = Math.max(0, playbackTime + lyricsGlobalAdvanceMs / 1000)
   const lyricsWidth = isLyricsSidebarOpen ? lyricsSidebarWidth : 0
   const adaptiveSidebarWidth = React.useMemo(() => {
-    if (isSidebarCollapsed) return 82
-    const contentTargetWidth = isLyricsSidebarOpen ? 800 : 860
+    if (isSidebarCollapsed) return COLLAPSED_SIDEBAR_WIDTH
+    const contentTargetWidth = isLyricsSidebarOpen ? 760 : 820
     const availableSidebarWidth = viewportWidth - lyricsWidth - contentTargetWidth
-    if (availableSidebarWidth < 180) return 82
+    if (availableSidebarWidth < 180) return COLLAPSED_SIDEBAR_WIDTH
     return clampNumber(Math.min(sidebarWidth, availableSidebarWidth), 180, sidebarWidth)
   }, [isLyricsSidebarOpen, isSidebarCollapsed, lyricsWidth, sidebarWidth, viewportWidth])
   const isSidebarVisuallyCollapsed = isSidebarCollapsed || adaptiveSidebarWidth <= 118
@@ -1951,7 +1954,7 @@ function App(): React.ReactElement {
     setIsSidebarCollapsed((value) => {
       const next = !value
       if (!next && sidebarWidth < 220) {
-        setSidebarWidth(280)
+        setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)
       }
       return next
     })
@@ -2082,9 +2085,9 @@ function App(): React.ReactElement {
     event.preventDefault()
     event.stopPropagation()
     const startX = event.clientX
-    const startWidth = isSidebarVisuallyCollapsed ? 82 : sidebarWidth
-    const minWidth = 82
-    const maxWidth = 460
+    const startWidth = isSidebarVisuallyCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth
+    const minWidth = COLLAPSED_SIDEBAR_WIDTH
+    const maxWidth = 500
     const collapseThreshold = 118
 
     const handleMove = (moveEvent: PointerEvent) => {
@@ -2208,7 +2211,7 @@ function App(): React.ReactElement {
         className={`app-shell ${isSidebarVisuallyCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''} ${route.name === 'nowPlaying' ? 'now-playing-route' : ''}`}
         style={
           {
-            '--sidebar-width': `${isSidebarVisuallyCollapsed ? 82 : adaptiveSidebarWidth}px`,
+            '--sidebar-width': `${isSidebarVisuallyCollapsed ? COLLAPSED_SIDEBAR_WIDTH : adaptiveSidebarWidth}px`,
             '--lyrics-width': `${lyricsWidth}px`
           } as React.CSSProperties
         }

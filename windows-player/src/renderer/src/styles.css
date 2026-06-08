@@ -1387,7 +1387,7 @@ input {
 }
 
 .app-shell {
-  --sidebar-width: 280px;
+  --sidebar-width: 320px;
   --lyrics-width: 0px;
   position: relative;
   display: grid;
@@ -3669,7 +3669,7 @@ input {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   width: max(260px, var(--sidebar-width));
-  max-width: min(460px, calc(100vw - 48px));
+  max-width: min(500px, calc(100vw - 48px));
   height: min(330px, calc(100vh - 180px));
   min-height: 220px;
   padding: 16px 12px 12px;
