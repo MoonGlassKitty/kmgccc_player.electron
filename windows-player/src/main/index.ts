@@ -111,6 +111,36 @@ type ItunesSearchResult = {
   trackTimeMillis?: number
 }
 
+type NetEaseSongSearchResult = {
+  name?: string
+  id?: number
+  duration?: number
+  artists?: Array<{ name?: string; id?: number }>
+  album?: {
+    name?: string
+    id?: number
+    picUrl?: string
+  }
+}
+
+type NetEaseAlbumSearchResult = {
+  id?: number
+  name?: string
+  picUrl?: string
+  artists?: Array<{ name?: string; id?: number }>
+  artist?: { name?: string; id?: number }
+}
+
+type MetadataCandidate = {
+  title?: string
+  artist?: string
+  album?: string
+  duration?: number
+  artworkUrl?: string
+  source: string
+  score: number
+}
+
 type LrcLibResult = {
   trackName?: string
   artistName?: string
@@ -608,6 +638,31 @@ function upgradeArtworkUrl(rawUrl?: string): string | undefined {
   return rawUrl.replace(/\/\d+x\d+bb\./, '/1000x1000bb.')
 }
 
+function upgradeNetEaseArtworkUrl(rawUrl?: string): string | undefined {
+  if (!rawUrl) return undefined
+  const trimmed = rawUrl.trim()
+  if (!trimmed) return undefined
+  const httpsUrl = trimmed.startsWith('http://') ? `https://${trimmed.slice(7)}` : trimmed
+  return httpsUrl.includes('?') ? `${httpsUrl}&param=1200y1200` : `${httpsUrl}?param=1200y1200`
+}
+
+function normalizeSearchText(value?: string): string {
+  return (value ?? '')
+    .toLowerCase()
+    .replace(/[（(].*?[)）]/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '')
+    .trim()
+}
+
+function textSimilarityScore(query: string, candidate?: string): number {
+  const normalizedQuery = normalizeSearchText(query)
+  const normalizedCandidate = normalizeSearchText(candidate)
+  if (!normalizedQuery || !normalizedCandidate) return 0
+  if (normalizedQuery === normalizedCandidate) return 1
+  if (normalizedCandidate.includes(normalizedQuery) || normalizedQuery.includes(normalizedCandidate)) return 0.62
+  return 0
+}
+
 function scoreItunesCandidate(track: LocalAudioImport, candidate: ItunesSearchResult): number {
   const title = track.title.toLowerCase()
   const artist = track.artist.toLowerCase()
@@ -634,6 +689,119 @@ function scoreItunesCandidate(track: LocalAudioImport, candidate: ItunesSearchRe
   }
 
   return score
+}
+
+function scoreMetadataCandidate(track: LocalAudioImport, candidate: Omit<MetadataCandidate, 'score' | 'source'>): number {
+  let score = 0
+  score += textSimilarityScore(track.title, candidate.title) * 5
+
+  if (!isUnknown(track.artist)) {
+    score += textSimilarityScore(track.artist, candidate.artist) * 4
+  } else if (candidate.artist) {
+    score += 1
+  }
+
+  if (!isUnknown(track.album)) {
+    score += textSimilarityScore(track.album, candidate.album) * 3
+  } else if (candidate.album) {
+    score += 1
+  }
+
+  if (track.duration > 0 && candidate.duration) {
+    const delta = Math.abs(track.duration - candidate.duration)
+    if (delta <= 3) score += 3
+    else if (delta <= 12) score += 1
+    else if (delta > 45) score -= 2
+  }
+
+  if (candidate.artworkUrl) score += 1
+  return score
+}
+
+function hasMetadataConflict(track: LocalAudioImport, candidate: Omit<MetadataCandidate, 'score' | 'source'>): boolean {
+  if (textSimilarityScore(track.title, candidate.title) < 0.62) return true
+  if (!isUnknown(track.artist) && textSimilarityScore(track.artist, candidate.artist) < 0.50) return true
+  if (!isUnknown(track.album) && candidate.album && textSimilarityScore(track.album, candidate.album) < 0.62) return true
+  if (track.duration > 0 && candidate.duration && Math.abs(track.duration - candidate.duration) > 45) return true
+  return false
+}
+
+async function fetchNetEaseSongMetadata(track: LocalAudioImport): Promise<MetadataCandidate | null> {
+  const queryParts = [track.title, isUnknown(track.artist) ? '' : track.artist, isUnknown(track.album) ? '' : track.album]
+  const term = queryParts.join(' ').trim()
+  if (!term) return null
+
+  const url = new URL('https://music.163.com/api/search/get/web')
+  url.searchParams.set('type', '1')
+  url.searchParams.set('s', term)
+  url.searchParams.set('limit', '10')
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0'
+    },
+    signal: AbortSignal.timeout(12000)
+  })
+  if (!response.ok) return null
+
+  const payload = (await response.json()) as { result?: { songs?: NetEaseSongSearchResult[] } }
+  const candidates = payload.result?.songs ?? []
+  if (!candidates.length) return null
+
+  return candidates
+    .map((song) => {
+      const candidate = {
+        title: song.name?.trim(),
+        artist: song.artists?.map((artist) => artist.name).filter(Boolean).join(', '),
+        album: song.album?.name?.trim(),
+        duration: song.duration ? Math.round(song.duration / 1000) : undefined,
+        artworkUrl: upgradeNetEaseArtworkUrl(song.album?.picUrl)
+      }
+      return {
+        ...candidate,
+        source: 'netease',
+        score: scoreMetadataCandidate(track, candidate)
+      }
+    })
+    .filter((candidate) => candidate.score >= 6 && !hasMetadataConflict(track, candidate))
+    .sort((a, b) => b.score - a.score)[0] ?? null
+}
+
+async function fetchNetEaseAlbumArtwork(track: LocalAudioImport): Promise<string | undefined> {
+  const queryParts = [isUnknown(track.artist) ? '' : track.artist, isUnknown(track.album) ? '' : track.album]
+  const term = queryParts.join(' ').trim()
+  if (!term) return undefined
+
+  const url = new URL('https://music.163.com/api/search/get/web')
+  url.searchParams.set('type', '10')
+  url.searchParams.set('s', term)
+  url.searchParams.set('limit', '5')
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0'
+    },
+    signal: AbortSignal.timeout(12000)
+  })
+  if (!response.ok) return undefined
+
+  const payload = (await response.json()) as { result?: { albums?: NetEaseAlbumSearchResult[] } }
+  const albums = payload.result?.albums ?? []
+  const selected = albums
+    .map((album) => {
+      const artist = album.artists?.map((item) => item.name).filter(Boolean).join(', ') || album.artist?.name
+      return {
+        artworkUrl: upgradeNetEaseArtworkUrl(album.picUrl),
+        score: scoreMetadataCandidate(track, {
+          album: album.name,
+          artist
+        })
+      }
+    })
+    .filter((album) => album.artworkUrl && album.score >= 2)
+    .sort((a, b) => b.score - a.score)[0]
+
+  return selected?.artworkUrl
 }
 
 async function fetchItunesMetadata(track: LocalAudioImport): Promise<ItunesSearchResult | null> {
@@ -700,7 +868,46 @@ async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSync
   const preserveNcmIdentity = track.convertedFromNcm && track.metadataSource === 'ncm'
 
   try {
-    const metadata = await fetchItunesMetadata(syncedTrack)
+    const metadata = await fetchNetEaseSongMetadata(syncedTrack)
+    if (metadata) {
+      syncedTrack = preserveNcmIdentity
+        ? {
+          ...syncedTrack,
+          duration: syncedTrack.duration || metadata.duration || syncedTrack.duration,
+          artworkUrl: syncedTrack.artworkUrl || metadata.artworkUrl
+        }
+        : {
+          ...syncedTrack,
+          title: metadata.title?.trim() || syncedTrack.title,
+          artist: metadata.artist?.trim() || syncedTrack.artist,
+          album: metadata.album?.trim() || syncedTrack.album,
+          duration: metadata.duration || syncedTrack.duration,
+          artworkUrl: metadata.artworkUrl || syncedTrack.artworkUrl,
+          metadataSource: metadata.source
+        }
+      const ids = idsForMetadata(syncedTrack.artist, syncedTrack.album)
+      syncedTrack.artistId = ids.artistId
+      syncedTrack.albumId = ids.albumId
+      statuses.track = 'completed'
+      statuses.album = syncedTrack.artworkUrl ? 'completed' : 'noResults'
+    } else if (!syncedTrack.artworkUrl) {
+      const artworkUrl = await fetchNetEaseAlbumArtwork(syncedTrack)
+      if (artworkUrl) {
+        syncedTrack = {
+          ...syncedTrack,
+          artworkUrl,
+          metadataSource: preserveNcmIdentity ? syncedTrack.metadataSource : 'netease'
+        }
+        statuses.album = 'completed'
+      }
+    }
+  } catch {
+    statuses.track = statuses.track === 'completed' ? statuses.track : 'failed'
+    statuses.album = statuses.album === 'completed' ? statuses.album : 'failed'
+  }
+
+  try {
+    const metadata = statuses.track === 'completed' ? null : await fetchItunesMetadata(syncedTrack)
     if (metadata) {
       syncedTrack = preserveNcmIdentity
         ? {
