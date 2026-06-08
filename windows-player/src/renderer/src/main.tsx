@@ -296,6 +296,16 @@ type ContextMenuState = {
   y: number
   items: ContextMenuItem[]
 }
+type LibraryDialogState =
+  | { kind: 'editTrack'; track: HomeTrack }
+  | { kind: 'editAlbum'; album: HomeAlbumCard }
+  | { kind: 'editArtist'; artist: HomeArtistCard }
+  | { kind: 'editPlaylist'; playlist: HomePlaylistCard }
+  | { kind: 'createPlaylist'; track?: HomeTrack }
+  | { kind: 'deleteTrack'; track: HomeTrack }
+  | { kind: 'deleteAlbum'; album: HomeAlbumCard }
+  | { kind: 'deleteArtist'; artist: HomeArtistCard }
+  | { kind: 'deletePlaylist'; playlist: HomePlaylistCard }
 
 const bkShapeAssets = [shape1, shape2, shape3, shape4, shape5, shape6, shape7, shape8, shape9, shape10, shape11]
 const bkBackgroundAssets = [bkBackground1, bkBackground2]
@@ -1521,6 +1531,7 @@ function App(): React.ReactElement {
   const [playbackDuration, setPlaybackDuration] = React.useState(0)
   const [importSyncState, setImportSyncState] = React.useState<ImportSyncState | null>(null)
   const [contextMenu, setContextMenu] = React.useState<ContextMenuState | null>(null)
+  const [libraryDialog, setLibraryDialog] = React.useState<LibraryDialogState | null>(null)
   const audioRef = React.useRef<HTMLAudioElement>(null)
   const lastPlaybackTimeRef = React.useRef(0)
   const loadedAudioTrackRef = React.useRef<string>('')
@@ -1972,65 +1983,19 @@ function App(): React.ReactElement {
     const snapshot = await window.kmgccc?.getHomeSnapshot()
     if (snapshot) applyHomeSnapshot(snapshot, preferredTrackId)
   }, [applyHomeSnapshot])
-  const editTrack = React.useCallback(async (track: HomeTrack) => {
-    if (!track.sourcePath || !track.sourceUrl) return
-    const title = window.prompt('编辑歌曲标题', track.title)
-    if (title === null) return
-    const artist = window.prompt('编辑艺人', track.artist)
-    if (artist === null) return
-    const album = window.prompt('编辑专辑', track.album)
-    if (album === null) return
-    const snapshot = await window.kmgccc?.updateTrack({ ...track, title: title.trim() || track.title, artist: artist.trim() || track.artist, album: album.trim() || track.album } as LocalAudioImport)
-    if (snapshot) applyHomeSnapshot(snapshot, track.id)
-  }, [applyHomeSnapshot])
-  const deleteTrack = React.useCallback(async (track: HomeTrack) => {
-    if (!window.confirm(`从资料库删除“${track.title}”？`)) return
-    const snapshot = await window.kmgccc?.deleteTrack(track.id)
-    if (snapshot) applyHomeSnapshot(snapshot)
-  }, [applyHomeSnapshot])
-  const editAlbum = React.useCallback(async (album: HomeAlbumCard) => {
-    const title = window.prompt('编辑专辑名称', album.title)
-    if (title === null) return
-    const artist = window.prompt('编辑专辑艺人', album.artist)
-    if (artist === null) return
-    const snapshot = await window.kmgccc?.updateAlbum(album.id, title, artist)
-    if (snapshot) applyHomeSnapshot(snapshot)
-  }, [applyHomeSnapshot])
-  const deleteAlbum = React.useCallback(async (album: HomeAlbumCard) => {
-    if (!window.confirm(`删除专辑“${album.title}”及其中 ${album.trackCount} 首歌曲？`)) return
-    const snapshot = await window.kmgccc?.deleteAlbum(album.id)
-    if (snapshot) applyHomeSnapshot(snapshot)
-  }, [applyHomeSnapshot])
-  const editArtist = React.useCallback(async (artist: HomeArtistCard) => {
-    const name = window.prompt('编辑艺人名称', artist.name)
-    if (name === null) return
-    const snapshot = await window.kmgccc?.updateArtist(artist.id, name)
-    if (snapshot) applyHomeSnapshot(snapshot)
-  }, [applyHomeSnapshot])
-  const deleteArtist = React.useCallback(async (artist: HomeArtistCard) => {
-    if (!window.confirm(`删除艺人“${artist.name}”及其中 ${artist.trackCount} 首歌曲？`)) return
-    const snapshot = await window.kmgccc?.deleteArtist(artist.id)
-    if (snapshot) applyHomeSnapshot(snapshot)
-  }, [applyHomeSnapshot])
-  const createPlaylist = React.useCallback(async () => {
-    const name = window.prompt('新建播放列表', '新建播放列表')
-    if (name === null) return
-    const snapshot = await window.kmgccc?.createPlaylist(name)
-    if (snapshot) applyHomeSnapshot(snapshot)
-  }, [applyHomeSnapshot])
-  const editPlaylist = React.useCallback(async (playlist: HomePlaylistCard) => {
-    if (playlist.id === 'playlist-library') return
-    const name = window.prompt('编辑播放列表名称', playlist.name)
-    if (name === null) return
-    const snapshot = await window.kmgccc?.updatePlaylist(playlist.id, name)
-    if (snapshot) applyHomeSnapshot(snapshot)
-  }, [applyHomeSnapshot])
-  const deletePlaylist = React.useCallback(async (playlist: HomePlaylistCard) => {
-    if (playlist.id === 'playlist-library') return
-    if (!window.confirm(`删除播放列表“${playlist.name}”？`)) return
-    const snapshot = await window.kmgccc?.deletePlaylist(playlist.id)
-    if (snapshot) applyHomeSnapshot(snapshot)
-  }, [applyHomeSnapshot])
+  const editTrack = React.useCallback((track: HomeTrack) => setLibraryDialog({ kind: 'editTrack', track }), [])
+  const deleteTrack = React.useCallback((track: HomeTrack) => setLibraryDialog({ kind: 'deleteTrack', track }), [])
+  const editAlbum = React.useCallback((album: HomeAlbumCard) => setLibraryDialog({ kind: 'editAlbum', album }), [])
+  const deleteAlbum = React.useCallback((album: HomeAlbumCard) => setLibraryDialog({ kind: 'deleteAlbum', album }), [])
+  const editArtist = React.useCallback((artist: HomeArtistCard) => setLibraryDialog({ kind: 'editArtist', artist }), [])
+  const deleteArtist = React.useCallback((artist: HomeArtistCard) => setLibraryDialog({ kind: 'deleteArtist', artist }), [])
+  const createPlaylist = React.useCallback(() => setLibraryDialog({ kind: 'createPlaylist' }), [])
+  const editPlaylist = React.useCallback((playlist: HomePlaylistCard) => {
+    if (playlist.id !== 'playlist-library') setLibraryDialog({ kind: 'editPlaylist', playlist })
+  }, [])
+  const deletePlaylist = React.useCallback((playlist: HomePlaylistCard) => {
+    if (playlist.id !== 'playlist-library') setLibraryDialog({ kind: 'deletePlaylist', playlist })
+  }, [])
   const removeTrackFromCurrentPlaylist = React.useCallback(async (track: HomeTrack) => {
     if (route.name !== 'playlistDetail' || route.id === 'playlist-library') return
     const snapshot = await window.kmgccc?.removeTrackFromPlaylist(route.id, track.id)
@@ -2040,14 +2005,57 @@ function App(): React.ReactElement {
     const snapshot = await window.kmgccc?.addTrackToPlaylist(playlistId, track.id)
     if (snapshot) applyHomeSnapshot(snapshot, track.id)
   }, [applyHomeSnapshot])
-  const createPlaylistWithTrack = React.useCallback(async (track: HomeTrack) => {
-    const name = window.prompt('新建播放列表', '新建播放列表')
-    if (name === null) return
-    let snapshot = await window.kmgccc?.createPlaylist(name)
-    const playlist = snapshot?.playlists.find((entry) => entry.name === (name.trim() || '新建播放列表'))
-    if (playlist) snapshot = await window.kmgccc?.addTrackToPlaylist(playlist.id, track.id)
-    if (snapshot) applyHomeSnapshot(snapshot, track.id)
-  }, [applyHomeSnapshot])
+  const createPlaylistWithTrack = React.useCallback((track: HomeTrack) => {
+    setLibraryDialog({ kind: 'createPlaylist', track })
+  }, [])
+  const submitLibraryDialog = React.useCallback(async (values: Record<string, string>) => {
+    const dialog = libraryDialog
+    if (!dialog) return
+    let snapshot: HomeSnapshot | undefined | null
+    let preferredTrackId: string | undefined
+
+    if (dialog.kind === 'editTrack') {
+      preferredTrackId = dialog.track.id
+      snapshot = await window.kmgccc?.updateTrack({
+        ...dialog.track,
+        title: values.title?.trim() || dialog.track.title,
+        artist: values.artist?.trim() || dialog.track.artist,
+        album: values.album?.trim() || dialog.track.album,
+        discNumber: values.discNumber ? Number(values.discNumber) : undefined,
+        trackNumber: values.trackNumber ? Number(values.trackNumber) : undefined,
+        lyricsText: values.lyricsText
+      } as LocalAudioImport)
+    } else if (dialog.kind === 'editAlbum') {
+      snapshot = await window.kmgccc?.updateAlbum(
+        dialog.album.id,
+        values.title?.trim() || dialog.album.title,
+        values.artist?.trim() || dialog.album.artist
+      )
+    } else if (dialog.kind === 'editArtist') {
+      snapshot = await window.kmgccc?.updateArtist(dialog.artist.id, values.name?.trim() || dialog.artist.name)
+    } else if (dialog.kind === 'editPlaylist') {
+      snapshot = await window.kmgccc?.updatePlaylist(dialog.playlist.id, values.name?.trim() || dialog.playlist.name)
+    } else if (dialog.kind === 'createPlaylist') {
+      const name = values.name?.trim() || '新建播放列表'
+      snapshot = await window.kmgccc?.createPlaylist(name)
+      const playlist = snapshot?.playlists.find((entry) => entry.name === name)
+      if (dialog.track && playlist) {
+        preferredTrackId = dialog.track.id
+        snapshot = await window.kmgccc?.addTrackToPlaylist(playlist.id, dialog.track.id)
+      }
+    } else if (dialog.kind === 'deleteTrack') {
+      snapshot = await window.kmgccc?.deleteTrack(dialog.track.id)
+    } else if (dialog.kind === 'deleteAlbum') {
+      snapshot = await window.kmgccc?.deleteAlbum(dialog.album.id)
+    } else if (dialog.kind === 'deleteArtist') {
+      snapshot = await window.kmgccc?.deleteArtist(dialog.artist.id)
+    } else if (dialog.kind === 'deletePlaylist') {
+      snapshot = await window.kmgccc?.deletePlaylist(dialog.playlist.id)
+    }
+
+    if (snapshot) applyHomeSnapshot(snapshot, preferredTrackId)
+    setLibraryDialog(null)
+  }, [applyHomeSnapshot, libraryDialog])
   const toggleLyricsSidebar = React.useCallback(() => {
     setIsLyricsSidebarOpen((value) => !value)
   }, [])
@@ -2375,6 +2383,9 @@ function App(): React.ReactElement {
         {isFullscreenLyricsOpen ? (
           <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={effectiveLyricPlaybackTime} isPlaying={isPlaying} onSeek={seekTo} />
         ) : null}
+        {libraryDialog ? (
+          <LibraryDialog state={libraryDialog} onClose={() => setLibraryDialog(null)} onSubmit={submitLibraryDialog} />
+        ) : null}
         {contextMenu ? <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} /> : null}
       </div>
     </div>
@@ -2404,6 +2415,124 @@ const ContextMenu = React.memo(function ContextMenu({ state, onClose }: { state:
     </div>
   )
 })
+
+const LibraryDialog = React.memo(function LibraryDialog({
+  state,
+  onClose,
+  onSubmit
+}: {
+  state: LibraryDialogState
+  onClose: () => void
+  onSubmit: (values: Record<string, string>) => void
+}): React.ReactElement {
+  const isDelete = state.kind.startsWith('delete')
+  const initialValues = React.useMemo<Record<string, string>>(() => {
+    if (state.kind === 'editTrack') {
+      return {
+        title: state.track.title,
+        artist: state.track.artist,
+        album: state.track.album,
+        discNumber: state.track.discNumber ? String(state.track.discNumber) : '',
+        trackNumber: state.track.trackNumber ? String(state.track.trackNumber) : '',
+        lyricsText: state.track.lyricsText ?? ''
+      } as Record<string, string>
+    }
+    if (state.kind === 'editAlbum') return { title: state.album.title, artist: state.album.artist } as Record<string, string>
+    if (state.kind === 'editArtist') return { name: state.artist.name } as Record<string, string>
+    if (state.kind === 'editPlaylist') return { name: state.playlist.name } as Record<string, string>
+    if (state.kind === 'createPlaylist') return { name: '新建播放列表' } as Record<string, string>
+    return {}
+  }, [state])
+  const [values, setValues] = React.useState<Record<string, string>>(initialValues)
+  React.useEffect(() => setValues(initialValues), [initialValues])
+  const update = React.useCallback((key: string, value: string) => {
+    setValues((current) => ({ ...current, [key]: value }))
+  }, [])
+
+  const title =
+    state.kind === 'editTrack' ? '编辑歌曲信息'
+      : state.kind === 'editAlbum' ? '编辑专辑'
+        : state.kind === 'editArtist' ? '编辑艺人'
+          : state.kind === 'editPlaylist' ? '编辑播放列表'
+            : state.kind === 'createPlaylist' ? '新建播放列表'
+              : '确认删除'
+  const detail =
+    state.kind === 'deleteTrack' ? `从资料库删除“${state.track.title}”？`
+      : state.kind === 'deleteAlbum' ? `删除专辑“${state.album.title}”及其中 ${state.album.trackCount} 首歌曲？`
+        : state.kind === 'deleteArtist' ? `删除艺人“${state.artist.name}”及其中 ${state.artist.trackCount} 首歌曲？`
+          : state.kind === 'deletePlaylist' ? `删除播放列表“${state.playlist.name}”？`
+            : ''
+
+  return (
+    <div className="library-dialog-backdrop no-drag" role="presentation" onMouseDown={onClose}>
+      <section className={`library-dialog ${isDelete ? 'danger' : ''}`} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+        <header>
+          <strong>{title}</strong>
+          <button type="button" aria-label="关闭" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </header>
+
+        {isDelete ? (
+          <p className="library-dialog-message">{detail}</p>
+        ) : state.kind === 'editTrack' ? (
+          <div className="library-dialog-form">
+            <LibraryDialogField label="标题" value={values.title ?? ''} onChange={(value) => update('title', value)} />
+            <LibraryDialogField label="艺人" value={values.artist ?? ''} onChange={(value) => update('artist', value)} />
+            <LibraryDialogField label="专辑" value={values.album ?? ''} onChange={(value) => update('album', value)} />
+            <div className="library-dialog-grid">
+              <LibraryDialogField label="碟号" type="number" value={values.discNumber ?? ''} onChange={(value) => update('discNumber', value)} />
+              <LibraryDialogField label="曲号" type="number" value={values.trackNumber ?? ''} onChange={(value) => update('trackNumber', value)} />
+            </div>
+            <label className="library-dialog-field">
+              <span>歌词文本</span>
+              <textarea value={values.lyricsText ?? ''} onChange={(event) => update('lyricsText', event.currentTarget.value)} />
+            </label>
+          </div>
+        ) : state.kind === 'editAlbum' ? (
+          <div className="library-dialog-form">
+            <LibraryDialogField label="专辑名称" value={values.title ?? ''} onChange={(value) => update('title', value)} />
+            <LibraryDialogField label="专辑艺人" value={values.artist ?? ''} onChange={(value) => update('artist', value)} />
+          </div>
+        ) : state.kind === 'editArtist' ? (
+          <div className="library-dialog-form">
+            <LibraryDialogField label="艺人名称" value={values.name ?? ''} onChange={(value) => update('name', value)} />
+          </div>
+        ) : (
+          <div className="library-dialog-form">
+            <LibraryDialogField label="播放列表名称" value={values.name ?? ''} onChange={(value) => update('name', value)} />
+          </div>
+        )}
+
+        <footer>
+          <button type="button" onClick={onClose}>取消</button>
+          <button className={isDelete ? 'danger' : 'primary'} type="button" onClick={() => onSubmit(values)}>
+            {isDelete ? '删除' : '保存'}
+          </button>
+        </footer>
+      </section>
+    </div>
+  )
+})
+
+function LibraryDialogField({
+  label,
+  value,
+  type = 'text',
+  onChange
+}: {
+  label: string
+  value: string
+  type?: 'text' | 'number'
+  onChange: (value: string) => void
+}): React.ReactElement {
+  return (
+    <label className="library-dialog-field">
+      <span>{label}</span>
+      <input type={type} min={type === 'number' ? 1 : undefined} step={type === 'number' ? 1 : undefined} value={value} onChange={(event) => onChange(event.currentTarget.value)} />
+    </label>
+  )
+}
 
 function SidebarToggleIcon({ size = 24 }: { size?: number }): React.ReactElement {
   return (
@@ -4721,6 +4850,22 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
   const isArtistIndex = route.name === 'artistDetail' && route.id === 'all-artists'
   const isAlbumIndex = route.name === 'albumDetail' && route.id === 'all-albums'
   const artworkShape = route.name === 'artistDetail' && route.id !== 'all-artists' ? 'artist' : 'square'
+  const headerContextItems = React.useMemo((): ContextMenuItem[] => {
+    const items: ContextMenuItem[] = [
+      { label: '播放', onSelect: () => onPlayRoute(route) }
+    ]
+    if (route.name === 'artistDetail' && route.id !== 'all-artists') {
+      const artist = snapshot.artists.find((entry) => entry.id === route.id)
+      if (artist) items.push({ label: '编辑艺人', onSelect: () => onEditArtist(artist) }, { label: '-', onSelect: () => {} }, { label: '删除艺人', danger: true, onSelect: () => onDeleteArtist(artist) })
+    } else if (route.name === 'albumDetail' && route.id !== 'all-albums') {
+      const album = snapshot.albums.find((entry) => entry.id === route.id)
+      if (album) items.push({ label: '编辑专辑', onSelect: () => onEditAlbum(album) }, { label: '-', onSelect: () => {} }, { label: '删除专辑', danger: true, onSelect: () => onDeleteAlbum(album) })
+    } else if (route.name === 'playlistDetail' && route.id !== 'playlist-library') {
+      const playlist = snapshot.playlists.find((entry) => entry.id === route.id)
+      if (playlist) items.push({ label: '编辑播放列表', onSelect: () => onEditPlaylist(playlist) }, { label: '-', onSelect: () => {} }, { label: '删除播放列表', danger: true, onSelect: () => onDeletePlaylist(playlist) })
+    }
+    return items
+  }, [onDeleteAlbum, onDeleteArtist, onDeletePlaylist, onEditAlbum, onEditArtist, onEditPlaylist, onPlayRoute, route, snapshot.albums, snapshot.artists, snapshot.playlists])
 
   return (
     <section className="artist-page" ref={pageScroll.scrollRef} onWheel={pageScroll.onWheel}>
@@ -4730,7 +4875,7 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
         }`}
         style={{ transform: `translate3d(0, ${pageScroll.elasticOffset}px, 0)` }}
       >
-        <header className="artist-header">
+        <header className="artist-header" onContextMenu={(event) => onOpenContextMenu(event, headerContextItems)}>
           <div className={`artist-image-frame ${artworkShape === 'square' ? 'square-artwork' : ''}`}>
             <img src={detailArtwork(route, snapshot, albums)} alt="" decoding="async" />
           </div>
