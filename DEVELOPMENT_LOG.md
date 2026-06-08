@@ -26,3 +26,4 @@
 - 底部时间轴从 mini-player 玻璃伪元素拆为独立顶层 sibling，复用同一定位但 z-index 高于玻璃，避免进度动画挂在 backdrop/filter 玻璃本体上。
 - 修复独立时间轴点击失效：timeline layer 直接覆盖底栏和底部 42px 判定区，rail 不再用负 bottom 伸出 paint containment。
 - 分层后 seek 立即写入 `.mini-timeline-layer` 的进度变量，避免点击跳转后视觉进度仍写到旧 mini-player 层。
+- 右键编辑弹窗开始按 Swift sheet 重写：扩展艺人/专辑/歌曲详细元数据持久化字段，并将弹窗改为纯白 metadata sheet 外壳。

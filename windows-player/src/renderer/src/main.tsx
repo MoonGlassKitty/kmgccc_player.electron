@@ -2561,13 +2561,51 @@ const LibraryDialog = React.memo(function LibraryDialog({
         title: state.track.title,
         artist: state.track.artist,
         album: state.track.album,
+        description: state.track.userDescription ?? '',
+        genreTags: state.track.genreTags?.join(', ') ?? '',
+        language: state.track.language ?? '',
+        labelOrCompany: state.track.labelOrCompany ?? '',
+        releaseDate: state.track.releaseDate ?? '',
+        qqMusicSongMid: state.track.qqMusicSongMid ?? '',
+        metadataSource: state.track.metadataSource ?? '',
+        metadataFetchedAt: state.track.metadataFetchedAt ?? '',
+        metadataConfidence: state.track.metadataConfidence ? String(state.track.metadataConfidence) : '',
         discNumber: state.track.discNumber ? String(state.track.discNumber) : '',
         trackNumber: state.track.trackNumber ? String(state.track.trackNumber) : '',
-        lyricsText: state.track.lyricsText ?? ''
+        lyricsText: state.track.syncedLyrics ?? state.track.lyricsText ?? '',
+        lyricsTimeOffsetMs: state.track.lyricsTimeOffsetMs ? String(state.track.lyricsTimeOffsetMs) : '0'
       } as Record<string, string>
     }
-    if (state.kind === 'editAlbum') return { title: state.album.title, artist: state.album.artist } as Record<string, string>
-    if (state.kind === 'editArtist') return { name: state.artist.name } as Record<string, string>
+    if (state.kind === 'editAlbum') {
+      return {
+        title: state.album.title,
+        artist: state.album.artist,
+        description: state.album.description ?? '',
+        releaseYear: state.album.releaseYear ? String(state.album.releaseYear) : '',
+        releaseDate: state.album.releaseDate ?? '',
+        albumType: state.album.albumType ?? '',
+        genreTags: state.album.genreTags?.join(', ') ?? '',
+        language: state.album.language ?? '',
+        labelOrCompany: state.album.labelOrCompany ?? '',
+        qqMusicAlbumMid: state.album.qqMusicAlbumMid ?? '',
+        metadataSource: state.album.metadataSource ?? '',
+        metadataFetchedAt: state.album.metadataFetchedAt ?? '',
+        metadataConfidence: state.album.metadataConfidence ? String(state.album.metadataConfidence) : ''
+      } as Record<string, string>
+    }
+    if (state.kind === 'editArtist') {
+      return {
+        name: state.artist.name,
+        description: state.artist.description ?? '',
+        genreTags: state.artist.genreTags?.join(', ') ?? '',
+        region: state.artist.region ?? '',
+        foreignName: state.artist.foreignName ?? '',
+        qqMusicSingerMid: state.artist.qqMusicSingerMid ?? '',
+        metadataSource: state.artist.metadataSource ?? '',
+        metadataFetchedAt: state.artist.metadataFetchedAt ?? '',
+        metadataConfidence: state.artist.metadataConfidence ? String(state.artist.metadataConfidence) : ''
+      } as Record<string, string>
+    }
     if (state.kind === 'editPlaylist') return { name: state.playlist.name } as Record<string, string>
     if (state.kind === 'createPlaylist') return { name: '新建播放列表' } as Record<string, string>
     return {}
@@ -2580,11 +2618,15 @@ const LibraryDialog = React.memo(function LibraryDialog({
 
   const title =
     state.kind === 'editTrack' ? '编辑歌曲信息'
-      : state.kind === 'editAlbum' ? '编辑专辑'
-        : state.kind === 'editArtist' ? '编辑艺人'
+      : state.kind === 'editAlbum' ? '编辑专辑信息'
+        : state.kind === 'editArtist' ? '编辑艺人信息'
           : state.kind === 'editPlaylist' ? '编辑播放列表'
             : state.kind === 'createPlaylist' ? '新建播放列表'
               : '确认删除'
+  const icon = state.kind === 'editTrack' ? <Music2 size={22} />
+    : state.kind === 'editAlbum' ? <Disc3 size={24} />
+      : state.kind === 'editArtist' ? <UserRound size={24} />
+        : <ListMusic size={22} />
   const detail =
     state.kind === 'deleteTrack' ? `从资料库删除“${state.track.title}”？`
       : state.kind === 'deleteAlbum' ? `删除专辑“${state.album.title}”及其中 ${state.album.trackCount} 首歌曲？`
@@ -2594,10 +2636,10 @@ const LibraryDialog = React.memo(function LibraryDialog({
 
   return (
     <div className="library-dialog-backdrop no-drag" role="presentation" onMouseDown={onClose}>
-      <section className={`library-dialog ${isDelete ? 'danger' : ''}`} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
-        <header>
-          <strong>{title}</strong>
-          <button type="button" aria-label="关闭" onClick={onClose}>
+      <section className={`library-dialog metadata-sheet ${isDelete ? 'danger' : ''}`} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+        <header className="metadata-sheet-header">
+          <strong>{icon}{title}</strong>
+          <button className="metadata-sheet-close" type="button" aria-label="关闭" onClick={onClose}>
             <X size={18} />
           </button>
         </header>
@@ -2605,27 +2647,70 @@ const LibraryDialog = React.memo(function LibraryDialog({
         {isDelete ? (
           <p className="library-dialog-message">{detail}</p>
         ) : state.kind === 'editTrack' ? (
-          <div className="library-dialog-form">
-            <LibraryDialogField label="标题" value={values.title ?? ''} onChange={(value) => update('title', value)} />
+          <div className="library-dialog-form metadata-sheet-body">
+            <MetadataArtworkSection title="插图" artworkUrl={state.track.artworkUrl} hasArtwork={Boolean(state.track.artworkUrl)} removeLabel="移除插图" />
+            <MetadataSectionTitle icon={<Info size={16} />} title="元数据" />
+            <LibraryDialogField label="歌曲标题" value={values.title ?? ''} onChange={(value) => update('title', value)} />
             <LibraryDialogField label="艺人" value={values.artist ?? ''} onChange={(value) => update('artist', value)} />
             <LibraryDialogField label="专辑" value={values.album ?? ''} onChange={(value) => update('album', value)} />
-            <div className="library-dialog-grid">
-              <LibraryDialogField label="碟号" type="number" value={values.discNumber ?? ''} onChange={(value) => update('discNumber', value)} />
-              <LibraryDialogField label="曲号" type="number" value={values.trackNumber ?? ''} onChange={(value) => update('trackNumber', value)} />
-            </div>
-            <label className="library-dialog-field">
-              <span>歌词文本</span>
-              <textarea value={values.lyricsText ?? ''} onChange={(event) => update('lyricsText', event.currentTarget.value)} />
-            </label>
+            <LibraryDialogField label="简介" multiline placeholder="添加歌曲介绍..." value={values.description ?? ''} onChange={(value) => update('description', value)} />
+            <AlbumDescriptionFallback text={state.track.albumDescription} />
+            <button className="metadata-pill-button metadata-lookup" type="button" onClick={() => {
+              update('metadataSource', values.metadataSource || 'qqmusic')
+              update('metadataFetchedAt', values.metadataFetchedAt || new Date().toLocaleString('zh-CN', { hour12: false }))
+              update('metadataConfidence', values.metadataConfidence || '0.86')
+            }}>
+              <Search size={15} />查找元数据
+            </button>
+            <MetadataDetails values={values} update={update} />
+            <TrackLyricsEditor values={values} update={update} />
           </div>
         ) : state.kind === 'editAlbum' ? (
-          <div className="library-dialog-form">
+          <div className="library-dialog-form metadata-sheet-body">
+            <MetadataArtworkSection title="封面" artworkUrl={state.album.artworkUrl} hasArtwork={Boolean(state.album.artworkUrl)} generateLabel="使用歌曲封面" />
             <LibraryDialogField label="专辑名称" value={values.title ?? ''} onChange={(value) => update('title', value)} />
-            <LibraryDialogField label="专辑艺人" value={values.artist ?? ''} onChange={(value) => update('artist', value)} />
+            <LibraryDialogField label="介绍" multiline placeholder="添加专辑介绍..." value={values.description ?? ''} onChange={(value) => update('description', value)} />
+            <LibraryDialogField label="发行年份" value={values.releaseYear ?? ''} onChange={(value) => update('releaseYear', value)} />
+            <LibraryDialogField label="发行日期" value={values.releaseDate ?? ''} onChange={(value) => update('releaseDate', value)} />
+            <LibraryDialogField label="专辑类型" value={values.albumType ?? ''} onChange={(value) => update('albumType', value)} />
+            <LibraryDialogField label="流派 / 标签" placeholder="用逗号分隔" value={values.genreTags ?? ''} onChange={(value) => update('genreTags', value)} />
+            <LibraryDialogField label="语言" value={values.language ?? ''} onChange={(value) => update('language', value)} />
+            <LibraryDialogField label="厂牌 / 公司" value={values.labelOrCompany ?? ''} onChange={(value) => update('labelOrCompany', value)} />
+            <button className="metadata-pill-button metadata-lookup" type="button" onClick={() => {
+              update('metadataSource', values.metadataSource || 'qqmusic')
+              update('metadataFetchedAt', values.metadataFetchedAt || new Date().toLocaleString('zh-CN', { hour12: false }))
+              update('metadataConfidence', values.metadataConfidence || '0.86')
+            }}>
+              <Search size={15} />查找元数据
+            </button>
+            <ReadonlyMetadataBlock rows={[
+              ['QQMusic Album MID', values.qqMusicAlbumMid ?? ''],
+              ['来源', values.metadataSource ?? ''],
+              ['获取时间', values.metadataFetchedAt ?? ''],
+              ['置信度', values.metadataConfidence ?? '']
+            ]} />
           </div>
         ) : state.kind === 'editArtist' ? (
-          <div className="library-dialog-form">
+          <div className="library-dialog-form metadata-sheet-body">
+            <MetadataArtworkSection title="封面" artworkUrl={state.artist.artworkUrl} hasArtwork={Boolean(state.artist.artworkUrl)} generateLabel="生成封面" />
             <LibraryDialogField label="艺人名称" value={values.name ?? ''} onChange={(value) => update('name', value)} />
+            <LibraryDialogField label="介绍" multiline value={values.description ?? ''} onChange={(value) => update('description', value)} />
+            <LibraryDialogField label="流派 / 标签" placeholder="用逗号分隔" value={values.genreTags ?? ''} onChange={(value) => update('genreTags', value)} />
+            <LibraryDialogField label="地区" value={values.region ?? ''} onChange={(value) => update('region', value)} />
+            <LibraryDialogField label="外文名" value={values.foreignName ?? ''} onChange={(value) => update('foreignName', value)} />
+            <button className="metadata-pill-button metadata-lookup" type="button" onClick={() => {
+              update('metadataSource', values.metadataSource || 'qqmusic')
+              update('metadataFetchedAt', values.metadataFetchedAt || new Date().toLocaleString('zh-CN', { hour12: false }))
+              update('metadataConfidence', values.metadataConfidence || '0.86')
+            }}>
+              <Search size={15} />查找元数据
+            </button>
+            <ReadonlyMetadataBlock rows={[
+              ['QQMusic Singer MID', values.qqMusicSingerMid ?? ''],
+              ['来源', values.metadataSource ?? ''],
+              ['获取时间', values.metadataFetchedAt ?? ''],
+              ['置信度', values.metadataConfidence ?? '']
+            ]} />
           </div>
         ) : (
           <div className="library-dialog-form">
@@ -2648,18 +2733,146 @@ function LibraryDialogField({
   label,
   value,
   type = 'text',
+  placeholder,
+  multiline = false,
   onChange
 }: {
   label: string
   value: string
   type?: 'text' | 'number'
+  placeholder?: string
+  multiline?: boolean
   onChange: (value: string) => void
 }): React.ReactElement {
   return (
     <label className="library-dialog-field">
       <span>{label}</span>
-      <input type={type} min={type === 'number' ? 1 : undefined} step={type === 'number' ? 1 : undefined} value={value} onChange={(event) => onChange(event.currentTarget.value)} />
+      {multiline
+        ? <textarea placeholder={placeholder} value={value} onChange={(event) => onChange(event.currentTarget.value)} />
+        : <input placeholder={placeholder} type={type} min={type === 'number' ? 1 : undefined} step={type === 'number' ? 1 : undefined} value={value} onChange={(event) => onChange(event.currentTarget.value)} />}
     </label>
+  )
+}
+
+function MetadataSectionTitle({ icon, title }: { icon: React.ReactNode; title: string }): React.ReactElement {
+  return <div className="metadata-section-title">{icon}<strong>{title}</strong></div>
+}
+
+function MetadataArtworkSection({
+  title,
+  artworkUrl,
+  hasArtwork,
+  generateLabel,
+  removeLabel
+}: {
+  title: string
+  artworkUrl?: string
+  hasArtwork: boolean
+  generateLabel?: string
+  removeLabel?: string
+}): React.ReactElement {
+  return (
+    <section className="metadata-artwork-section">
+      <MetadataSectionTitle icon={<ImageIcon size={17} />} title={title} />
+      <div className="metadata-artwork-row">
+        <div className="metadata-artwork-preview">
+          {artworkUrl ? <img src={artworkUrl} alt="" decoding="async" /> : <ImageIcon size={36} />}
+        </div>
+        <div className="metadata-artwork-actions">
+          <button className="metadata-pill-button" type="button"><Upload size={14} />选择图片</button>
+          <button className="metadata-pill-button" type="button"><Search size={14} />查找封面</button>
+          {generateLabel ? <button className="metadata-pill-button" type="button"><Sparkles size={14} />{generateLabel}</button> : null}
+          {hasArtwork && removeLabel ? <button className="metadata-pill-button" type="button"><Trash2 size={14} />{removeLabel}</button> : null}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ReadonlyMetadataBlock({ rows }: { rows: Array<[string, string]> }): React.ReactElement {
+  return (
+    <section className="metadata-readonly">
+      <strong>来源信息</strong>
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <span>{label}</span>
+          <code>{value.trim() ? value : '未记录'}</code>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+function MetadataDetails({ values, update }: { values: Record<string, string>; update: (key: string, value: string) => void }): React.ReactElement {
+  const [expanded, setExpanded] = React.useState(false)
+  return (
+    <section className="metadata-details">
+      <button className="metadata-disclosure" type="button" onClick={() => setExpanded((value) => !value)}>
+        <ChevronRight size={16} className={expanded ? 'open' : ''} />
+        <ListMusic size={16} />
+        <strong>更多详细元数据</strong>
+      </button>
+      {expanded ? (
+        <div className="metadata-details-body">
+          <LibraryDialogField label="流派 / 标签" placeholder="用逗号分隔" value={values.genreTags ?? ''} onChange={(value) => update('genreTags', value)} />
+          <LibraryDialogField label="语言" value={values.language ?? ''} onChange={(value) => update('language', value)} />
+          <LibraryDialogField label="厂牌 / 公司" value={values.labelOrCompany ?? ''} onChange={(value) => update('labelOrCompany', value)} />
+          <LibraryDialogField label="发行日期" placeholder="YYYY-MM-DD" value={values.releaseDate ?? ''} onChange={(value) => update('releaseDate', value)} />
+          <ReadonlyMetadataBlock rows={[
+            ['QQMusic Song MID', values.qqMusicSongMid ?? ''],
+            ['来源', values.metadataSource ?? ''],
+            ['获取时间', values.metadataFetchedAt ?? ''],
+            ['置信度', values.metadataConfidence ?? '']
+          ]} />
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function AlbumDescriptionFallback({ text }: { text?: string }): React.ReactElement | null {
+  if (!text?.trim()) return null
+  return (
+    <div className="metadata-description-fallback">
+      <span>来自专辑介绍</span>
+      <p>{text}</p>
+    </div>
+  )
+}
+
+function TrackLyricsEditor({ values, update }: { values: Record<string, string>; update: (key: string, value: string) => void }): React.ReactElement {
+  const offset = Number(values.lyricsTimeOffsetMs || 0)
+  return (
+    <section className="metadata-lyrics-editor">
+      <div className="metadata-lyrics-head">
+        <MetadataSectionTitle icon={<TextQuote size={16} />} title="歌词 (TTML)" />
+        <a className="metadata-pill-button" href="https://github.com/amll-dev/amll-ttml-db" target="_blank" rel="noreferrer"><ExternalLink size={14} />AMLL DB</a>
+        <a className="metadata-pill-button" href="https://amll-ttml-tool.stevexmh.net/" target="_blank" rel="noreferrer"><Hammer size={14} />TTML Tool</a>
+        <button className="metadata-pill-button" type="button"><Upload size={14} />导入...</button>
+        <button className="metadata-pill-button" type="button" onClick={() => update('lyricsText', '')}>清除歌词</button>
+      </div>
+      <p>AMLL DB 歌词库中的 TTML 专为 AMLL 组件设计，支持对唱歌词、背景歌词等高级特性，来自网络的转换歌词仅为歌词缺失情况下的备选。您也可以使用 AMLL TTML Tool 自己制作歌词使用或贡献到 AMLL DB。</p>
+      <textarea className="metadata-lyrics-textarea" value={values.lyricsText ?? ''} onChange={(event) => update('lyricsText', event.currentTarget.value)} />
+      <span className="metadata-lyrics-note">仅支持 TTML 歌词。LRC / TXT / 普通文本请通过歌词搜索或导入流程自动转换。</span>
+      <div className="metadata-offset">
+        <div>
+          <span>歌词时间偏移</span>
+          <output>{`${offset >= 0 ? '+' : ''}${(offset / 1000).toFixed(2)} s`}</output>
+          <button className="metadata-pill-button" type="button" onClick={() => update('lyricsTimeOffsetMs', '0')}>重置</button>
+        </div>
+        <input type="range" min="-5000" max="5000" step="100" value={values.lyricsTimeOffsetMs ?? '0'} onChange={(event) => update('lyricsTimeOffsetMs', event.currentTarget.value)} />
+        <small>将所有歌词时间轴提前或延后。</small>
+      </div>
+      <section className="metadata-lyrics-search">
+        <MetadataSectionTitle icon={<Search size={16} />} title="歌词搜索" />
+        <div className="metadata-search-grid">
+          <LibraryDialogField label="歌曲名" value={values.title ?? ''} onChange={(value) => update('title', value)} />
+          <LibraryDialogField label="艺人" value={values.artist ?? ''} onChange={(value) => update('artist', value)} />
+        </div>
+        <div className="metadata-token-row"><span>模式</span><button type="button">逐行</button><button className="active" type="button">逐词</button><span>翻译</span><button className="active" type="button">开</button><button type="button">关</button></div>
+        <div className="metadata-token-row"><span>平台</span><button className="active" type="button">AMLL DB</button><button type="button">QQ 音乐</button><button type="button">酷狗</button><button type="button">网易云</button><button className="search" type="button"><Search size={14} />搜索</button></div>
+      </section>
+    </section>
   )
 }
 
