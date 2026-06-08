@@ -2194,12 +2194,14 @@ function App(): React.ReactElement {
     const audio = audioRef.current
     if (!audio || !currentTrack?.sourceUrl) return
 
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : currentTrack.duration
+    writeMiniProgressRatio(audio.currentTime || 0, duration)
     if (isPlaying) {
       void audio.play().catch(() => setIsPlaying(false))
     } else {
       audio.pause()
     }
-  }, [currentTrack?.sourceUrl, isPlaying])
+  }, [currentTrack?.duration, currentTrack?.sourceUrl, isPlaying, writeMiniProgressRatio])
 
   React.useEffect(() => {
     const audio = audioRef.current
@@ -2222,9 +2224,8 @@ function App(): React.ReactElement {
     if (!audio) return
     const nextTime = audio.currentTime
     const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : currentTrack?.duration ?? 0
-    const refreshInterval = isLyricsSidebarOpen || isFullscreenLyricsOpen ? 0.25 : 1.1
+    const refreshInterval = isLyricsSidebarOpen || isFullscreenLyricsOpen ? 0.25 : 8
     if (!audio.paused && Math.abs(nextTime - lastPlaybackTimeRef.current) < refreshInterval) return
-    writeMiniProgressRatio(nextTime, duration)
     lastPlaybackTimeRef.current = nextTime
     setPlaybackTime(nextTime)
   }, [currentTrack?.duration, isFullscreenLyricsOpen, isLyricsSidebarOpen, writeMiniProgressRatio])
@@ -5382,6 +5383,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
   const queueTracks = tracks.length ? tracks : [track]
   const safePlaybackDuration = Math.max(1, playbackDuration)
   const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
+  const progressRemainingSeconds = isPlaying && playbackDuration > 0 ? Math.max(0.25, playbackDuration - playbackTime) : 0.25
   const seekFromProgressClientX = React.useCallback((clientX: number) => {
     const rail = progressRailRef.current
     if (!rail) return
@@ -5413,7 +5415,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
   }, [])
 
   return (
-    <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress-ratio': progress / 100 } as React.CSSProperties}>
+    <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress-ratio': progress / 100, '--mini-player-progress-duration': `${progressRemainingSeconds}s` } as React.CSSProperties}>
       <div
         className="mini-progress-rail"
         ref={progressRailRef}

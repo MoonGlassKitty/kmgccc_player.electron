@@ -21,3 +21,4 @@
 - BK 小点缀生成改为多候选避让采样，按尺寸和距离惩罚初始重叠，并按边缘方向打散初始落点。
 - 底部播放进度垫层从 width 动画改为 transform scaleX，并将 audio timeupdate 先直写 CSS 变量、降低 React playbackTime 刷新频率，减少对 BK 点缀动画的抢占。
 - 播放中 mini 进度更新进一步降频：普通播放约 1.1s 更新一次 CSS/React，歌词打开时保留更高刷新，seek 仍即时同步。
+- 底部时间轴改为 CSS 自跑动画：播放中从当前比例按剩余时长动画到 100%，timeupdate 不再持续推动时间轴，只在歌词或离散同步时刷新状态。

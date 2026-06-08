@@ -3622,13 +3622,16 @@ input {
   transform-origin: left center;
   pointer-events: none;
   will-change: transform, opacity;
-  transition:
-    transform 1100ms linear,
-    opacity 180ms ease;
+  transition: opacity 180ms ease;
 }
 
 .mini-player.playing::before {
   opacity: 0.92;
+  animation: miniProgressRun var(--mini-player-progress-duration, 60s) linear forwards;
+}
+
+.mini-player:not(.playing)::before {
+  animation: none;
 }
 
 .app-shell.now-playing-route .mini-player::before,
@@ -3641,6 +3644,15 @@ input {
 .app-shell.now-playing-route .mini-player.playing::before,
 .fullscreen-lyrics-open .mini-player.playing::before {
   opacity: 0.22;
+}
+
+@keyframes miniProgressRun {
+  from {
+    transform: scaleX(var(--mini-player-progress-ratio, 0));
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
 .mini-progress-rail {
