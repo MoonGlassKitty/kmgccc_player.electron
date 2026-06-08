@@ -1263,6 +1263,11 @@ function App(): React.ReactElement {
   }, [currentArtworkUrl, currentTrack, fallbackCoverThemeStyle])
 
   React.useEffect(() => {
+    if (!currentTrack?.id) return
+    setArtworkFrameIndex(hashString(currentTrack.id) % artworkFrameAssets.length)
+  }, [currentTrack?.id])
+
+  React.useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth)
     updateViewportWidth()
     window.addEventListener('resize', updateViewportWidth)
@@ -2541,6 +2546,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   onArtworkFrameAdvance: () => void
 }): React.ReactElement {
   const artwork = trackArtwork(track, albums)
+  const artworkFrame = artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]
   return (
     <section className={`now-playing-page ${isPlaying ? 'is-playing' : 'is-paused'} no-drag`}>
       {artBackgroundEnabled ? <BKArtBackground track={track} isPlaying={isPlaying} /> : <UnifiedMeshBackground />}
@@ -2559,12 +2565,23 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
             style={
               artworkFrameMaskEnabled
                 ? {
-                    WebkitMaskImage: `url(${artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]})`,
-                    maskImage: `url(${artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]})`
+                    WebkitMaskImage: `url(${artworkFrame})`,
+                    maskImage: `url(${artworkFrame})`
                   }
                 : undefined
             }
           />
+          {artworkFrameMaskEnabled ? (
+            <span
+              className="now-playing-cover-mask-edge"
+              style={
+                {
+                  WebkitMaskImage: `url(${artworkFrame})`,
+                  maskImage: `url(${artworkFrame})`
+                } as React.CSSProperties
+              }
+            />
+          ) : null}
         </button>
         {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} /> : null}
         {visualizerMode === 'spectrum' ? <NowPlayingSpectrum isPlaying={isPlaying} /> : null}
