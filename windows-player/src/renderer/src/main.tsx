@@ -4738,14 +4738,16 @@ const SettingsRange = React.memo(function SettingsRange({
   step?: number
   onChange?: (value: number) => void
 }): React.ReactElement {
+  const progress = max > min ? ((value - min) / (max - min)) * 100 : 0
+
   return (
-    <label className="settings-range-row">
+    <label className="settings-range-row" style={{ '--range-progress': `${Math.min(100, Math.max(0, progress))}%` } as React.CSSProperties}>
       <span>
         <strong>{title}</strong>
         {detail ? <small>{detail}</small> : null}
       </span>
       <em>{valueText}</em>
-      <input type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange?.(Number(event.currentTarget.value))} />
+      <input className="glass-range-input" type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange?.(Number(event.currentTarget.value))} />
     </label>
   )
 })
@@ -5141,6 +5143,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
           min="0"
           step="0.1"
           type="range"
+          className="glass-range-input"
           value={Math.min(playbackTime, Math.max(1, playbackDuration))}
           onChange={(event) => onSeek(Number(event.currentTarget.value))}
         />
@@ -5210,6 +5213,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
             min="0"
             step="0.01"
             type="range"
+            className="glass-range-input"
             value={volume}
             onInput={(event) => onVolumeChange(Number(event.currentTarget.value))}
             onChange={(event) => onVolumeChange(Number(event.currentTarget.value))}
