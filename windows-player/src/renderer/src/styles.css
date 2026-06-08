@@ -3567,10 +3567,10 @@ input {
 .mini-progress-rail {
   position: absolute;
   right: 20px;
-  bottom: calc(100% - 18px);
+  bottom: calc(100% - 27px);
   left: 20px;
   z-index: 2;
-  height: 28px;
+  height: 38px;
   pointer-events: auto;
   contain: layout style;
 }
@@ -3866,27 +3866,24 @@ input {
 }
 
 .settings-liquid-slider {
-  --liquid-slider-track-height: 8px;
-  --liquid-slider-thumb-width: 54px;
-  --liquid-slider-thumb-height: 36px;
-  --liquid-slider-thumb-radius: 18px;
   grid-column: 1 / -1;
   min-width: 180px;
   margin-top: 4px;
 }
 
-.mini-progress-slider {
-  --liquid-slider-track-height: 7px;
-  --liquid-slider-thumb-width: 42px;
-  --liquid-slider-thumb-height: 28px;
-  --liquid-slider-thumb-radius: 14px;
+.settings-liquid-slider {
+  --liquid-slider-track-height: 6px;
+  --liquid-slider-thumb-width: 36px;
+  --liquid-slider-thumb-height: 24px;
+  --liquid-slider-thumb-radius: 12px;
 }
 
+.mini-progress-slider,
 .volume-liquid-slider {
-  --liquid-slider-track-height: 5px;
-  --liquid-slider-thumb-width: 30px;
-  --liquid-slider-thumb-height: 20px;
-  --liquid-slider-thumb-radius: 10px;
+  --liquid-slider-track-height: 10px;
+  --liquid-slider-thumb-width: 58px;
+  --liquid-slider-thumb-height: 38px;
+  --liquid-slider-thumb-radius: 19px;
 }
 
 .lyrics-pane {
