@@ -3610,11 +3610,11 @@ input {
 
 .mini-timeline-layer {
   position: absolute;
-  bottom: 42px;
+  bottom: 0;
   left: calc(var(--sidebar-width) + ((100% - var(--sidebar-width) - var(--lyrics-width)) / 2));
   z-index: calc(var(--layer-floating-glass) + 1);
   width: clamp(620px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - 48px), 717px);
-  height: 60px;
+  height: 102px;
   transform: translateX(-50%);
   pointer-events: none;
   contain: layout style paint;
@@ -3623,8 +3623,8 @@ input {
 .mini-timeline-fill {
   position: absolute;
   top: 1px;
-  bottom: 1px;
   left: 1px;
+  height: 58px;
   width: calc(100% - 2px);
   border-radius: 29px 12px 12px 29px;
   background: color-mix(in srgb, var(--cover-accent-text) 48%, transparent);
@@ -3669,7 +3669,7 @@ input {
 .mini-progress-rail {
   position: absolute;
   right: 1px;
-  bottom: -42px;
+  bottom: 0;
   left: 1px;
   z-index: 2;
   height: 42px;

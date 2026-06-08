@@ -1809,7 +1809,7 @@ function App(): React.ReactElement {
 
   const writeMiniProgressRatio = React.useCallback((seconds: number, duration: number) => {
     const ratio = duration > 0 ? clampNumber(seconds / duration, 0, 1) : 0
-    document.querySelector<HTMLElement>('.mini-player')?.style.setProperty('--mini-player-progress-ratio', String(ratio))
+    document.querySelector<HTMLElement>('.mini-timeline-layer')?.style.setProperty('--mini-player-progress-ratio', String(ratio))
   }, [])
 
   const seekTo = React.useCallback((seconds: number) => {
