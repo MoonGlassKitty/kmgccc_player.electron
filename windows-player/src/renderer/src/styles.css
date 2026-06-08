@@ -3544,13 +3544,13 @@ input {
   left: calc(var(--sidebar-width) + ((100% - var(--sidebar-width) - var(--lyrics-width)) / 2));
   z-index: var(--layer-floating-glass);
   display: grid;
-  grid-template-columns: minmax(128px, 190px) 32px 104px 46px minmax(82px, 118px);
+  grid-template-columns: minmax(205px, 304px) 51px 166px 74px minmax(131px, 189px);
   align-items: center;
-  gap: 10px;
-  width: clamp(420px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - 48px), 640px);
-  height: 54px;
-  padding: 7px 16px;
-  border-radius: 27px;
+  gap: 16px;
+  width: clamp(672px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - 48px), 1024px);
+  height: 86px;
+  padding: 11px 26px;
+  border-radius: 43px;
   --glass-alpha: 0.7;
   --glass-shadow: rgba(12, 33, 48, 0.0525);
   overflow: visible;
@@ -3567,30 +3567,30 @@ input {
 .mini-progress-rail {
   position: absolute;
   right: 20px;
-  bottom: calc(100% - 27px);
+  bottom: calc(100% - 18px);
   left: 20px;
   z-index: 2;
-  height: 38px;
+  height: 28px;
   pointer-events: auto;
   contain: layout style;
 }
 
 .mini-track {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 16px;
   min-width: 0;
   padding: 0;
-  border-radius: 12px;
+  border-radius: 19px;
   background: transparent;
   text-align: left;
 }
 
 .mini-queue-button {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 51px;
+  height: 51px;
   place-items: center;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.36);
@@ -3606,6 +3606,12 @@ input {
   box-shadow:
     0 0 0 1px rgba(27, 118, 158, 0.16) inset,
     0 2px 8px rgba(20, 97, 130, 0.08);
+}
+
+.mini-queue-button svg,
+.mode-button svg {
+  width: 29px;
+  height: 29px;
 }
 
 .mini-queue-popover {
@@ -3729,9 +3735,9 @@ input {
 }
 
 .mini-track img {
-  width: 40px;
-  height: 40px;
-  border-radius: 7px;
+  width: 64px;
+  height: 64px;
+  border-radius: 11px;
   object-fit: cover;
 }
 
@@ -3745,37 +3751,42 @@ input {
 
 .mini-track strong {
   color: #0b2a3c;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 820;
 }
 
 .mini-track span {
-  margin-top: 3px;
+  margin-top: 5px;
   color: rgba(11, 42, 60, 0.54);
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 660;
 }
 
 .mini-controls {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  gap: 19px;
 }
 
 .mini-controls button,
 .mode-button {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 48px;
+  height: 48px;
   place-items: center;
   border-radius: 50%;
   background: transparent;
   color: #2d8bb5;
 }
 
+.mini-controls button svg {
+  width: 30px;
+  height: 30px;
+}
+
 .mode-button {
-  width: 46px;
-  border-radius: 15px;
+  width: 74px;
+  border-radius: 24px;
   background: rgba(92, 184, 219, 0.28);
   box-shadow:
     0 0 0 1px rgba(31, 132, 174, 0.14) inset,
@@ -3800,11 +3811,16 @@ input {
 .volume-track {
   position: relative;
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   color: rgba(27, 58, 74, 0.58);
   min-width: 0;
+}
+
+.volume-track > svg {
+  width: 24px;
+  height: 24px;
 }
 
 .liquid-slider {
@@ -3880,10 +3896,10 @@ input {
 
 .mini-progress-slider,
 .volume-liquid-slider {
-  --liquid-slider-track-height: 10px;
-  --liquid-slider-thumb-width: 58px;
-  --liquid-slider-thumb-height: 38px;
-  --liquid-slider-thumb-radius: 19px;
+  --liquid-slider-track-height: 6px;
+  --liquid-slider-thumb-width: 36px;
+  --liquid-slider-thumb-height: 24px;
+  --liquid-slider-thumb-radius: 12px;
 }
 
 .lyrics-pane {
