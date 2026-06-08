@@ -70,6 +70,64 @@ input {
     linear-gradient(135deg, #18242b, #101821 54%, #090d12);
 }
 
+.apple-now-playing-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--cover-accent) 34%, #10151b);
+}
+
+.apple-now-playing-background img {
+  position: absolute;
+  inset: -10%;
+  width: 120%;
+  height: 120%;
+  object-fit: cover;
+  opacity: 0.18;
+  filter: blur(48px) saturate(1.65) brightness(0.72);
+}
+
+.apple-mesh-blob {
+  position: absolute;
+  width: 58vmax;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  filter: blur(42px) saturate(1.45);
+  opacity: 0.48;
+  mix-blend-mode: plus-lighter;
+}
+
+.apple-mesh-blob.blob-a {
+  left: -18vmax;
+  top: -16vmax;
+  background: color-mix(in srgb, var(--cover-accent-text) 58%, rgba(255, 255, 255, 0.2));
+}
+
+.apple-mesh-blob.blob-b {
+  right: -20vmax;
+  top: 8vmax;
+  background: color-mix(in srgb, var(--ambient-shape-2) 62%, rgba(255, 255, 255, 0.18));
+}
+
+.apple-mesh-blob.blob-c {
+  left: 22vmax;
+  bottom: -24vmax;
+  background: color-mix(in srgb, var(--cover-accent) 76%, rgba(255, 255, 255, 0.16));
+}
+
+.apple-now-playing-background.running .apple-mesh-blob {
+  animation: appleMeshFlow 18s ease-in-out infinite alternate;
+}
+
+.apple-now-playing-background.speed-slow .apple-mesh-blob {
+  animation-duration: 28s;
+}
+
+.apple-now-playing-background.speed-fast .apple-mesh-blob {
+  animation-duration: 11s;
+}
+
 .bk-art-background {
   position: absolute;
   inset: 0;
@@ -265,6 +323,145 @@ input {
   mask-mode: alpha;
   mix-blend-mode: screen;
   opacity: 0.58;
+}
+
+.apple-style-cover {
+  position: relative;
+  width: clamp(220px, min(50vh, 34vw), 388px);
+  aspect-ratio: 1;
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+.apple-style-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.apple-style-cover-blur {
+  filter: blur(26px);
+  opacity: 0.34;
+  transform: scale(1.02);
+}
+
+.apple-style-cover-main {
+  box-shadow:
+    0 28px 54px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+}
+
+.rotating-cover {
+  width: clamp(230px, min(52vh, 36vw), 420px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.rotating-disc {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #08090a;
+  box-shadow:
+    0 30px 68px rgba(0, 0, 0, 0.34),
+    0 0 0 2px rgba(255, 255, 255, 0.10) inset;
+}
+
+.rotating-disc img {
+  position: absolute;
+  inset: 12.5%;
+  width: 75%;
+  height: 75%;
+  object-fit: cover;
+  border-radius: 999px;
+}
+
+.rotating-cover.cd-mode .rotating-disc {
+  background:
+    conic-gradient(from 30deg, rgba(255, 255, 255, 0.64), rgba(120, 150, 170, 0.18), rgba(255, 255, 255, 0.54), rgba(90, 100, 116, 0.18), rgba(255, 255, 255, 0.64));
+}
+
+.rotating-cover.vinyl-mode .rotating-disc::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-radial-gradient(circle, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 9px);
+}
+
+.rotating-cover.spinning .rotating-disc {
+  animation: coverSpin 20s linear infinite;
+}
+
+.rotating-cover.cd-mode.spinning .rotating-disc {
+  animation-duration: 1.8s;
+}
+
+.rotating-disc-hole {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14%;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 0 0 8px rgba(0, 0, 0, 0.18);
+}
+
+.cassette-artwork {
+  position: relative;
+  width: clamp(300px, min(62vh, 46vw), 520px);
+  aspect-ratio: 3149 / 2006;
+  filter: drop-shadow(0 34px 70px rgba(0, 0, 0, 0.28));
+  pointer-events: none;
+}
+
+.cassette-layer,
+.cassette-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cassette-art {
+  object-fit: cover;
+  transform: scale(0.9);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-mode: alpha;
+  mask-mode: alpha;
+}
+
+.cassette-paper {
+  mix-blend-mode: multiply;
+  opacity: 0.4;
+}
+
+.cassette-outline {
+  opacity: 0.72;
+}
+
+.cassette-kmglook {
+  position: absolute;
+  right: -8%;
+  bottom: -2%;
+  width: clamp(60px, 14vw, 120px);
+  transform: scale(1.5);
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.2));
 }
 
 .now-playing-led-pill,
@@ -624,6 +821,13 @@ input {
   border-radius: 999px;
 }
 
+.skin-thumb.kmgccc-cassette {
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, transparent 18%, rgba(255, 255, 255, 0.56) 18% 82%, transparent 82%),
+    linear-gradient(135deg, var(--cover-accent), var(--cover-accent-text));
+}
+
 .settings-empty {
   display: grid;
   place-content: center;
@@ -683,6 +887,21 @@ input {
   66% { opacity: 1; }
   82% { opacity: 0.58; }
   100% { opacity: 0.34; }
+}
+
+@keyframes appleMeshFlow {
+  from {
+    transform: translate3d(-4%, -3%, 0) scale(0.95) rotate(0deg);
+  }
+  to {
+    transform: translate3d(5%, 4%, 0) scale(1.08) rotate(18deg);
+  }
+}
+
+@keyframes coverSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 980px) {

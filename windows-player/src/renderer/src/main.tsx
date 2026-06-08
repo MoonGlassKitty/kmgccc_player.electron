@@ -50,6 +50,13 @@ import artworkFrame1 from './assets/bk-themes/artwork-frame/artworkframe1.png'
 import artworkFrame2 from './assets/bk-themes/artwork-frame/artworkframe2.png'
 import artworkFrame3 from './assets/bk-themes/artwork-frame/artworkframe3.png'
 import artworkFrame4 from './assets/bk-themes/artwork-frame/artworkframe4.png'
+import tapeShell from './assets/xc-assets/tape.png'
+import tapeDarkShell from './assets/xc-assets/tapedark.png'
+import tapeGray from './assets/xc-assets/tapegray.png'
+import tapePaper from './assets/xc-assets/tapepaper.png'
+import tapeOutline from './assets/xc-assets/tapeoutline.png'
+import tapeMask from './assets/xc-assets/tapemask.png'
+import kmgLook from './assets/xc-assets/kmglook.png'
 import './styles.css'
 
 type Track = {
@@ -318,10 +325,20 @@ type AppRoute =
 type DetailRoute = Exclude<AppRoute, { name: 'home' } | { name: 'nowPlaying' }>
 type SettingsCategoryKey = 'appearance' | 'nowPlaying' | 'fullscreen' | 'externalPlayback' | 'data' | 'about'
 type NowPlayingSettingsTab = 'general' | 'lyrics' | 'led'
+type NowPlayingSkinID = 'coverLed' | 'appleStyle' | 'rotatingCover' | 'kmgccc.cassette'
+type VisualizerMode = 'off' | 'led' | 'spectrum'
+type AppleMeshSpeed = 'slow' | 'standard' | 'fast'
 
 const bkShapeAssets = [shape1, shape2, shape3, shape4, shape5, shape6, shape7, shape8, shape9, shape10, shape11]
 const bkBackgroundAssets = [bkBackground1, bkBackground2]
 const artworkFrameAssets = [artworkFrame1, artworkFrame2, artworkFrame3, artworkFrame4]
+
+const nowPlayingSkinOptions: Array<{ id: NowPlayingSkinID; name: string; detail: string }> = [
+  { id: 'coverLed', name: '经典封面', detail: '方形封面与 LED/频谱' },
+  { id: 'appleStyle', name: 'Apple 风格', detail: 'AMLL Mesh 背景' },
+  { id: 'rotatingCover', name: '旋转封面', detail: '黑胶/CD 旋转封面' },
+  { id: 'kmgccc.cassette', name: 'kmgccc 磁带', detail: '磁带主体与 KMG 标识' }
+]
 
 function formatDuration(seconds: number): string {
   const safeSeconds = Math.max(0, Math.round(seconds))
@@ -355,13 +372,37 @@ function storedBoolean(key: string, fallback: boolean): boolean {
 }
 
 function storedVisualizerMode(): 'off' | 'led' | 'spectrum' {
+  return storedVisualizerModeForKey('skin.classicLED.visualizerMode', 'led')
+}
+
+function storedVisualizerModeForKey(key: string, fallback: VisualizerMode = 'off'): VisualizerMode {
   try {
-    const value = window.localStorage.getItem('skin.classicLED.visualizerMode')
+    const value = window.localStorage.getItem(key)
     if (value === 'off' || value === 'led' || value === 'spectrum') return value
   } catch {
-    return 'led'
+    return fallback
   }
-  return 'led'
+  return fallback
+}
+
+function storedNowPlayingSkin(): NowPlayingSkinID {
+  try {
+    const value = window.localStorage.getItem('nowPlayingSkin')
+    if (value === 'coverLed' || value === 'appleStyle' || value === 'rotatingCover' || value === 'kmgccc.cassette') return value
+  } catch {
+    return 'kmgccc.cassette'
+  }
+  return 'kmgccc.cassette'
+}
+
+function storedAppleMeshSpeed(): AppleMeshSpeed {
+  try {
+    const value = window.localStorage.getItem('skin.appleStyle.flowSpeed')
+    if (value === 'slow' || value === 'standard' || value === 'fast') return value
+  } catch {
+    return 'standard'
+  }
+  return 'standard'
 }
 
 function persistSetting(key: string, value: string | boolean): void {
@@ -369,6 +410,19 @@ function persistSetting(key: string, value: string | boolean): void {
     window.localStorage.setItem(key, String(value))
   } catch {
     // Settings still work for the current session if localStorage is unavailable.
+  }
+}
+
+function skinPreviewClassName(skin: NowPlayingSkinID): string {
+  switch (skin) {
+    case 'coverLed':
+      return 'cover-led'
+    case 'appleStyle':
+      return 'apple-style'
+    case 'rotatingCover':
+      return 'rotating'
+    case 'kmgccc.cassette':
+      return 'kmgccc-cassette'
   }
 }
 
@@ -1230,9 +1284,17 @@ function App(): React.ReactElement {
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [settingsCategory, setSettingsCategory] = React.useState<SettingsCategoryKey>('appearance')
   const [nowPlayingSettingsTab, setNowPlayingSettingsTab] = React.useState<NowPlayingSettingsTab>('general')
+  const [selectedNowPlayingSkin, setSelectedNowPlayingSkin] = React.useState<NowPlayingSkinID>(() => storedNowPlayingSkin())
   const [isNowPlayingArtBackgroundEnabled, setIsNowPlayingArtBackgroundEnabled] = React.useState(() => storedBoolean('nowPlayingArtBackgroundEnabled', true))
-  const [nowPlayingVisualizerMode, setNowPlayingVisualizerMode] = React.useState<'off' | 'led' | 'spectrum'>(() => storedVisualizerMode())
+  const [classicVisualizerMode, setClassicVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerMode())
+  const [appleVisualizerMode, setAppleVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.appleStyle.visualizerMode', 'led'))
+  const [rotatingVisualizerMode, setRotatingVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.rotatingCover.visualizerMode', 'off'))
+  const [cassetteVisualizerMode, setCassetteVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.kmgcccCassette.visualizerMode', 'off'))
   const [isArtworkFrameMaskEnabled, setIsArtworkFrameMaskEnabled] = React.useState(() => storedBoolean('skin.classicLED.artworkFrameMaskEnabled', true))
+  const [isRotatingCdMode, setIsRotatingCdMode] = React.useState(() => storedBoolean('skin.rotatingCover.cdMode', false))
+  const [isAppleDynamicBackgroundEnabled, setIsAppleDynamicBackgroundEnabled] = React.useState(() => storedBoolean('skin.appleStyle.dynamicBackgroundEnabled', true))
+  const [appleMeshSpeed, setAppleMeshSpeed] = React.useState<AppleMeshSpeed>(() => storedAppleMeshSpeed())
+  const [isCassetteKmgLookEnabled, setIsCassetteKmgLookEnabled] = React.useState(() => storedBoolean('skin.kmgcccCassette.showKmgLook', false))
   const [artworkFrameIndex, setArtworkFrameIndex] = React.useState(0)
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
@@ -1254,6 +1316,13 @@ function App(): React.ReactElement {
   const fallbackCoverThemeStyle = React.useMemo(() => coverThemeFor(currentTrack, albums), [albums, currentTrack])
   const currentArtworkUrl = React.useMemo(() => currentTrack ? trackArtwork(currentTrack, albums) : '', [albums, currentTrack])
   const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
+  const selectedVisualizerMode = selectedNowPlayingSkin === 'coverLed'
+    ? classicVisualizerMode
+    : selectedNowPlayingSkin === 'appleStyle'
+      ? appleVisualizerMode
+      : selectedNowPlayingSkin === 'rotatingCover'
+        ? rotatingVisualizerMode
+        : cassetteVisualizerMode
   const lyricsWidth = isLyricsSidebarOpen ? lyricsSidebarWidth : 0
   const adaptiveSidebarWidth = React.useMemo(() => {
     if (isSidebarCollapsed) return 82
@@ -1301,12 +1370,44 @@ function App(): React.ReactElement {
   }, [isNowPlayingArtBackgroundEnabled])
 
   React.useEffect(() => {
-    persistSetting('skin.classicLED.visualizerMode', nowPlayingVisualizerMode)
-  }, [nowPlayingVisualizerMode])
+    persistSetting('nowPlayingSkin', selectedNowPlayingSkin)
+  }, [selectedNowPlayingSkin])
+
+  React.useEffect(() => {
+    persistSetting('skin.classicLED.visualizerMode', classicVisualizerMode)
+  }, [classicVisualizerMode])
+
+  React.useEffect(() => {
+    persistSetting('skin.appleStyle.visualizerMode', appleVisualizerMode)
+  }, [appleVisualizerMode])
+
+  React.useEffect(() => {
+    persistSetting('skin.rotatingCover.visualizerMode', rotatingVisualizerMode)
+  }, [rotatingVisualizerMode])
+
+  React.useEffect(() => {
+    persistSetting('skin.kmgcccCassette.visualizerMode', cassetteVisualizerMode)
+  }, [cassetteVisualizerMode])
 
   React.useEffect(() => {
     persistSetting('skin.classicLED.artworkFrameMaskEnabled', isArtworkFrameMaskEnabled)
   }, [isArtworkFrameMaskEnabled])
+
+  React.useEffect(() => {
+    persistSetting('skin.rotatingCover.cdMode', isRotatingCdMode)
+  }, [isRotatingCdMode])
+
+  React.useEffect(() => {
+    persistSetting('skin.appleStyle.dynamicBackgroundEnabled', isAppleDynamicBackgroundEnabled)
+  }, [isAppleDynamicBackgroundEnabled])
+
+  React.useEffect(() => {
+    persistSetting('skin.appleStyle.flowSpeed', appleMeshSpeed)
+  }, [appleMeshSpeed])
+
+  React.useEffect(() => {
+    persistSetting('skin.kmgcccCassette.showKmgLook', isCassetteKmgLookEnabled)
+  }, [isCassetteKmgLookEnabled])
 
   React.useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth)
@@ -1396,6 +1497,20 @@ function App(): React.ReactElement {
   const openSettings = React.useCallback(() => {
     setSettingsCategory('nowPlaying')
     setIsSettingsOpen(true)
+  }, [])
+  const changeNowPlayingSkin = React.useCallback((skin: NowPlayingSkinID) => {
+    setSelectedNowPlayingSkin((previous) => {
+      if (previous === skin) return previous
+      if (skin === 'coverLed') {
+        setClassicVisualizerMode('led')
+      } else if (skin === 'appleStyle') {
+        setAppleVisualizerMode('led')
+      } else if (skin === 'rotatingCover') {
+        setRotatingVisualizerMode('led')
+        setIsRotatingCdMode(true)
+      }
+      return skin
+    })
   }, [])
   const importAudioFile = React.useCallback(async () => {
     setImportSyncState({
@@ -1666,10 +1781,15 @@ function App(): React.ReactElement {
               albums={albums}
               isPlaying={isPlaying}
               volume={volume}
-              visualizerMode={nowPlayingVisualizerMode}
+              skinID={selectedNowPlayingSkin}
+              visualizerMode={selectedVisualizerMode}
               artBackgroundEnabled={isNowPlayingArtBackgroundEnabled}
               artworkFrameMaskEnabled={isArtworkFrameMaskEnabled}
               artworkFrameIndex={artworkFrameIndex}
+              rotatingCdMode={isRotatingCdMode}
+              appleDynamicBackgroundEnabled={isAppleDynamicBackgroundEnabled}
+              appleMeshSpeed={appleMeshSpeed}
+              cassetteKmgLookEnabled={isCassetteKmgLookEnabled}
               onArtworkFrameAdvance={() => setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)}
             />
           ) : (
@@ -1726,12 +1846,28 @@ function App(): React.ReactElement {
             onClose={() => setIsSettingsOpen(false)}
             selectedNowPlayingTab={nowPlayingSettingsTab}
             onSelectNowPlayingTab={setNowPlayingSettingsTab}
+            selectedNowPlayingSkin={selectedNowPlayingSkin}
+            onSelectedNowPlayingSkinChange={changeNowPlayingSkin}
             artBackgroundEnabled={isNowPlayingArtBackgroundEnabled}
             onArtBackgroundEnabledChange={setIsNowPlayingArtBackgroundEnabled}
-            visualizerMode={nowPlayingVisualizerMode}
-            onVisualizerModeChange={setNowPlayingVisualizerMode}
+            classicVisualizerMode={classicVisualizerMode}
+            onClassicVisualizerModeChange={setClassicVisualizerMode}
+            appleVisualizerMode={appleVisualizerMode}
+            onAppleVisualizerModeChange={setAppleVisualizerMode}
+            rotatingVisualizerMode={rotatingVisualizerMode}
+            onRotatingVisualizerModeChange={setRotatingVisualizerMode}
+            cassetteVisualizerMode={cassetteVisualizerMode}
+            onCassetteVisualizerModeChange={setCassetteVisualizerMode}
             artworkFrameMaskEnabled={isArtworkFrameMaskEnabled}
             onArtworkFrameMaskEnabledChange={setIsArtworkFrameMaskEnabled}
+            rotatingCdMode={isRotatingCdMode}
+            onRotatingCdModeChange={setIsRotatingCdMode}
+            appleDynamicBackgroundEnabled={isAppleDynamicBackgroundEnabled}
+            onAppleDynamicBackgroundEnabledChange={setIsAppleDynamicBackgroundEnabled}
+            appleMeshSpeed={appleMeshSpeed}
+            onAppleMeshSpeedChange={setAppleMeshSpeed}
+            cassetteKmgLookEnabled={isCassetteKmgLookEnabled}
+            onCassetteKmgLookEnabledChange={setIsCassetteKmgLookEnabled}
           />
         ) : null}
         {isFullscreenLyricsOpen ? (
@@ -2571,60 +2707,54 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   albums,
   isPlaying,
   volume,
+  skinID,
   visualizerMode,
   artBackgroundEnabled,
   artworkFrameMaskEnabled,
   artworkFrameIndex,
+  rotatingCdMode,
+  appleDynamicBackgroundEnabled,
+  appleMeshSpeed,
+  cassetteKmgLookEnabled,
   onArtworkFrameAdvance
 }: {
   track: Track | null | undefined
   albums: Map<string, HomeAlbumCard>
   isPlaying: boolean
   volume: number
-  visualizerMode: 'off' | 'led' | 'spectrum'
+  skinID: NowPlayingSkinID
+  visualizerMode: VisualizerMode
   artBackgroundEnabled: boolean
   artworkFrameMaskEnabled: boolean
   artworkFrameIndex: number
+  rotatingCdMode: boolean
+  appleDynamicBackgroundEnabled: boolean
+  appleMeshSpeed: AppleMeshSpeed
+  cassetteKmgLookEnabled: boolean
   onArtworkFrameAdvance: () => void
 }): React.ReactElement {
   const artwork = trackArtwork(track, albums)
   const artworkFrame = artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]
+  const showBKBackground = artBackgroundEnabled && skinID !== 'appleStyle'
   return (
-    <section className={`now-playing-page ${isPlaying ? 'is-playing' : 'is-paused'} no-drag`}>
-      {artBackgroundEnabled ? <BKArtBackground track={track} isPlaying={isPlaying} /> : <UnifiedMeshBackground />}
+    <section className={`now-playing-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} no-drag`}>
+      {skinID === 'appleStyle' ? (
+        <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
+      ) : showBKBackground ? (
+        <BKArtBackground track={track} isPlaying={isPlaying} />
+      ) : (
+        <UnifiedMeshBackground />
+      )}
       <div className="now-playing-artwork-stage">
-        <button
-          className={`now-playing-cover ${artworkFrameMaskEnabled ? 'masked' : ''}`}
-          type="button"
-          aria-label="切换艺术化封面边缘"
-          onClick={onArtworkFrameAdvance}
-        >
-          <img
-            className="now-playing-cover-image"
-            src={artwork}
-            alt=""
-            decoding="async"
-            style={
-              artworkFrameMaskEnabled
-                ? {
-                    WebkitMaskImage: `url(${artworkFrame})`,
-                    maskImage: `url(${artworkFrame})`
-                  }
-                : undefined
-            }
-          />
-          {artworkFrameMaskEnabled ? (
-            <span
-              className="now-playing-cover-mask-edge"
-              style={
-                {
-                  WebkitMaskImage: `url(${artworkFrame})`,
-                  maskImage: `url(${artworkFrame})`
-                } as React.CSSProperties
-              }
-            />
-          ) : null}
-        </button>
+        {skinID === 'coverLed' ? (
+          <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} onArtworkFrameAdvance={onArtworkFrameAdvance} />
+        ) : skinID === 'appleStyle' ? (
+          <AppleStyleNowPlayingArtwork artwork={artwork} />
+        ) : skinID === 'rotatingCover' ? (
+          <RotatingCoverNowPlaying artwork={artwork} isPlaying={isPlaying} cdMode={rotatingCdMode} />
+        ) : (
+          <CassetteNowPlayingArtwork artwork={artwork} showKmgLook={cassetteKmgLookEnabled} />
+        )}
         {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} /> : null}
         {visualizerMode === 'spectrum' ? <NowPlayingSpectrum isPlaying={isPlaying} /> : null}
       </div>
@@ -2638,6 +2768,132 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
 
 const UnifiedMeshBackground = React.memo(function UnifiedMeshBackground(): React.ReactElement {
   return <div className="now-playing-unified-mesh" aria-hidden="true" />
+})
+
+const AppleNowPlayingBackground = React.memo(function AppleNowPlayingBackground({
+  track,
+  isPlaying,
+  dynamicEnabled,
+  speed
+}: {
+  track: Track | null | undefined
+  isPlaying: boolean
+  dynamicEnabled: boolean
+  speed: AppleMeshSpeed
+}): React.ReactElement {
+  return (
+    <div className={`apple-now-playing-background ${dynamicEnabled && isPlaying ? 'running' : 'frozen'} speed-${speed}`} aria-hidden="true">
+      <div className="apple-mesh-blob blob-a" />
+      <div className="apple-mesh-blob blob-b" />
+      <div className="apple-mesh-blob blob-c" />
+      <img src={track?.artworkUrl ?? altArtwork} alt="" decoding="async" />
+    </div>
+  )
+})
+
+const ClassicCoverNowPlaying = React.memo(function ClassicCoverNowPlaying({
+  artwork,
+  artworkFrame,
+  masked,
+  onArtworkFrameAdvance
+}: {
+  artwork: string
+  artworkFrame: string
+  masked: boolean
+  onArtworkFrameAdvance: () => void
+}): React.ReactElement {
+  return (
+    <button
+      className={`now-playing-cover ${masked ? 'masked' : ''}`}
+      type="button"
+      aria-label="切换艺术化封面边缘"
+      onClick={onArtworkFrameAdvance}
+    >
+      <img
+        className="now-playing-cover-image"
+        src={artwork}
+        alt=""
+        decoding="async"
+        style={
+          masked
+            ? {
+                WebkitMaskImage: `url(${artworkFrame})`,
+                maskImage: `url(${artworkFrame})`
+              }
+            : undefined
+        }
+      />
+      {masked ? (
+        <span
+          className="now-playing-cover-mask-edge"
+          style={
+            {
+              WebkitMaskImage: `url(${artworkFrame})`,
+              maskImage: `url(${artworkFrame})`
+            } as React.CSSProperties
+          }
+        />
+      ) : null}
+    </button>
+  )
+})
+
+const AppleStyleNowPlayingArtwork = React.memo(function AppleStyleNowPlayingArtwork({ artwork }: { artwork: string }): React.ReactElement {
+  return (
+    <div className="apple-style-cover">
+      <img className="apple-style-cover-blur" src={artwork} alt="" decoding="async" />
+      <img className="apple-style-cover-main" src={artwork} alt="" decoding="async" />
+    </div>
+  )
+})
+
+const RotatingCoverNowPlaying = React.memo(function RotatingCoverNowPlaying({
+  artwork,
+  isPlaying,
+  cdMode
+}: {
+  artwork: string
+  isPlaying: boolean
+  cdMode: boolean
+}): React.ReactElement {
+  return (
+    <div className={`rotating-cover ${isPlaying ? 'spinning' : ''} ${cdMode ? 'cd-mode' : 'vinyl-mode'}`}>
+      <div className="rotating-disc">
+        <img src={artwork} alt="" decoding="async" />
+        <span className="rotating-disc-hole" />
+      </div>
+    </div>
+  )
+})
+
+const CassetteNowPlayingArtwork = React.memo(function CassetteNowPlayingArtwork({
+  artwork,
+  showKmgLook
+}: {
+  artwork: string
+  showKmgLook: boolean
+}): React.ReactElement {
+  return (
+    <div className="cassette-artwork">
+      <img className="cassette-layer cassette-shell" src={tapeShell} alt="" decoding="async" />
+      <img
+        className="cassette-art"
+        src={artwork}
+        alt=""
+        decoding="async"
+        style={
+          {
+            WebkitMaskImage: `url(${tapeMask})`,
+            maskImage: `url(${tapeMask})`
+          } as React.CSSProperties
+        }
+      />
+      <img className="cassette-layer cassette-gray" src={tapeGray} alt="" decoding="async" />
+      <img className="cassette-layer cassette-paper" src={tapePaper} alt="" decoding="async" />
+      <img className="cassette-layer cassette-outline" src={tapeOutline} alt="" decoding="async" />
+      {showKmgLook ? <img className="cassette-kmglook" src={kmgLook} alt="" decoding="async" /> : null}
+    </div>
+  )
 })
 
 const BKArtBackground = React.memo(function BKArtBackground({
@@ -2860,24 +3116,56 @@ const SettingsPanel = React.memo(function SettingsPanel({
   onClose,
   selectedNowPlayingTab,
   onSelectNowPlayingTab,
+  selectedNowPlayingSkin,
+  onSelectedNowPlayingSkinChange,
   artBackgroundEnabled,
   onArtBackgroundEnabledChange,
-  visualizerMode,
-  onVisualizerModeChange,
+  classicVisualizerMode,
+  onClassicVisualizerModeChange,
+  appleVisualizerMode,
+  onAppleVisualizerModeChange,
+  rotatingVisualizerMode,
+  onRotatingVisualizerModeChange,
+  cassetteVisualizerMode,
+  onCassetteVisualizerModeChange,
   artworkFrameMaskEnabled,
-  onArtworkFrameMaskEnabledChange
+  onArtworkFrameMaskEnabledChange,
+  rotatingCdMode,
+  onRotatingCdModeChange,
+  appleDynamicBackgroundEnabled,
+  onAppleDynamicBackgroundEnabledChange,
+  appleMeshSpeed,
+  onAppleMeshSpeedChange,
+  cassetteKmgLookEnabled,
+  onCassetteKmgLookEnabledChange
 }: {
   selectedCategory: SettingsCategoryKey
   onSelectCategory: (category: SettingsCategoryKey) => void
   onClose: () => void
   selectedNowPlayingTab: NowPlayingSettingsTab
   onSelectNowPlayingTab: (tab: NowPlayingSettingsTab) => void
+  selectedNowPlayingSkin: NowPlayingSkinID
+  onSelectedNowPlayingSkinChange: (skin: NowPlayingSkinID) => void
   artBackgroundEnabled: boolean
   onArtBackgroundEnabledChange: (enabled: boolean) => void
-  visualizerMode: 'off' | 'led' | 'spectrum'
-  onVisualizerModeChange: (mode: 'off' | 'led' | 'spectrum') => void
+  classicVisualizerMode: VisualizerMode
+  onClassicVisualizerModeChange: (mode: VisualizerMode) => void
+  appleVisualizerMode: VisualizerMode
+  onAppleVisualizerModeChange: (mode: VisualizerMode) => void
+  rotatingVisualizerMode: VisualizerMode
+  onRotatingVisualizerModeChange: (mode: VisualizerMode) => void
+  cassetteVisualizerMode: VisualizerMode
+  onCassetteVisualizerModeChange: (mode: VisualizerMode) => void
   artworkFrameMaskEnabled: boolean
   onArtworkFrameMaskEnabledChange: (enabled: boolean) => void
+  rotatingCdMode: boolean
+  onRotatingCdModeChange: (enabled: boolean) => void
+  appleDynamicBackgroundEnabled: boolean
+  onAppleDynamicBackgroundEnabledChange: (enabled: boolean) => void
+  appleMeshSpeed: AppleMeshSpeed
+  onAppleMeshSpeedChange: (speed: AppleMeshSpeed) => void
+  cassetteKmgLookEnabled: boolean
+  onCassetteKmgLookEnabledChange: (enabled: boolean) => void
 }): React.ReactElement {
   return (
     <div className="settings-overlay no-drag">
@@ -2903,12 +3191,28 @@ const SettingsPanel = React.memo(function SettingsPanel({
             <NowPlayingSettingsContent
               selectedTab={selectedNowPlayingTab}
               onSelectTab={onSelectNowPlayingTab}
+              selectedSkin={selectedNowPlayingSkin}
+              onSelectedSkinChange={onSelectedNowPlayingSkinChange}
               artBackgroundEnabled={artBackgroundEnabled}
               onArtBackgroundEnabledChange={onArtBackgroundEnabledChange}
-              visualizerMode={visualizerMode}
-              onVisualizerModeChange={onVisualizerModeChange}
+              classicVisualizerMode={classicVisualizerMode}
+              onClassicVisualizerModeChange={onClassicVisualizerModeChange}
+              appleVisualizerMode={appleVisualizerMode}
+              onAppleVisualizerModeChange={onAppleVisualizerModeChange}
+              rotatingVisualizerMode={rotatingVisualizerMode}
+              onRotatingVisualizerModeChange={onRotatingVisualizerModeChange}
+              cassetteVisualizerMode={cassetteVisualizerMode}
+              onCassetteVisualizerModeChange={onCassetteVisualizerModeChange}
               artworkFrameMaskEnabled={artworkFrameMaskEnabled}
               onArtworkFrameMaskEnabledChange={onArtworkFrameMaskEnabledChange}
+              rotatingCdMode={rotatingCdMode}
+              onRotatingCdModeChange={onRotatingCdModeChange}
+              appleDynamicBackgroundEnabled={appleDynamicBackgroundEnabled}
+              onAppleDynamicBackgroundEnabledChange={onAppleDynamicBackgroundEnabledChange}
+              appleMeshSpeed={appleMeshSpeed}
+              onAppleMeshSpeedChange={onAppleMeshSpeedChange}
+              cassetteKmgLookEnabled={cassetteKmgLookEnabled}
+              onCassetteKmgLookEnabledChange={onCassetteKmgLookEnabledChange}
             />
           ) : (
             <div className="settings-empty">
@@ -2925,22 +3229,55 @@ const SettingsPanel = React.memo(function SettingsPanel({
 const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent({
   selectedTab,
   onSelectTab,
+  selectedSkin,
+  onSelectedSkinChange,
   artBackgroundEnabled,
   onArtBackgroundEnabledChange,
-  visualizerMode,
-  onVisualizerModeChange,
+  classicVisualizerMode,
+  onClassicVisualizerModeChange,
+  appleVisualizerMode,
+  onAppleVisualizerModeChange,
+  rotatingVisualizerMode,
+  onRotatingVisualizerModeChange,
+  cassetteVisualizerMode,
+  onCassetteVisualizerModeChange,
   artworkFrameMaskEnabled,
-  onArtworkFrameMaskEnabledChange
+  onArtworkFrameMaskEnabledChange,
+  rotatingCdMode,
+  onRotatingCdModeChange,
+  appleDynamicBackgroundEnabled,
+  onAppleDynamicBackgroundEnabledChange,
+  appleMeshSpeed,
+  onAppleMeshSpeedChange,
+  cassetteKmgLookEnabled,
+  onCassetteKmgLookEnabledChange
 }: {
   selectedTab: NowPlayingSettingsTab
   onSelectTab: (tab: NowPlayingSettingsTab) => void
+  selectedSkin: NowPlayingSkinID
+  onSelectedSkinChange: (skin: NowPlayingSkinID) => void
   artBackgroundEnabled: boolean
   onArtBackgroundEnabledChange: (enabled: boolean) => void
-  visualizerMode: 'off' | 'led' | 'spectrum'
-  onVisualizerModeChange: (mode: 'off' | 'led' | 'spectrum') => void
+  classicVisualizerMode: VisualizerMode
+  onClassicVisualizerModeChange: (mode: VisualizerMode) => void
+  appleVisualizerMode: VisualizerMode
+  onAppleVisualizerModeChange: (mode: VisualizerMode) => void
+  rotatingVisualizerMode: VisualizerMode
+  onRotatingVisualizerModeChange: (mode: VisualizerMode) => void
+  cassetteVisualizerMode: VisualizerMode
+  onCassetteVisualizerModeChange: (mode: VisualizerMode) => void
   artworkFrameMaskEnabled: boolean
   onArtworkFrameMaskEnabledChange: (enabled: boolean) => void
+  rotatingCdMode: boolean
+  onRotatingCdModeChange: (enabled: boolean) => void
+  appleDynamicBackgroundEnabled: boolean
+  onAppleDynamicBackgroundEnabledChange: (enabled: boolean) => void
+  appleMeshSpeed: AppleMeshSpeed
+  onAppleMeshSpeedChange: (speed: AppleMeshSpeed) => void
+  cassetteKmgLookEnabled: boolean
+  onCassetteKmgLookEnabledChange: (enabled: boolean) => void
 }): React.ReactElement {
+  const selectedSkinOption = nowPlayingSkinOptions.find((skin) => skin.id === selectedSkin) ?? nowPlayingSkinOptions[0]
   return (
     <div className="settings-now-playing">
       <header className="settings-header-label">
@@ -2964,25 +3301,47 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
           <div className="settings-card-section">
             <strong>选择皮肤</strong>
             <div className="settings-skin-row">
-              <button className="active" type="button">
-                <span className="skin-thumb cover-led" />
-                <strong>经典封面</strong>
-              </button>
-              <button type="button">
-                <span className="skin-thumb apple-style" />
-                <strong>Apple 风格</strong>
-              </button>
-              <button type="button">
-                <span className="skin-thumb rotating" />
-                <strong>旋转封面</strong>
-              </button>
+              {nowPlayingSkinOptions.map((skin) => (
+                <button
+                  key={skin.id}
+                  className={selectedSkin === skin.id ? 'active' : ''}
+                  type="button"
+                  onClick={() => onSelectedSkinChange(skin.id)}
+                >
+                  <span className={`skin-thumb ${skinPreviewClassName(skin.id)}`} />
+                  <strong>{skin.name}</strong>
+                  <small>{skin.detail}</small>
+                </button>
+              ))}
             </div>
           </div>
           <div className="settings-card-section">
-            <strong>经典封面选项</strong>
-            <SettingsSwitch title="艺术化封面边缘" checked={artworkFrameMaskEnabled} onChange={onArtworkFrameMaskEnabledChange} />
-            <SettingsSwitch title="LED 电平表" checked={visualizerMode === 'led'} onChange={(checked) => onVisualizerModeChange(checked ? 'led' : 'off')} />
-            <SettingsSwitch title="频谱动画" checked={visualizerMode === 'spectrum'} onChange={(checked) => onVisualizerModeChange(checked ? 'spectrum' : 'off')} />
+            <strong>{selectedSkinOption.name} 选项</strong>
+            {selectedSkin === 'coverLed' ? (
+              <>
+                <SettingsSwitch title="艺术化封面边缘" checked={artworkFrameMaskEnabled} onChange={onArtworkFrameMaskEnabledChange} />
+                <SettingsSwitch title="LED 电平表" checked={classicVisualizerMode === 'led'} onChange={(checked) => onClassicVisualizerModeChange(checked ? 'led' : 'off')} />
+                <SettingsSwitch title="频谱动画" checked={classicVisualizerMode === 'spectrum'} onChange={(checked) => onClassicVisualizerModeChange(checked ? 'spectrum' : 'off')} />
+              </>
+            ) : selectedSkin === 'appleStyle' ? (
+              <>
+                <SettingsSwitch title="动态背景" checked={appleDynamicBackgroundEnabled} onChange={onAppleDynamicBackgroundEnabledChange} />
+                <SettingsSegment title="流体速度" values={['slow', 'standard', 'fast']} labels={['慢', '标准', '快']} selected={appleMeshSpeed} onSelect={(value) => onAppleMeshSpeedChange(value as AppleMeshSpeed)} />
+                <SettingsSwitch title="LED 电平表" checked={appleVisualizerMode === 'led'} onChange={(checked) => onAppleVisualizerModeChange(checked ? 'led' : 'off')} />
+                <SettingsSwitch title="频谱动画" checked={appleVisualizerMode === 'spectrum'} onChange={(checked) => onAppleVisualizerModeChange(checked ? 'spectrum' : 'off')} />
+              </>
+            ) : selectedSkin === 'rotatingCover' ? (
+              <>
+                <SettingsSwitch title="CD 模式" checked={rotatingCdMode} onChange={onRotatingCdModeChange} />
+                <SettingsSwitch title="LED 电平表" checked={rotatingVisualizerMode === 'led'} onChange={(checked) => onRotatingVisualizerModeChange(checked ? 'led' : 'off')} />
+                <SettingsSwitch title="频谱动画" checked={rotatingVisualizerMode === 'spectrum'} onChange={(checked) => onRotatingVisualizerModeChange(checked ? 'spectrum' : 'off')} />
+              </>
+            ) : (
+              <>
+                <SettingsSwitch title="LED 电平表" checked={cassetteVisualizerMode === 'led'} onChange={(checked) => onCassetteVisualizerModeChange(checked ? 'led' : 'off')} />
+                <SettingsSwitch title="显示 KMG 标识" checked={cassetteKmgLookEnabled} onChange={onCassetteKmgLookEnabledChange} />
+              </>
+            )}
           </div>
         </div>
       ) : selectedTab === 'lyrics' ? (
@@ -3068,19 +3427,23 @@ const SettingsRange = React.memo(function SettingsRange({
 const SettingsSegment = React.memo(function SettingsSegment({
   title,
   values,
-  selected
+  labels,
+  selected,
+  onSelect
 }: {
   title: string
   values: string[]
+  labels?: string[]
   selected: string
+  onSelect?: (value: string) => void
 }): React.ReactElement {
   return (
     <div className="settings-segment-row">
       <strong>{title}</strong>
       <div>
-        {values.map((value) => (
-          <button key={value} className={value === selected ? 'active' : ''} type="button">
-            {value}
+        {values.map((value, index) => (
+          <button key={value} className={value === selected ? 'active' : ''} type="button" onClick={() => onSelect?.(value)}>
+            {labels?.[index] ?? value}
           </button>
         ))}
       </div>
