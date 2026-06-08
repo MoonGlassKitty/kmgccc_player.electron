@@ -620,9 +620,9 @@ input {
   width: min(1053px, calc(100vw - 16px));
   height: min(953px, calc(100vh - 16px));
   display: grid;
-  grid-template-columns: clamp(300px, 26.5vw, 400px) minmax(0, 1fr);
+  grid-template-columns: clamp(220px, 23vw, 300px) minmax(0, 1fr);
   overflow: hidden;
-  border-radius: 34px;
+  border-radius: 28px;
   background: #fbfbfb;
   box-shadow:
     0 42px 110px rgba(13, 27, 35, 0.22),
@@ -632,19 +632,19 @@ input {
 .settings-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 64px 26px 28px;
+  gap: 8px;
+  padding: 46px 18px 22px;
   background: #eef1f2;
   border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 28px;
-  margin: 16px 0 16px 16px;
+  border-radius: 24px;
+  margin: 14px 0 14px 14px;
 }
 
 .settings-sidebar::before {
   content: "设置";
-  margin: 0 0 34px 18px;
+  margin: 0 0 24px 14px;
   color: #062736;
-  font-size: clamp(34px, 3.2vw, 44px);
+  font-size: clamp(28px, 2.7vw, 36px);
   font-weight: 900;
   letter-spacing: 0;
 }
@@ -652,8 +652,8 @@ input {
 .settings-sidebar button {
   display: flex;
   align-items: center;
-  min-height: 74px;
-  padding: 0 28px;
+  min-height: 54px;
+  padding: 0 20px;
   border: 0;
   border-radius: 999px;
   color: #082b3a;
@@ -669,7 +669,7 @@ input {
 }
 
 .settings-sidebar strong {
-  font-size: 24px;
+  font-size: 19px;
   font-weight: 830;
 }
 
@@ -681,16 +681,16 @@ input {
   position: relative;
   min-width: 0;
   overflow: auto;
-  padding: clamp(62px, 6.4vw, 92px) clamp(46px, 4.4vw, 64px) 72px;
+  padding: clamp(42px, 5vw, 64px) clamp(32px, 3.4vw, 46px) 46px;
   color: #082b3a;
 }
 
 .settings-close {
   position: absolute;
-  right: 36px;
-  top: 36px;
-  width: 72px;
-  height: 72px;
+  right: 24px;
+  top: 24px;
+  width: 54px;
+  height: 54px;
   display: grid;
   place-items: center;
   border: 0;
@@ -705,23 +705,23 @@ input {
 
 .settings-now-playing {
   display: grid;
-  gap: 32px;
-  max-width: 980px;
+  gap: 22px;
+  max-width: 650px;
 }
 
 .settings-header-label {
   display: flex;
   align-items: center;
-  gap: 24px;
-  font-size: clamp(44px, 4.2vw, 62px);
+  gap: 16px;
+  font-size: clamp(30px, 2.6vw, 40px);
   font-weight: 920;
   letter-spacing: 0;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 .settings-header-label svg {
-  width: 40px;
-  height: 40px;
+  width: 27px;
+  height: 27px;
   color: #217ea9;
 }
 
@@ -729,18 +729,18 @@ input {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0;
-  padding: 5px;
+  padding: 4px;
   border-radius: 999px;
   background: rgba(244, 244, 244, 0.96);
 }
 
 .settings-tabs button {
-  height: 68px;
+  height: 42px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: rgba(22, 36, 46, 0.54);
-  font-size: 24px;
+  font-size: 17px;
   font-weight: 760;
   cursor: pointer;
 }
@@ -753,24 +753,24 @@ input {
 
 .settings-section-stack {
   display: grid;
-  gap: 36px;
+  gap: 20px;
 }
 
 .settings-section {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .settings-section > header {
   display: flex;
   align-items: center;
-  min-height: 28px;
-  gap: 16px;
+  min-height: 22px;
+  gap: 12px;
 }
 
 .settings-section > header > strong {
   color: rgba(20, 31, 38, 0.78);
-  font-size: 26px;
+  font-size: 18px;
   font-weight: 860;
 }
 
@@ -780,15 +780,15 @@ input {
 
 .settings-card-section {
   display: grid;
-  gap: 24px;
-  padding: 28px 24px;
-  border-radius: 24px;
+  gap: 16px;
+  padding: 18px 16px;
+  border-radius: 16px;
   background: #f5f5f5;
 }
 
 .settings-card-section > strong {
   color: #113e52;
-  font-size: 28px;
+  font-size: 21px;
   font-weight: 860;
 }
 
@@ -799,17 +799,17 @@ input {
 
 .lyrics-settings-preview {
   display: grid;
-  gap: 8px;
-  min-height: 162px;
+  gap: 6px;
+  min-height: 124px;
   align-content: center;
-  padding: 20px 24px;
-  border-radius: 14px;
+  padding: 16px 18px;
+  border-radius: 12px;
   box-shadow: 0 0 0 1px rgba(18, 28, 36, 0.08) inset;
 }
 
 .lyrics-settings-preview small {
   color: rgba(24, 34, 42, 0.64);
-  font-size: 18px;
+  font-size: 14px;
 }
 
 .lyrics-settings-preview b {
@@ -840,10 +840,10 @@ input {
 .settings-select-row {
   display: flex;
   align-items: center;
-  gap: 24px;
-  min-height: 56px;
+  gap: 16px;
+  min-height: 38px;
   color: #161f25;
-  font-size: 24px;
+  font-size: 16px;
   font-weight: 760;
 }
 
@@ -857,7 +857,7 @@ input {
 .settings-switch-row small,
 .settings-range-row small {
   color: rgba(36, 46, 54, 0.54);
-  font-size: 18px;
+  font-size: 13px;
   font-weight: 560;
   line-height: 1.35;
 }
@@ -880,8 +880,8 @@ input {
 }
 
 .settings-switch-row i {
-  width: 108px;
-  height: 48px;
+  width: 64px;
+  height: 30px;
   margin-left: auto;
   border-radius: 999px;
   background: rgba(36, 44, 52, 0.14);
@@ -891,9 +891,9 @@ input {
 .settings-switch-row i::before {
   content: "";
   display: block;
-  width: 40px;
-  height: 40px;
-  margin: 4px;
+  width: 24px;
+  height: 24px;
+  margin: 3px;
   border-radius: 999px;
   background: white;
   box-shadow: 0 3px 9px rgba(20, 28, 36, 0.18);
@@ -905,7 +905,7 @@ input {
 }
 
 .settings-switch-row input:checked + i::before {
-  transform: translateX(60px);
+  transform: translateX(34px);
 }
 
 .settings-range-row input {
@@ -922,19 +922,19 @@ input {
 .settings-segment-row > div {
   display: flex;
   gap: 0;
-  padding: 4px;
+  padding: 3px;
   border-radius: 999px;
   background: rgba(229, 229, 229, 0.86);
 }
 
 .settings-segment-row button {
-  min-width: 78px;
-  height: 46px;
+  min-width: 52px;
+  height: 30px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: rgba(28, 38, 46, 0.62);
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 760;
 }
 
@@ -948,14 +948,14 @@ input {
 }
 
 .settings-select-row select {
-  width: 132px;
-  height: 44px;
+  width: 96px;
+  height: 30px;
   border: 0;
-  border-radius: 10px;
-  padding: 0 14px;
+  border-radius: 8px;
+  padding: 0 10px;
   color: #202930;
   background: #e2e2e2;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 650;
 }
 
@@ -972,7 +972,7 @@ input {
   border: 0;
   background: transparent;
   color: rgba(22, 38, 48, 0.48);
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 760;
   cursor: pointer;
 }
@@ -980,19 +980,19 @@ input {
 .settings-skin-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
-  padding: 32px 44px;
-  border-radius: 24px;
+  gap: 12px;
+  padding: 18px 24px;
+  border-radius: 18px;
   background: rgba(247, 247, 247, 0.96);
 }
 
 .settings-skin-row button {
   display: grid;
-  gap: 14px;
-  min-height: 246px;
-  padding: 26px 16px 18px;
+  gap: 8px;
+  min-height: 156px;
+  padding: 14px 10px 12px;
   border: 2px solid rgba(10, 31, 42, 0.08);
-  border-radius: 22px;
+  border-radius: 16px;
   background: rgba(252, 252, 252, 0.9);
   color: rgba(22, 31, 39, 0.64);
   cursor: pointer;
@@ -1005,7 +1005,7 @@ input {
 }
 
 .settings-skin-row button strong {
-  font-size: 22px;
+  font-size: 14px;
   font-weight: 820;
 }
 
@@ -1014,8 +1014,8 @@ input {
 }
 
 .skin-thumb {
-  height: 132px;
-  border-radius: 18px;
+  height: 82px;
+  border-radius: 12px;
   background: linear-gradient(135deg, var(--cover-accent), var(--cover-accent-text));
   opacity: 0.44;
 }
