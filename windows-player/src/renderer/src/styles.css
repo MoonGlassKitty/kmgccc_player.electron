@@ -2077,6 +2077,20 @@ input {
   padding-bottom: 19px;
 }
 
+.fullscreen-lyrics-open .sidebar {
+  --glass-alpha: 0;
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-shadow: transparent;
+  --glass-inner-shadow: transparent;
+  --glass-inner-highlight: transparent;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.fullscreen-lyrics-open .toolbar {
+  display: none;
+}
+
 .content-pane {
   position: relative;
   grid-column: 1 / -1;

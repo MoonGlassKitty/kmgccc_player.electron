@@ -1804,6 +1804,8 @@ function App(): React.ReactElement {
   }, [])
   const openNowPlaying = React.useCallback(() => {
     setRoute({ name: 'nowPlaying' })
+    setIsFullscreenLyricsOpen(true)
+    setIsSidebarCollapsed(true)
   }, [])
   const openSettings = React.useCallback(() => {
     setSettingsCategory('nowPlaying')
@@ -2030,6 +2032,10 @@ function App(): React.ReactElement {
   const toggleFullscreenLyrics = React.useCallback(() => {
     setIsFullscreenLyricsOpen((value) => !value)
   }, [])
+
+  React.useEffect(() => {
+    if (isFullscreenLyricsOpen) setIsSidebarCollapsed(true)
+  }, [isFullscreenLyricsOpen])
   const handleSidebarResizeStart = React.useCallback((event: React.PointerEvent) => {
     event.preventDefault()
     event.stopPropagation()
