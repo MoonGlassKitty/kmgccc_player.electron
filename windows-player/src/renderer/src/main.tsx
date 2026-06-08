@@ -3755,7 +3755,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   return (
     <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
       {previousSurface ? <BKArtSurface key={`previous-${bkSurfaceKey(previousSurface)}`} surface={previousSurface} className={`previous ${isBKDotStyle(previousSurface.style) && currentSurface.style === 'image' ? 'dot-exited' : ''}`} isRunning={false} /> : null}
-      <BKArtSurface key={`current-${bkSurfaceKey(currentSurface)}`} surface={currentSurface} className={previousSurface !== null ? 'current entering' : `current ${isDotExiting ? 'dot-exiting' : ''}`} isRunning={isPlaying && !isDotExiting && !isRevealing} onRevealEnd={previousSurface ? handleRevealEnd : undefined} onDotComplete={isBKDotStyle(currentSurface.style) && !isDotExiting ? handleDotComplete : undefined} />
+      <BKArtSurface key={`current-${bkSurfaceKey(currentSurface)}`} surface={currentSurface} className={previousSurface !== null ? `current entering ${previousSurface.style === 'image' && currentSurface.style === 'image' ? 'paint-only' : ''}` : `current ${isDotExiting ? 'dot-exiting' : ''}`} isRunning={isPlaying && !isDotExiting && !isRevealing} onRevealEnd={previousSurface ? handleRevealEnd : undefined} onDotComplete={isBKDotStyle(currentSurface.style) && !isDotExiting ? handleDotComplete : undefined} />
     </div>
   )
 })
