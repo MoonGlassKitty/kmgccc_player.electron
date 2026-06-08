@@ -2921,12 +2921,13 @@ input {
   pointer-events: none;
 }
 
-.fullscreen-lyrics-open .content-pane > :not(.mini-player):not(.mini-player-hover-zone) {
+.fullscreen-lyrics-open .content-pane > :not(.mini-player):not(.mini-timeline-layer):not(.mini-player-hover-zone) {
   opacity: 0;
   pointer-events: none;
 }
 
 .fullscreen-lyrics-open .mini-player,
+.fullscreen-lyrics-open .mini-timeline-layer,
 .fullscreen-lyrics-open .mini-player-hover-zone {
   pointer-events: auto;
 }
@@ -3607,13 +3608,23 @@ input {
   transform: translateX(-50%);
 }
 
-.mini-player::before {
-  content: "";
+.mini-timeline-layer {
+  position: absolute;
+  bottom: 42px;
+  left: calc(var(--sidebar-width) + ((100% - var(--sidebar-width) - var(--lyrics-width)) / 2));
+  z-index: calc(var(--layer-floating-glass) + 1);
+  width: clamp(620px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - 48px), 717px);
+  height: 60px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  contain: layout style paint;
+}
+
+.mini-timeline-fill {
   position: absolute;
   top: 1px;
   bottom: 1px;
   left: 1px;
-  z-index: 0;
   width: calc(100% - 2px);
   border-radius: 29px 12px 12px 29px;
   background: color-mix(in srgb, var(--cover-accent-text) 48%, transparent);
@@ -3625,24 +3636,24 @@ input {
   transition: opacity 180ms ease;
 }
 
-.mini-player.playing::before {
+.mini-timeline-layer.playing .mini-timeline-fill {
   opacity: 0.92;
   animation: miniProgressRun var(--mini-player-progress-duration, 60s) linear forwards;
 }
 
-.mini-player:not(.playing)::before {
+.mini-timeline-layer:not(.playing) .mini-timeline-fill {
   animation: none;
 }
 
-.app-shell.now-playing-route .mini-player::before,
-.fullscreen-lyrics-open .mini-player::before {
+.app-shell.now-playing-route .mini-timeline-fill,
+.fullscreen-lyrics-open .mini-timeline-fill {
   background: var(--cover-accent-text);
   filter: invert(1) saturate(0.15) brightness(1.12);
   opacity: 0.22;
 }
 
-.app-shell.now-playing-route .mini-player.playing::before,
-.fullscreen-lyrics-open .mini-player.playing::before {
+.app-shell.now-playing-route .mini-timeline-layer.playing .mini-timeline-fill,
+.fullscreen-lyrics-open .mini-timeline-layer.playing .mini-timeline-fill {
   opacity: 0.22;
 }
 
@@ -3824,7 +3835,8 @@ input {
   height: 104px;
 }
 
-.fullscreen-lyrics-open .mini-player {
+.fullscreen-lyrics-open .mini-player,
+.fullscreen-lyrics-open .mini-timeline-layer {
   z-index: 56;
   opacity: 0;
   pointer-events: none;
@@ -3832,10 +3844,16 @@ input {
 }
 
 .fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-player,
-.fullscreen-lyrics-open .mini-player:hover {
+.fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-timeline-layer,
+.fullscreen-lyrics-open .mini-player:hover,
+.fullscreen-lyrics-open .mini-timeline-layer:hover {
   opacity: 1;
   pointer-events: auto;
   transform: translate(-50%, 0);
+}
+
+.fullscreen-lyrics-open .mini-timeline-layer {
+  z-index: 57;
 }
 
 .mini-track img {

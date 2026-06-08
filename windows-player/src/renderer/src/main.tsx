@@ -5414,23 +5414,32 @@ const MiniPlayer = React.memo(function MiniPlayer({
     }
   }, [])
 
+  const progressStyle = { '--mini-player-progress-ratio': progress / 100, '--mini-player-progress-duration': `${progressRemainingSeconds}s` } as React.CSSProperties
+
   return (
-    <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress-ratio': progress / 100, '--mini-player-progress-duration': `${progressRemainingSeconds}s` } as React.CSSProperties}>
+    <>
       <div
-        className="mini-progress-rail"
-        ref={progressRailRef}
-        role="slider"
-        aria-label="播放进度"
-        aria-valuemax={safePlaybackDuration}
-        aria-valuemin={0}
-        aria-valuenow={Math.min(playbackTime, safePlaybackDuration)}
-        tabIndex={0}
-        onPointerDown={handleProgressPointerDown}
-        onPointerUp={handleProgressPointerUp}
-        onPointerCancel={handleProgressPointerCancel}
+        className={`mini-timeline-layer no-drag ${isPlaying ? 'playing' : ''}`}
+        style={progressStyle}
       >
-        <span className="mini-progress-line" aria-hidden="true" />
+        <span className="mini-timeline-fill" aria-hidden="true" />
+        <div
+          className="mini-progress-rail"
+          ref={progressRailRef}
+          role="slider"
+          aria-label="播放进度"
+          aria-valuemax={safePlaybackDuration}
+          aria-valuemin={0}
+          aria-valuenow={Math.min(playbackTime, safePlaybackDuration)}
+          tabIndex={0}
+          onPointerDown={handleProgressPointerDown}
+          onPointerUp={handleProgressPointerUp}
+          onPointerCancel={handleProgressPointerCancel}
+        >
+          <span className="mini-progress-line" aria-hidden="true" />
+        </div>
       </div>
+      <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
       <button className="mini-track" type="button" aria-label="打开窗口播放" onClick={onOpenNowPlaying}>
         <img src={trackArtwork(track, albums)} alt="" decoding="async" />
         <div>
@@ -5497,7 +5506,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
           />
         </label>
       </div>
-    </div>
+      </div>
+    </>
   )
 })
 
