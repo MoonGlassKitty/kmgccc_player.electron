@@ -436,8 +436,8 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
       '--ambient-shape-1': 'rgba(110, 116, 123, 0.3)',
       '--ambient-shape-2': 'rgba(154, 158, 164, 0.24)',
       '--ambient-shape-3': 'rgba(82, 87, 94, 0.18)',
-      '--bk-bg-tone-1': 'hsla(196, 58%, 80%, 0.98)',
-      '--bk-bg-tone-2': 'hsla(265, 48%, 84%, 0.92)',
+      '--bk-bg-tone-1': 'hsla(196, 42%, 80%, 0.98)',
+      '--bk-bg-tone-2': 'hsla(265, 34%, 84%, 0.92)',
       '--bk-shape-tint-1': 'rgba(156, 168, 178, 0.88)',
       '--bk-shape-tint-2': 'rgba(112, 126, 138, 0.84)',
       '--bk-shape-tint-3': 'rgba(194, 200, 205, 0.78)',
@@ -465,11 +465,11 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
     '--ambient-shape-1': ambient1,
     '--ambient-shape-2': ambient2,
     '--ambient-shape-3': ambient3,
-    '--bk-bg-tone-1': isAltArtwork ? 'hsla(88, 52%, 78%, 0.98)' : 'hsla(198, 62%, 78%, 0.98)',
-    '--bk-bg-tone-2': isAltArtwork ? 'hsla(352, 54%, 82%, 0.92)' : 'hsla(338, 58%, 84%, 0.92)',
-    '--bk-shape-tint-1': ambient1,
-    '--bk-shape-tint-2': ambient2,
-    '--bk-shape-tint-3': ambient3,
+    '--bk-bg-tone-1': isAltArtwork ? 'hsla(88, 38%, 78%, 0.98)' : 'hsla(198, 44%, 78%, 0.98)',
+    '--bk-bg-tone-2': isAltArtwork ? 'hsla(352, 38%, 82%, 0.92)' : 'hsla(338, 40%, 84%, 0.92)',
+    '--bk-shape-tint-1': isAltArtwork ? 'rgba(142, 166, 116, 0.42)' : 'rgba(92, 166, 204, 0.42)',
+    '--bk-shape-tint-2': isAltArtwork ? 'rgba(202, 146, 152, 0.36)' : 'rgba(210, 130, 152, 0.36)',
+    '--bk-shape-tint-3': isAltArtwork ? 'rgba(204, 184, 98, 0.34)' : 'rgba(210, 188, 94, 0.34)',
     '--bk-dot-tint-1': isAltArtwork ? 'rgba(206, 156, 232, 0.92)' : 'rgba(244, 171, 112, 0.92)',
     '--bk-dot-tint-2': isAltArtwork ? 'rgba(116, 223, 216, 0.88)' : 'rgba(138, 240, 158, 0.88)',
     '--bk-dot-tint-3': isAltArtwork ? 'rgba(116, 168, 246, 0.84)' : 'rgba(244, 218, 102, 0.84)'
@@ -622,6 +622,30 @@ function harmonizedShapeTints(colors: RgbColor[]): [string, string, string] {
     hsbCss(primaryHue + 4, baseSaturation, 0.96, 0.92),
     hsbCss(accentHue - 3, clampNumber(baseSaturation + 0.03, 0, 0.76), 0.98, 0.88),
     hsbCss(thirdHsl.h + 6, clampNumber(baseSaturation * 0.84, 0.40, 0.68), 0.95, 0.84)
+  ]
+}
+
+function harmonizedBKShapeTints(colors: RgbColor[]): [string, string, string] {
+  const firstHsl = rgbToHsl(colors[0])
+  const secondHsl = rgbToHsl(colors[1] ?? colors[0])
+  const thirdHsl = rgbToHsl(colors[2] ?? colors[1] ?? colors[0])
+  const avgS = (firstHsl.s + secondHsl.s + thirdHsl.s) / 3
+  const isNearGray = avgS < 0.18
+  if (isNearGray) {
+    return [
+      hsbCss(8, 0.24, 0.94, 0.82),
+      hsbCss(205, 0.22, 0.96, 0.78),
+      hsbCss(292, 0.2, 0.94, 0.74)
+    ]
+  }
+
+  const primaryHue = firstHsl.h
+  const accentHue = Math.abs(normalizeHue(secondHsl.h - primaryHue)) > 26 ? secondHsl.h : normalizeHue(primaryHue + 58)
+  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.24 + 0.16, 0.22, 0.44)
+  return [
+    hsbCss(primaryHue + 4, baseSaturation, 0.95, 0.82),
+    hsbCss(accentHue - 3, clampNumber(baseSaturation + 0.02, 0, 0.46), 0.96, 0.78),
+    hsbCss(thirdHsl.h + 6, clampNumber(baseSaturation * 0.78, 0.20, 0.40), 0.94, 0.74)
   ]
 }
 
@@ -785,12 +809,13 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
   const third = colors[2] ?? colors[1] ?? colors[0]
   if (!first || !second || !third) return fallback
   const shapeTints = harmonizedShapeTints([first, second, third])
+  const bkShapeTints = harmonizedBKShapeTints([first, second, third])
   const dotTints = harmonizedDotTints([first, second, third])
   const firstHsl = rgbToHsl(first)
   const secondHsl = rgbToHsl(second)
   const thirdHsl = rgbToHsl(third)
-  const backgroundSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s) * 0.32 + 0.23, 0.30, 0.52)
-  const overlaySaturation = clampNumber(Math.max(secondHsl.s, thirdHsl.s, firstHsl.s) * 0.38 + 0.26, 0.36, 0.60)
+  const backgroundSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s) * 0.24 + 0.18, 0.22, 0.42)
+  const overlaySaturation = clampNumber(Math.max(secondHsl.s, thirdHsl.s, firstHsl.s) * 0.28 + 0.20, 0.26, 0.48)
 
   return {
     ...fallback,
@@ -803,10 +828,10 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
     '--ambient-shape-3': shapeTints[2],
     '--bk-bg-tone-1': hsbCss(firstHsl.h, backgroundSaturation, 0.99, 0.98),
     '--bk-bg-tone-2': hsbCss(secondHsl.h + 4, overlaySaturation, 0.98, 0.94),
-    '--bk-bg-tone-3': hsbCss(thirdHsl.h - 5, clampNumber(overlaySaturation + 0.04, 0, 0.64), 0.96, 0.9),
-    '--bk-shape-tint-1': shapeTints[0],
-    '--bk-shape-tint-2': shapeTints[1],
-    '--bk-shape-tint-3': shapeTints[2],
+    '--bk-bg-tone-3': hsbCss(thirdHsl.h - 5, clampNumber(overlaySaturation + 0.02, 0, 0.50), 0.96, 0.9),
+    '--bk-shape-tint-1': bkShapeTints[0],
+    '--bk-shape-tint-2': bkShapeTints[1],
+    '--bk-shape-tint-3': bkShapeTints[2],
     '--bk-dot-tint-1': dotTints[0],
     '--bk-dot-tint-2': dotTints[1],
     '--bk-dot-tint-3': dotTints[2]
@@ -3961,9 +3986,9 @@ const BKImagePhase = React.memo(function BKImagePhase({ source, className }: { s
           const a = pixels[index + 3]
           const luma = clampNumber(((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 - 0.5) * 1.08 + 0.5, 0, 1)
           const mapped = mixRgb(firstTone, secondTone, luma)
-          const originalSoft = saturateRgb({ r, g, b }, 0.18)
+          const originalSoft = saturateRgb({ r, g, b }, 0.12)
           const composed = mixRgb(originalSoft, mapped, 0.84)
-          const boosted = saturateRgb(composed, 1.14)
+          const boosted = saturateRgb(composed, 0.96)
           pixels[index] = boosted.r
           pixels[index + 1] = boosted.g
           pixels[index + 2] = boosted.b
