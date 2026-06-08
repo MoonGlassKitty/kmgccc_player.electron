@@ -274,7 +274,7 @@ input {
   background-image: radial-gradient(circle, var(--dot-tint) 0 var(--dot-big), transparent calc(var(--dot-big) + 1px));
   background-size: 30px 30px;
   background-position: -60px -60px;
-  opacity: 0.94;
+  opacity: 0.9;
   filter: blur(0.15px) saturate(1.42);
   -webkit-mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), #000 0 var(--dot-inner-radius-scaled), transparent calc(var(--dot-inner-radius-scaled) + 1px));
   mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), #000 0 var(--dot-inner-radius-scaled), transparent calc(var(--dot-inner-radius-scaled) + 1px));
@@ -285,8 +285,7 @@ input {
 
 .bk-dot-grid.small {
   background-image: radial-gradient(circle, var(--dot-tint) 0 var(--dot-small), transparent calc(var(--dot-small) + 1px));
-  opacity: 0.68;
-  transform: translate(15px, 15px);
+  opacity: 0.5;
   -webkit-mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), transparent 0 var(--dot-inner-radius-scaled), #000 calc(var(--dot-inner-radius-scaled) + 1px) var(--dot-radius-scaled), transparent calc(var(--dot-radius-scaled) + 1px));
   mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), transparent 0 var(--dot-inner-radius-scaled), #000 calc(var(--dot-inner-radius-scaled) + 1px) var(--dot-radius-scaled), transparent calc(var(--dot-radius-scaled) + 1px));
 }
