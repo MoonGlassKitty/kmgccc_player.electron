@@ -110,7 +110,7 @@ declare global {
       close: () => void
       getHomeSnapshot: () => Promise<HomeSnapshot>
       importAudioFile: () => Promise<LocalAudioImport | null>
-      importAudioFiles: () => Promise<{ tracks: LocalAudioImport[]; failedCount: number; totalCount: number } | null>
+      importAudioFiles: () => Promise<{ tracks: LocalAudioImport[] } | null>
       syncTrackInfo: (track: LocalAudioImport) => Promise<TrackMetadataSyncResult>
       getWallpaperTint: () => Promise<WallpaperTint>
     }

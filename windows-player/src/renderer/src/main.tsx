@@ -502,12 +502,6 @@ type HslColor = {
   l: number
 }
 
-type HsvColor = {
-  h: number
-  s: number
-  v: number
-}
-
 type RgbaColor = RgbColor & {
   a: number
 }
@@ -575,51 +569,6 @@ function hslToRgb({ h, s, l }: HslColor): RgbColor {
   }
 }
 
-function rgbToHsv({ r, g, b }: RgbColor): HsvColor {
-  const red = r / 255
-  const green = g / 255
-  const blue = b / 255
-  const max = Math.max(red, green, blue)
-  const min = Math.min(red, green, blue)
-  const delta = max - min
-  let hue = 0
-
-  if (delta > 0) {
-    if (max === red) hue = ((green - blue) / delta + (green < blue ? 6 : 0)) * 60
-    else if (max === green) hue = ((blue - red) / delta + 2) * 60
-    else hue = ((red - green) / delta + 4) * 60
-  }
-
-  return {
-    h: normalizeHue(hue),
-    s: max === 0 ? 0 : delta / max,
-    v: max
-  }
-}
-
-function hsvToRgb({ h, s, v }: HsvColor): RgbColor {
-  const chroma = v * s
-  const hue = normalizeHue(h) / 60
-  const x = chroma * (1 - Math.abs((hue % 2) - 1))
-  const match = v - chroma
-  let red = 0
-  let green = 0
-  let blue = 0
-
-  if (hue >= 0 && hue < 1) [red, green, blue] = [chroma, x, 0]
-  else if (hue < 2) [red, green, blue] = [x, chroma, 0]
-  else if (hue < 3) [red, green, blue] = [0, chroma, x]
-  else if (hue < 4) [red, green, blue] = [0, x, chroma]
-  else if (hue < 5) [red, green, blue] = [x, 0, chroma]
-  else [red, green, blue] = [chroma, 0, x]
-
-  return {
-    r: Math.round((red + match) * 255),
-    g: Math.round((green + match) * 255),
-    b: Math.round((blue + match) * 255)
-  }
-}
-
 function boostThemeColor(color: RgbColor): RgbColor {
   const hsl = rgbToHsl(color)
   return hslToRgb({
@@ -635,11 +584,6 @@ function normalizeHue(hue: number): number {
 
 function hslCss(h: number, s: number, l: number, alpha: number): string {
   return `hsla(${Math.round(normalizeHue(h))}, ${Math.round(clampNumber(s, 0, 1) * 100)}%, ${Math.round(clampNumber(l, 0, 1) * 100)}%, ${alpha})`
-}
-
-function hsvCss(h: number, s: number, v: number, alpha: number): string {
-  const rgb = hsvToRgb({ h, s: clampNumber(s, 0, 1), v: clampNumber(v, 0, 1) })
-  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`
 }
 
 function harmonizedShapeTints(colors: RgbColor[]): [string, string, string] {
@@ -757,7 +701,7 @@ async function extractArtworkThemeColors(artworkUrl: string): Promise<RgbColor[]
   if (!context) return []
   context.drawImage(image, 0, 0, side, side)
 
-  const buckets = new Map<string, { color: RgbColor; count: number; score: number; salientScore: number }>()
+  const buckets = new Map<string, { color: RgbColor; count: number; score: number }>()
   const pixels = context.getImageData(0, 0, side, side).data
   for (let index = 0; index < pixels.length; index += 16) {
     const alpha = pixels[index + 3]
@@ -766,8 +710,9 @@ async function extractArtworkThemeColors(artworkUrl: string): Promise<RgbColor[]
     const g = pixels[index + 1]
     const b = pixels[index + 2]
     const hsl = rgbToHsl({ r, g, b })
-    const hsv = rgbToHsv({ r, g, b })
-    if (hsv.v < 0.04 || (hsv.v > 0.97 && hsv.s < 0.08)) continue
+    if (hsl.l > 0.96 && hsl.s < 0.12) continue
+    if (hsl.l < 0.06) continue
+    if (hsl.s < 0.28) continue
 
     const key = `${r >> 4}-${g >> 4}-${b >> 4}`
     const color = {
@@ -776,45 +721,24 @@ async function extractArtworkThemeColors(artworkUrl: string): Promise<RgbColor[]
       b: (b >> 4) * 16 + 8
     }
     const existing = buckets.get(key)
-    const chroma = hsl.s * Math.min(hsv.v, 1 - hsl.l)
-    const midBrightnessBoost = clampNumber(1 - Math.abs(hsv.v - 0.55) / 0.55, 0, 1)
-    const saliency = chroma >= 0.08 && hsv.s >= 0.18 && hsv.v > 0.1 && hsv.v < 0.92
-      ? Math.pow(hsv.s, 1.35) * (0.65 + 0.35 * midBrightnessBoost)
-      : 0
-    const score = 1
-    const salientScore = 1 + 2.2 * saliency
+    const chroma = Math.max(r, g, b) - Math.min(r, g, b)
+    const score = (0.55 + hsl.s * 1.45) * (0.72 + Math.min(1, chroma / 96))
     if (existing) {
       existing.count += 1
       existing.score += score
-      existing.salientScore += salientScore
     } else {
-      buckets.set(key, { color, count: 1, score, salientScore })
+      buckets.set(key, { color, count: 1, score })
     }
   }
 
-  const entries = Array.from(buckets.values())
-  if (!entries.length) return []
-  const areaDominant = entries
-    .slice()
-    .sort((a, b) => b.count - a.count)[0].color
-  const salientRanked = entries
-    .slice()
-    .sort((a, b) => b.salientScore * Math.sqrt(b.count) - a.salientScore * Math.sqrt(a.count))
+  const ranked = Array.from(buckets.values()).sort((a, b) => b.score * Math.sqrt(b.count) - a.score * Math.sqrt(a.count))
   const picked: RgbColor[] = []
-  const addPicked = (color: RgbColor, requireHueSeparation: boolean): void => {
-    const boosted = boostThemeColor(color)
-    if (picked.length === 0 || picked.every((item) => {
-      return colorDistance(item, boosted) > 40 && (!requireHueSeparation || hueDistance(item, boosted) > 18)
-    })) {
-      picked.push(boosted)
+  for (const entry of ranked) {
+    const color = boostThemeColor(entry.color)
+    if (rgbToHsl(color).s < 0.36) continue
+    if (picked.every((item) => colorDistance(item, color) > 46 || hueDistance(item, color) > 24)) {
+      picked.push(color)
     }
-  }
-
-  addPicked(areaDominant, false)
-  for (const entry of salientRanked) {
-    const hsv = rgbToHsv(entry.color)
-    if (hsv.s < 0.16 || hsv.v < 0.10 || hsv.v > 0.94) continue
-    addPicked(entry.color, true)
     if (picked.length >= 3) break
   }
 
@@ -827,10 +751,8 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
   const third = colors[2] ?? colors[1] ?? colors[0]
   if (!first || !second || !third) return fallback
   const shapeTints = harmonizedShapeTints([first, second, third])
-  const firstHsv = rgbToHsv(first)
-  const secondHsv = rgbToHsv(second)
-  const coverAvgS = (firstHsv.s + secondHsv.s + rgbToHsv(third).s) / 3
-  const toneSaturationFloor = clampNumber(0.18 + coverAvgS * 0.82, 0.18, 0.34)
+  const firstHsl = rgbToHsl(first)
+  const secondHsl = rgbToHsl(second)
 
   return {
     ...fallback,
@@ -841,8 +763,8 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
     '--ambient-shape-1': rgbaString(first, 0.54),
     '--ambient-shape-2': rgbaString(second, 0.5),
     '--ambient-shape-3': rgbaString(third, 0.48),
-    '--bk-bg-tone-1': hsvCss(firstHsv.h, clampNumber(firstHsv.s * 0.58, toneSaturationFloor, 0.44), 0.985, 0.98),
-    '--bk-bg-tone-2': hsvCss(secondHsv.h, clampNumber(secondHsv.s * 0.64, toneSaturationFloor, 0.50), 0.995, 0.94),
+    '--bk-bg-tone-1': hslCss(firstHsl.h, clampNumber(firstHsl.s * 0.82 + 0.16, 0.42, 0.72), 0.80, 0.98),
+    '--bk-bg-tone-2': hslCss(secondHsl.h, clampNumber(secondHsl.s * 0.72 + 0.14, 0.38, 0.68), 0.84, 0.92),
     '--bk-shape-tint-1': shapeTints[0],
     '--bk-shape-tint-2': shapeTints[1],
     '--bk-shape-tint-3': shapeTints[2]
@@ -1840,13 +1762,9 @@ function App(): React.ReactElement {
     })
 
     let importedTracks: LocalAudioImport[] | null | undefined
-    let importTotalCount = 0
-    let importFailedCount = 0
     try {
       const result = await window.kmgccc?.importAudioFiles()
       importedTracks = result?.tracks
-      importTotalCount = result?.totalCount ?? importedTracks?.length ?? 0
-      importFailedCount = result?.failedCount ?? 0
     } catch {
       setImportSyncState({
         title: '导入失败',
@@ -1861,16 +1779,7 @@ function App(): React.ReactElement {
     }
 
     if (!importedTracks?.length) {
-      setImportSyncState({
-        title: importTotalCount > 0 ? '导入失败' : '未找到歌曲',
-        artist: '',
-        detail: importTotalCount > 0 ? `${importFailedCount || importTotalCount} 首歌曲未能导入` : '所选位置里没有支持的音频文件',
-        status: importTotalCount > 0 ? 'failed' : 'completed',
-        progress: 1,
-        processedCount: 0,
-        totalCount: Math.max(importTotalCount, 1)
-      })
-      window.setTimeout(() => setImportSyncState(null), 1800)
+      setImportSyncState(null)
       return
     }
 
@@ -1878,6 +1787,7 @@ function App(): React.ReactElement {
       setHomeSnapshot((snapshot) => snapshotWithImportedTrack(snapshot, track))
     })
     setCurrentId(importedTracks[0].id)
+    setRoute({ name: 'allTracks' })
     setPlaybackTime(0)
     setPlaybackDuration(0)
     setIsPlaying(true)
@@ -1905,9 +1815,7 @@ function App(): React.ReactElement {
       setImportSyncState({
         title: importedTracks.length === 1 ? importedTracks[0].title : `已导入 ${importedTracks.length} 首歌曲`,
         artist: importedTracks.length === 1 ? importedTracks[0].artist : '',
-        detail: importFailedCount > 0
-          ? `已补全可用信息，另有 ${importFailedCount} 首导入失败`
-          : '已补全可用的歌曲信息、专辑信息与歌词',
+        detail: '已补全可用的歌曲信息、专辑信息与歌词',
         status: 'completed',
         progress: 1,
         processedCount: completedCount,
