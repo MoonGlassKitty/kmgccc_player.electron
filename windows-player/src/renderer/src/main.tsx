@@ -971,6 +971,21 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 
     const resizeObserver = new ResizeObserver(requestApply)
     resizeObserver.observe(root)
+    const layoutObserver = new ResizeObserver(requestApply)
+    const observeLayoutElements = (): void => {
+      layoutObserver.disconnect()
+      document.querySelectorAll<HTMLElement>('.sidebar, .content-pane, .lyrics-side-panel').forEach((element) => {
+        layoutObserver.observe(element)
+      })
+      requestApply()
+    }
+    observeLayoutElements()
+    const appShellObserver = new MutationObserver(() => {
+      observeLayoutElements()
+      requestApply()
+    })
+    const appShell = document.querySelector('.app-shell')
+    if (appShell) appShellObserver.observe(appShell, { attributes: true, attributeFilter: ['class', 'style'], childList: true })
     const themeObserver = new MutationObserver(() => {
       tintedCache.clear()
       requestApply()
@@ -1007,6 +1022,8 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       scrollElement?.removeEventListener('wheel', handleWheel)
       scrollElement?.removeEventListener('scroll', handleScroll)
       themeObserver.disconnect()
+      appShellObserver.disconnect()
+      layoutObserver.disconnect()
       resizeObserver.disconnect()
     }
   }, [isActive, specs])
@@ -1252,7 +1269,7 @@ function App(): React.ReactElement {
     const startX = event.clientX
     const startWidth = isSidebarCollapsed ? 82 : sidebarWidth
     const minWidth = 82
-    const maxWidth = 360
+    const maxWidth = 460
     const collapseThreshold = 118
 
     const handleMove = (moveEvent: PointerEvent) => {
@@ -2025,9 +2042,8 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
   const hasTimedLyrics = lines.some((line) => line.time !== null)
 
   return (
-    <aside className="lyrics-side-panel glass-panel no-drag" style={{ '--filter-url': 'url(#lg-home-liquid)' } as React.CSSProperties}>
+    <aside className="lyrics-side-panel glass-panel no-drag" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
       <div className="lyrics-side-resize-handle" role="separator" aria-orientation="vertical" aria-label="调整歌词侧栏宽度" onPointerDown={onResizeStart} />
-      <img className="lyrics-side-bg" src={artwork} alt="" decoding="async" />
       <div className="lyrics-side-head">
         <img src={artwork} alt="" decoding="async" />
         <div>

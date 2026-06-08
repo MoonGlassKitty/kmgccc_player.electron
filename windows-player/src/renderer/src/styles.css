@@ -254,7 +254,8 @@ input {
   --glass-shadow: rgba(16, 36, 52, 0.052);
   --glass-inner-shadow: rgba(0, 0, 0, 0.031);
   --glass-inner-highlight: rgba(255, 255, 255, 0.2);
-  contain: layout paint;
+  overflow: visible;
+  contain: layout;
 }
 
 .sidebar-resize-handle,
@@ -262,7 +263,7 @@ input {
   position: absolute;
   top: 0;
   z-index: 8;
-  width: 12px;
+  width: 16px;
   height: 100%;
   cursor: ew-resize;
   pointer-events: auto;
@@ -270,11 +271,11 @@ input {
 }
 
 .sidebar-resize-handle {
-  right: 0;
+  right: -8px;
 }
 
 .lyrics-side-resize-handle {
-  left: 0;
+  left: -8px;
 }
 
 .sidebar-resize-handle::before,
@@ -290,11 +291,11 @@ input {
 }
 
 .sidebar-resize-handle::before {
-  right: 3px;
+  right: 7px;
 }
 
 .lyrics-side-resize-handle::before {
-  left: 3px;
+  left: 7px;
 }
 
 .sidebar-resize-handle:hover::before,
@@ -308,7 +309,7 @@ input {
   grid-template-columns: 1fr;
   align-items: center;
   height: 46px;
-  padding: 0 24px;
+  padding: 0 18px 0 24px;
 }
 
 .sidebar-toggle {
@@ -522,7 +523,7 @@ input {
   display: grid;
   grid-template-columns: 1fr 1fr;
   height: 38px;
-  margin: 0 22px 18px;
+  margin: 0 16px 18px 22px;
   padding: 3px;
   border-radius: 19px;
   background: rgba(0, 0, 0, 0.06);
@@ -552,7 +553,7 @@ input {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 0 24px;
+  padding: 0 16px 0 24px;
 }
 
 .sidebar-main {
@@ -568,6 +569,7 @@ input {
   display: flex;
   align-items: center;
   gap: 15px;
+  width: 100%;
   min-height: 38px;
   padding: 0 7px;
   border-radius: 999px;
@@ -663,7 +665,7 @@ input {
   display: flex;
   justify-content: center;
   gap: 12px;
-  padding: 0 24px;
+  padding: 0 16px 0 24px;
   border-top: 0;
 }
 
@@ -1356,13 +1358,22 @@ input {
   min-width: 0;
   min-height: 0;
   height: 100%;
-  padding: 72px 28px 34px;
+  padding: 72px 28px 34px 16px;
+  overflow: visible;
   border-top: 0;
   border-right: 0;
   border-bottom: 0;
+  border-left: 0;
   border-radius: 0;
-  --glass-alpha: 0.5;
-  --glass-shadow: rgba(16, 36, 52, 0.07);
+  --glass-alpha: 0.38;
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-shadow: rgba(16, 36, 52, 0.052);
+  --glass-inner-shadow: rgba(0, 0, 0, 0.031);
+  --glass-inner-highlight: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 1px 15px var(--glass-inner-shadow) inset,
+    0 -1px 12px var(--glass-inner-highlight) inset;
+  contain: layout;
 }
 
 .fullscreen-lyrics-open .content-pane {
@@ -1375,25 +1386,11 @@ input {
 }
 
 .lyrics-side-panel::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 22% 0%, rgba(255, 255, 255, 0.36), transparent 28%),
-    linear-gradient(180deg, rgba(231, 248, 255, 0.18), rgba(255, 255, 255, 0.06));
+  display: none;
 }
 
 .lyrics-side-bg {
-  position: absolute;
-  inset: -36px;
-  width: calc(100% + 72px);
-  height: calc(100% + 72px);
-  object-fit: cover;
-  opacity: 0.18;
-  filter: blur(34px) saturate(160%);
-  transform: scale(1.06);
+  display: none;
 }
 
 .lyrics-side-head {
@@ -2035,7 +2032,7 @@ input {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   width: max(260px, var(--sidebar-width));
-  max-width: min(360px, calc(100vw - 48px));
+  max-width: min(460px, calc(100vw - 48px));
   height: min(330px, calc(100vh - 180px));
   min-height: 220px;
   padding: 16px 12px 12px;
