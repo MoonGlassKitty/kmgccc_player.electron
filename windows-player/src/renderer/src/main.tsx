@@ -5190,41 +5190,52 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onSeek: (seconds: number) => void
 }): React.ReactElement {
   const [isQueueOpen, setIsQueueOpen] = React.useState(false)
+  const miniPlayerRef = React.useRef<HTMLDivElement | null>(null)
   const progressRailRef = React.useRef<HTMLDivElement | null>(null)
   const isProgressDraggingRef = React.useRef(false)
+  const pendingProgressSeekRef = React.useRef<number | null>(null)
   const queueTracks = tracks.length ? tracks : [track]
   const safePlaybackDuration = Math.max(1, playbackDuration)
   const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
-  const seekFromProgressClientX = React.useCallback((clientX: number) => {
+  const previewProgressFromClientX = React.useCallback((clientX: number) => {
     const rail = progressRailRef.current
     if (!rail) return
     const rect = rail.getBoundingClientRect()
     const ratio = rect.width > 0 ? clampNumber((clientX - rect.left) / rect.width, 0, 1) : 0
-    onSeek(ratio * safePlaybackDuration)
-  }, [onSeek, safePlaybackDuration])
+    const nextTime = ratio * safePlaybackDuration
+    pendingProgressSeekRef.current = nextTime
+    miniPlayerRef.current?.style.setProperty('--mini-player-progress', `${ratio * 100}%`)
+  }, [safePlaybackDuration])
   const handleProgressPointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault()
     event.stopPropagation()
     isProgressDraggingRef.current = true
+    miniPlayerRef.current?.classList.add('progress-dragging')
     event.currentTarget.setPointerCapture(event.pointerId)
-    seekFromProgressClientX(event.clientX)
-  }, [seekFromProgressClientX])
+    previewProgressFromClientX(event.clientX)
+  }, [previewProgressFromClientX])
   const handleProgressPointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!isProgressDraggingRef.current) return
     event.preventDefault()
     event.stopPropagation()
-    seekFromProgressClientX(event.clientX)
-  }, [seekFromProgressClientX])
+    previewProgressFromClientX(event.clientX)
+  }, [previewProgressFromClientX])
   const handleProgressPointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!isProgressDraggingRef.current) return
     event.preventDefault()
     event.stopPropagation()
     isProgressDraggingRef.current = false
-    event.currentTarget.releasePointerCapture(event.pointerId)
-  }, [])
+    miniPlayerRef.current?.classList.remove('progress-dragging')
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    const pendingSeek = pendingProgressSeekRef.current
+    pendingProgressSeekRef.current = null
+    if (pendingSeek !== null) onSeek(pendingSeek)
+  }, [onSeek])
 
   return (
-    <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress': `${progress}%` } as React.CSSProperties}>
+    <div ref={miniPlayerRef} className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress': `${progress}%` } as React.CSSProperties}>
       <div
         className="mini-progress-rail"
         ref={progressRailRef}

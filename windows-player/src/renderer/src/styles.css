@@ -3586,6 +3586,10 @@ input {
   opacity: 0.92;
 }
 
+.mini-player.progress-dragging::before {
+  transition: opacity 180ms ease;
+}
+
 .app-shell.now-playing-route .mini-player::before,
 .fullscreen-lyrics-open .mini-player::before {
   background: var(--cover-accent-text);
