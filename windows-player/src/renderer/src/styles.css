@@ -1968,15 +1968,15 @@ input {
 .mini-player {
   position: absolute;
   bottom: 16px;
-  left: 50%;
+  left: calc(var(--sidebar-width) + ((100% - var(--sidebar-width) - var(--lyrics-width)) / 2));
   z-index: var(--layer-floating-glass);
   display: grid;
-  grid-template-columns: minmax(150px, 220px) 34px 118px 50px 148px;
+  grid-template-columns: minmax(128px, 190px) 32px 104px 46px minmax(82px, 118px);
   align-items: center;
-  gap: 14px;
-  width: min(780px, calc(100% - 48px));
+  gap: 10px;
+  width: clamp(420px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - 48px), 640px);
   height: 54px;
-  padding: 7px 20px;
+  padding: 7px 16px;
   border-radius: 27px;
   --glass-alpha: 0.7;
   --glass-shadow: rgba(12, 33, 48, 0.0525);
@@ -1994,9 +1994,9 @@ input {
 .mini-progress-rail {
   --mini-progress: 0;
   position: absolute;
-  right: 25px;
+  right: 20px;
   bottom: calc(100% - 10px);
-  left: 25px;
+  left: 20px;
   z-index: 2;
   height: 12px;
   pointer-events: auto;
@@ -2042,7 +2042,7 @@ input {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
   padding: 0;
   border-radius: 12px;
@@ -2052,8 +2052,8 @@ input {
 
 .mini-queue-button {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   place-items: center;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.36);
@@ -2222,7 +2222,7 @@ input {
 .mini-controls {
   display: flex;
   justify-content: center;
-  gap: 18px;
+  gap: 12px;
 }
 
 .mini-controls button,
@@ -2237,7 +2237,7 @@ input {
 }
 
 .mode-button {
-  width: 54px;
+  width: 46px;
   border-radius: 15px;
   background: rgba(92, 184, 219, 0.28);
   box-shadow:
@@ -2270,9 +2270,9 @@ input {
 .volume-track {
   position: relative;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-columns: 16px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: rgba(27, 58, 74, 0.58);
   min-width: 0;
 }
@@ -2511,7 +2511,7 @@ input {
 
   .mini-player {
     grid-template-columns: minmax(110px, 1fr) 34px 104px 44px;
-    width: min(560px, calc(100% - 36px));
+    width: min(500px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - 36px));
   }
 
   .mini-timeline {

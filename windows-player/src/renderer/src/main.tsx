@@ -1045,6 +1045,7 @@ function App(): React.ReactElement {
   const [homeSnapshot, setHomeSnapshot] = React.useState<HomeSnapshot>(fallbackHomeSnapshot)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
   const [sidebarWidth, setSidebarWidth] = React.useState(280)
+  const [viewportWidth, setViewportWidth] = React.useState(() => window.innerWidth)
   const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
@@ -1066,6 +1067,15 @@ function App(): React.ReactElement {
   const fallbackCoverThemeStyle = React.useMemo(() => coverThemeFor(currentTrack, albums), [albums, currentTrack])
   const currentArtworkUrl = React.useMemo(() => currentTrack ? trackArtwork(currentTrack, albums) : '', [albums, currentTrack])
   const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
+  const lyricsWidth = isLyricsSidebarOpen ? lyricsSidebarWidth : 0
+  const adaptiveSidebarWidth = React.useMemo(() => {
+    if (isSidebarCollapsed) return 82
+    const contentTargetWidth = isLyricsSidebarOpen ? 800 : 860
+    const availableSidebarWidth = viewportWidth - lyricsWidth - contentTargetWidth
+    if (availableSidebarWidth < 180) return 82
+    return clampNumber(Math.min(sidebarWidth, availableSidebarWidth), 180, sidebarWidth)
+  }, [isLyricsSidebarOpen, isSidebarCollapsed, lyricsWidth, sidebarWidth, viewportWidth])
+  const isSidebarVisuallyCollapsed = isSidebarCollapsed || adaptiveSidebarWidth <= 118
 
   React.useEffect(() => {
     let cancelled = false
@@ -1093,6 +1103,13 @@ function App(): React.ReactElement {
       cancelled = true
     }
   }, [currentArtworkUrl, currentTrack, fallbackCoverThemeStyle])
+
+  React.useEffect(() => {
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth)
+    updateViewportWidth()
+    window.addEventListener('resize', updateViewportWidth)
+    return () => window.removeEventListener('resize', updateViewportWidth)
+  }, [])
 
   React.useEffect(() => {
     let cancelled = false
@@ -1273,7 +1290,7 @@ function App(): React.ReactElement {
     event.preventDefault()
     event.stopPropagation()
     const startX = event.clientX
-    const startWidth = isSidebarCollapsed ? 82 : sidebarWidth
+    const startWidth = isSidebarVisuallyCollapsed ? 82 : sidebarWidth
     const minWidth = 82
     const maxWidth = 460
     const collapseThreshold = 118
@@ -1296,7 +1313,7 @@ function App(): React.ReactElement {
 
     window.addEventListener('pointermove', handleMove)
     window.addEventListener('pointerup', handleUp)
-  }, [isSidebarCollapsed, sidebarWidth])
+  }, [isSidebarVisuallyCollapsed, sidebarWidth])
   const handleLyricsResizeStart = React.useCallback((event: React.PointerEvent) => {
     event.preventDefault()
     event.stopPropagation()
@@ -1394,11 +1411,11 @@ function App(): React.ReactElement {
       <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
       <LiquidGlassFilters />
       <div
-        className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''}`}
+        className={`app-shell ${isSidebarVisuallyCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''}`}
         style={
           {
-            '--sidebar-width': `${isSidebarCollapsed ? 82 : sidebarWidth}px`,
-            '--lyrics-width': `${isLyricsSidebarOpen ? lyricsSidebarWidth : 0}px`
+            '--sidebar-width': `${isSidebarVisuallyCollapsed ? 82 : adaptiveSidebarWidth}px`,
+            '--lyrics-width': `${lyricsWidth}px`
           } as React.CSSProperties
         }
       >
@@ -1407,7 +1424,7 @@ function App(): React.ReactElement {
           snapshot={homeSnapshot}
           route={route}
           onNavigate={setRoute}
-          isCollapsed={isSidebarCollapsed}
+          isCollapsed={isSidebarVisuallyCollapsed}
           onToggle={toggleSidebar}
           onResizeStart={handleSidebarResizeStart}
         />
