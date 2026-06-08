@@ -3586,6 +3586,15 @@ input {
   opacity: 1;
 }
 
+.fullscreen-lyrics-open .mini-player::before {
+  background: color-mix(in srgb, var(--cover-accent-text) 32%, transparent);
+  filter: invert(1) saturate(1.08);
+}
+
+.fullscreen-lyrics-open .mini-player.playing::before {
+  opacity: 0.48;
+}
+
 .mini-progress-rail {
   position: absolute;
   right: 20px;
@@ -3841,6 +3850,7 @@ input {
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
   min-width: 0;
+  transform: translateX(14px);
 }
 
 .volume-track {
