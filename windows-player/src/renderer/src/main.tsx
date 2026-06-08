@@ -3697,12 +3697,9 @@ const BKArtBackground = React.memo(function BKArtBackground({
   React.useEffect(() => {
     if (!isPlaying) return
     if (isDotExiting) return
-    const delay = isBKDotStyle(currentSurface.style) ? 20000 : 15000
+    if (isBKDotStyle(currentSurface.style)) return
+    const delay = 15000
     const timer = window.setTimeout(() => {
-      if (isBKDotStyle(currentSurface.style)) {
-        setIsDotExiting(true)
-        return
-      }
       transitionSeedRef.current += 1
       setPreviousSurface(currentSurface)
       setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current)))
@@ -3724,11 +3721,14 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const handleRevealEnd = React.useCallback(() => {
     setPreviousSurface(null)
   }, [])
+  const handleDotComplete = React.useCallback(() => {
+    setIsDotExiting(true)
+  }, [])
 
   return (
     <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
       {previousSurface ? <BKArtSurface surface={previousSurface} className={`previous ${isBKDotStyle(previousSurface.style) && currentSurface.style === 'image' ? 'dot-exited' : ''}`} isRunning={isPlaying} /> : null}
-      <BKArtSurface surface={currentSurface} className={previousSurface !== null ? 'current entering' : `current ${isDotExiting ? 'dot-exiting' : ''}`} isRunning={isPlaying && !isDotExiting} onRevealEnd={previousSurface ? handleRevealEnd : undefined} />
+      <BKArtSurface surface={currentSurface} className={previousSurface !== null ? 'current entering' : `current ${isDotExiting ? 'dot-exiting' : ''}`} isRunning={isPlaying && !isDotExiting} onRevealEnd={previousSurface ? handleRevealEnd : undefined} onDotComplete={isBKDotStyle(currentSurface.style) && !isDotExiting ? handleDotComplete : undefined} />
     </div>
   )
 })
@@ -3766,12 +3766,14 @@ const BKArtSurface = React.memo(function BKArtSurface({
   surface,
   className,
   isRunning,
-  onRevealEnd
+  onRevealEnd,
+  onDotComplete
 }: {
   surface: BKSurfaceState
   className: string
   isRunning: boolean
   onRevealEnd?: () => void
+  onDotComplete?: () => void
 }): React.ReactElement {
   const shapes = React.useMemo(() => makeBKShapePlan(surface.shapeSeed), [surface.shapeSeed])
   const phaseA = bkBackgroundAssets[(surface.phaseOffset + surface.seed) % bkBackgroundAssets.length]
@@ -3792,7 +3794,7 @@ const BKArtSurface = React.memo(function BKArtSurface({
         <>
           <div className="bk-dot-surface">
             <div className="bk-dot-gradient" />
-            <BKDotSurface seed={surface.seed} direction={surface.style === 'dot-b' ? 'reverse' : 'forward'} isRunning={isRunning} />
+            <BKDotSurface seed={surface.seed} direction={surface.style === 'dot-b' ? 'reverse' : 'forward'} isRunning={isRunning} onComplete={onDotComplete} />
           </div>
           <div className="bk-shape-root">
             {shapes.map((shape) => (
@@ -3869,12 +3871,25 @@ function makeBKDotRuntimeSlot(seed: number, index: number, direction: BKDotDirec
   }
 }
 
-const BKDotSurface = React.memo(function BKDotSurface({ seed, direction, isRunning }: { seed: number; direction: BKDotDirection; isRunning: boolean }): React.ReactElement {
+const BKDotSurface = React.memo(function BKDotSurface({
+  seed,
+  direction,
+  isRunning,
+  onComplete
+}: {
+  seed: number
+  direction: BKDotDirection
+  isRunning: boolean
+  onComplete?: () => void
+}): React.ReactElement {
+  const maxSlotCount = 2
   const slotCounterRef = React.useRef(1)
+  const completedRef = React.useRef(false)
   const [slots, setSlots] = React.useState<BKDotRuntimeSlot[]>(() => [makeBKDotRuntimeSlot(seed, 0, direction, 0, 0.88)])
 
   React.useEffect(() => {
     slotCounterRef.current = 1
+    completedRef.current = false
     setSlots([makeBKDotRuntimeSlot(seed, 0, direction, 0, 0.88)])
   }, [direction, seed])
 
@@ -3892,7 +3907,7 @@ const BKDotSurface = React.memo(function BKDotSurface({ seed, direction, isRunni
             }
 
             const nextT = slot.t + (1 / 15) / slot.duration
-            if (index === currentSlots.length - 1 && !slot.spawnedNext && nextT >= slot.leadIn && currentSlots.length < 2) {
+            if (index === currentSlots.length - 1 && !slot.spawnedNext && nextT >= slot.leadIn && currentSlots.length < 2 && slotCounterRef.current < maxSlotCount) {
               shouldSpawnNext = true
               spawnSeed = hashString(`${slot.endX}:${slot.endY}:${seed}`)
             }
@@ -3911,15 +3926,16 @@ const BKDotSurface = React.memo(function BKDotSurface({ seed, direction, isRunni
         }
 
         if (!nextSlots.length) {
-          const nextIndex = slotCounterRef.current
-          slotCounterRef.current += 1
-          nextSlots.push(makeBKDotRuntimeSlot(seed, nextIndex, direction, 0))
+          if (!completedRef.current) {
+            completedRef.current = true
+            window.setTimeout(() => onComplete?.(), 0)
+          }
         }
         return nextSlots
       })
     }, 1000 / 15)
     return () => window.clearInterval(interval)
-  }, [direction, isRunning, seed])
+  }, [direction, isRunning, onComplete, seed])
 
   return (
     <>

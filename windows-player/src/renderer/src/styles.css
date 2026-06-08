@@ -186,10 +186,6 @@ input {
   animation: bkShapeHoldDuringDotExit 900ms ease-out forwards;
 }
 
-.bk-art-surface.previous.dot-exited {
-  opacity: 0.72;
-}
-
 .bk-image-surface,
 .bk-dot-surface {
   position: absolute;
