@@ -247,6 +247,15 @@ input {
   z-index: 1;
 }
 
+.sidebar,
+.lyrics-side-panel,
+.mini-player,
+.toolbar-pill,
+.toolbar-circle,
+.search-field {
+  isolation: isolate;
+}
+
 .sidebar {
   z-index: var(--layer-sidebars);
   grid-column: 1;

@@ -814,11 +814,25 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
     const root = rootRef.current
     const canvas = canvasRef.current
     if (!root || !canvas) return
+    const context = canvas.getContext('2d')
+    if (!context) return
 
     let frame = 0
-    let scrollTrackingFrame = 0
-    let scrollTrackingStopTimer = 0
     let scrollElement: HTMLElement | null = null
+    let sidebarElement: HTMLElement | null = null
+    let lyricsElement: HTMLElement | null = null
+    let layoutMetrics: {
+      width: number
+      height: number
+      dpr: number
+      viewportHeight: number
+      virtualHeight: number
+      centerMinX: number
+      centerMaxX: number
+      fluidProgress: number
+      fluidBoundaryScale: number
+      shapeScale: number
+    } | null = null
     let disposed = false
     let loadedImages = new Map<string, HTMLImageElement>()
     const tintedCache = new Map<string, HTMLCanvasElement>()
@@ -853,56 +867,32 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
     const applyTransforms = (): void => {
       frame = 0
       if (!loadedImages.size) return
-      const rootRect = root.getBoundingClientRect()
-      if (rootRect.width <= 0 || rootRect.height <= 0) return
-      const context = canvas.getContext('2d')
-      if (!context) return
-
-      const dpr = Math.min(window.devicePixelRatio || 1, 1)
-      const pixelWidth = Math.max(1, Math.round(rootRect.width * dpr))
-      const pixelHeight = Math.max(1, Math.round(rootRect.height * dpr))
-      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
-        canvas.width = pixelWidth
-        canvas.height = pixelHeight
-        canvas.style.width = `${rootRect.width}px`
-        canvas.style.height = `${rootRect.height}px`
-      }
-
-      const sidebarRect = document.querySelector('.sidebar')?.getBoundingClientRect()
-      const lyricsRect = document.querySelector('.lyrics-side-panel')?.getBoundingClientRect()
+      const metrics = layoutMetrics
+      if (!metrics) return
       const scrollTop = isActive ? (scrollElement?.scrollTop ?? 0) : 0
-      const viewportHeight = Math.max(rootRect.height, 680)
-      const virtualHeight = Math.max(viewportHeight * 2.6, viewportHeight + 1400)
-      const centerMinX = sidebarRect ? sidebarRect.right - rootRect.left : 280
-      const centerMaxX = lyricsRect ? lyricsRect.left - rootRect.left : rootRect.width
-      const centerWidth = Math.max(520, centerMaxX - centerMinX)
-      const layoutProgress = clampNumber((centerWidth - 560) / 620, 0, 1)
-      const fluidProgress = layoutProgress * layoutProgress * (3 - 2 * layoutProgress)
-      const fluidBoundaryScale = 0.48 + fluidProgress * 0.52
-      const shapeScale = 0.72 + fluidProgress * 0.28
 
-      context.setTransform(dpr, 0, 0, dpr, 0, 0)
-      context.clearRect(0, 0, rootRect.width, rootRect.height)
+      context.setTransform(metrics.dpr, 0, 0, metrics.dpr, 0, 0)
+      context.clearRect(0, 0, metrics.width, metrics.height)
       context.save()
       context.beginPath()
-      context.rect(0, 0, rootRect.width, rootRect.height)
+      context.rect(0, 0, metrics.width, metrics.height)
       context.clip()
 
       for (const spec of specs) {
         const isUltra = spec.tier === 'ultra'
-        const side = clampNumber(spec.nominalSide * shapeScale, spec.tier === 'small' ? 54 : 96, isUltra ? 980 : 760)
-        const boundary = spec.side === 'left' ? centerMinX : centerMaxX
+        const side = clampNumber(spec.nominalSide * metrics.shapeScale, spec.tier === 'small' ? 54 : 96, isUltra ? 980 : 760)
+        const boundary = spec.side === 'left' ? metrics.centerMinX : metrics.centerMaxX
         const boundaryOffset = isUltra
-          ? spec.boundaryOffset * (0.82 + fluidProgress * 0.18)
-          : spec.boundaryOffset * fluidBoundaryScale
+          ? spec.boundaryOffset * (0.82 + metrics.fluidProgress * 0.18)
+          : spec.boundaryOffset * metrics.fluidBoundaryScale
         const baseX = clampNumber(
           boundary + boundaryOffset,
           -side * (isUltra ? 1.15 : 0.72),
-          rootRect.width + side * (isUltra ? 1.15 : 0.72)
+          metrics.width + side * (isUltra ? 1.15 : 0.72)
         )
-        const baseY = spec.baseYViewport * viewportHeight
+        const baseY = spec.baseYViewport * metrics.viewportHeight
         const scrollX = reducedMotion ? 0 : clampNumber(scrollTop * spec.parallaxX, -8, 8)
-        const scrollY = reducedMotion ? 0 : clampNumber(-scrollTop * spec.parallax, -virtualHeight, virtualHeight)
+        const scrollY = reducedMotion ? 0 : clampNumber(-scrollTop * spec.parallax, -metrics.virtualHeight, metrics.virtualHeight)
         const rotation = reducedMotion
           ? spec.baseRotation
           : spec.baseRotation + clampNumber(scrollTop * spec.rotationPerPoint, -spec.rotationClamp, spec.rotationClamp)
@@ -910,7 +900,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
         if (!image) continue
         const drawX = baseX + scrollX
         const drawY = baseY + scrollY
-        if (drawX < -side || drawX > rootRect.width + side || drawY < -side || drawY > rootRect.height + side) continue
+        if (drawX < -side || drawX > metrics.width + side || drawY < -side || drawY > metrics.height + side) continue
 
         context.save()
         context.globalAlpha = spec.opacity
@@ -928,62 +918,72 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       frame = window.requestAnimationFrame(applyTransforms)
     }
 
-    const stopScrollTracking = (): void => {
-      scrollTrackingFrame = 0
-    }
-
-    const trackScrolling = (): void => {
-      if (!isActive || !scrollElement || disposed) {
-        stopScrollTracking()
+    const updateLayoutMetrics = (): void => {
+      const rootRect = root.getBoundingClientRect()
+      if (rootRect.width <= 0 || rootRect.height <= 0) {
+        layoutMetrics = null
         return
       }
-      applyTransforms()
-      scrollTrackingFrame = window.requestAnimationFrame(trackScrolling)
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 1)
+      const pixelWidth = Math.max(1, Math.round(rootRect.width * dpr))
+      const pixelHeight = Math.max(1, Math.round(rootRect.height * dpr))
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth
+        canvas.height = pixelHeight
+        canvas.style.width = `${rootRect.width}px`
+        canvas.style.height = `${rootRect.height}px`
+      }
+
+      const sidebarRect = sidebarElement?.getBoundingClientRect()
+      const lyricsRect = lyricsElement?.getBoundingClientRect()
+      const viewportHeight = Math.max(rootRect.height, 680)
+      const virtualHeight = Math.max(viewportHeight * 2.6, viewportHeight + 1400)
+      const centerMinX = sidebarRect ? sidebarRect.right - rootRect.left : 280
+      const centerMaxX = lyricsRect ? lyricsRect.left - rootRect.left : rootRect.width
+      const centerWidth = Math.max(520, centerMaxX - centerMinX)
+      const layoutProgress = clampNumber((centerWidth - 560) / 620, 0, 1)
+      const fluidProgress = layoutProgress * layoutProgress * (3 - 2 * layoutProgress)
+
+      layoutMetrics = {
+        width: rootRect.width,
+        height: rootRect.height,
+        dpr,
+        viewportHeight,
+        virtualHeight,
+        centerMinX,
+        centerMaxX,
+        fluidProgress,
+        fluidBoundaryScale: 0.48 + fluidProgress * 0.52,
+        shapeScale: 0.72 + fluidProgress * 0.28
+      }
     }
 
-    const startScrollTracking = (): void => {
-      if (scrollTrackingFrame === 0) {
-        scrollTrackingFrame = window.requestAnimationFrame(trackScrolling)
-      }
-      if (scrollTrackingStopTimer) {
-        window.clearTimeout(scrollTrackingStopTimer)
-      }
-      scrollTrackingStopTimer = window.setTimeout(() => {
-        if (scrollTrackingFrame) {
-          window.cancelAnimationFrame(scrollTrackingFrame)
-          scrollTrackingFrame = 0
-        }
-        requestApply()
-      }, 180)
-    }
-
-    const handleScroll = (): void => {
-      startScrollTracking()
+    const invalidateLayout = (): void => {
+      updateLayoutMetrics()
       requestApply()
     }
 
-    const handleWheel = (): void => {
-      startScrollTracking()
+    const handleScroll = (): void => {
+      requestApply()
     }
 
     const bindScrollElement = (): void => {
-      scrollElement?.removeEventListener('wheel', handleWheel)
       scrollElement?.removeEventListener('scroll', handleScroll)
       scrollElement = isActive ? document.querySelector<HTMLElement>('.home-page') : null
-      scrollElement?.addEventListener('wheel', handleWheel, { passive: true })
       scrollElement?.addEventListener('scroll', handleScroll, { passive: true })
       requestApply()
     }
 
-    const resizeObserver = new ResizeObserver(requestApply)
+    const resizeObserver = new ResizeObserver(invalidateLayout)
     resizeObserver.observe(root)
-    const layoutObserver = new ResizeObserver(requestApply)
+    const layoutObserver = new ResizeObserver(invalidateLayout)
     const observeLayoutElements = (): void => {
       layoutObserver.disconnect()
-      document.querySelectorAll<HTMLElement>('.sidebar, .content-pane, .lyrics-side-panel').forEach((element) => {
-        layoutObserver.observe(element)
-      })
-      requestApply()
+      sidebarElement = document.querySelector<HTMLElement>('.sidebar')
+      lyricsElement = document.querySelector<HTMLElement>('.lyrics-side-panel')
+      document.querySelectorAll<HTMLElement>('.sidebar, .content-pane, .lyrics-side-panel').forEach((element) => layoutObserver.observe(element))
+      invalidateLayout()
     }
     observeLayoutElements()
     const appShellObserver = new MutationObserver(() => {
@@ -1022,10 +1022,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
     return () => {
       disposed = true
       window.clearTimeout(bindTimer)
-      if (scrollTrackingStopTimer) window.clearTimeout(scrollTrackingStopTimer)
       if (frame) window.cancelAnimationFrame(frame)
-      if (scrollTrackingFrame) window.cancelAnimationFrame(scrollTrackingFrame)
-      scrollElement?.removeEventListener('wheel', handleWheel)
       scrollElement?.removeEventListener('scroll', handleScroll)
       themeObserver.disconnect()
       appShellObserver.disconnect()
