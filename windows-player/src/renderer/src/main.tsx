@@ -883,6 +883,10 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 
       context.setTransform(dpr, 0, 0, dpr, 0, 0)
       context.clearRect(0, 0, rootRect.width, rootRect.height)
+      context.save()
+      context.beginPath()
+      context.rect(0, 0, centerMaxX, rootRect.height)
+      context.clip()
 
       for (const spec of specs) {
         const isUltra = spec.tier === 'ultra'
@@ -915,6 +919,8 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
         context.drawImage(image, -side / 2, -side / 2, side, side)
         context.restore()
       }
+
+      context.restore()
     }
 
     const requestApply = (): void => {
