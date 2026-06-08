@@ -3704,7 +3704,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
     transitionSeedRef.current = 0
     setIsDotExiting(false)
     setPreviousSurface(freezeBKSurfaceForTransition(currentSurfaceRef.current))
-    setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image', themeStyleRef.current))
+    setCurrentSurface(makeBKSurfaceState(trackSeed, 0, initialBKSurfaceStyle(trackSeed), themeStyleRef.current))
     setIsRevealing(true)
     lastTrackSeedRef.current = trackSeed
   }, [trackSeed])
@@ -3722,7 +3722,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
     const timer = window.setTimeout(() => {
       transitionSeedRef.current += 1
       setPreviousSurface(freezeBKSurfaceForTransition(currentSurface))
-      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current), themeStyleRef.current))
+      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current, trackSeed), themeStyleRef.current))
       setIsRevealing(true)
     }, delay)
     return () => window.clearTimeout(timer)
@@ -3733,7 +3733,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
     const timer = window.setTimeout(() => {
       transitionSeedRef.current += 1
       setPreviousSurface(freezeBKSurfaceForTransition(currentSurface))
-      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current), themeStyleRef.current))
+      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current, trackSeed), themeStyleRef.current))
       setIsDotExiting(false)
       setIsRevealing(true)
     }, 900)
@@ -3747,7 +3747,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const handleDotComplete = React.useCallback(() => {
     transitionSeedRef.current += 1
     setPreviousSurface(freezeBKSurfaceForTransition(currentSurface))
-    setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current), themeStyleRef.current))
+    setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current, trackSeed), themeStyleRef.current))
     setIsDotExiting(false)
     setIsRevealing(true)
   }, [currentSurface, trackSeed])
@@ -3760,7 +3760,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   )
 })
 
-type BKSurfaceStyle = 'image' | 'dot-a' | 'dot-b'
+type BKSurfaceStyle = 'image' | 'dot-a' | 'dot-b' | 'dot-c' | 'dot-d' | 'dot-e'
 
 type BKSurfaceState = {
   seed: number
@@ -3803,13 +3803,31 @@ function freezeBKSurfaceForTransition(surface: BKSurfaceState): BKSurfaceState {
 }
 
 function isBKDotStyle(style: BKSurfaceStyle): boolean {
-  return style === 'dot-a' || style === 'dot-b'
+  return style !== 'image'
 }
 
-function nextBKSurfaceStyle(currentStyle: BKSurfaceStyle, transitionIndex: number): BKSurfaceStyle {
-  if (currentStyle === 'image') return 'dot-a'
-  if (currentStyle === 'dot-a') return 'dot-b'
-  return 'image'
+function nextBKSurfaceStyle(currentStyle: BKSurfaceStyle, transitionIndex: number, trackSeed: number): BKSurfaceStyle {
+  const proposed = seededBKSurfaceStyle(trackSeed, transitionIndex)
+  if (proposed !== currentStyle) return proposed
+  if (proposed === 'image') return 'dot-a'
+  const dotIndex = bkDotStyles.indexOf(proposed)
+  return bkDotStyles[(dotIndex + 1) % bkDotStyles.length]
+}
+
+function initialBKSurfaceStyle(trackSeed: number): BKSurfaceStyle {
+  return seededBKSurfaceStyle(trackSeed, 0)
+}
+
+const bkDotStyles: BKSurfaceStyle[] = ['dot-a', 'dot-b', 'dot-c', 'dot-d', 'dot-e']
+
+function seededBKSurfaceStyle(trackSeed: number, transitionIndex: number): BKSurfaceStyle {
+  const mixed = (trackSeed ^ Math.imul(transitionIndex + 1, 0x85ebca6b) ^ (trackSeed >>> 13)) >>> 0
+  const slot = mixed % 6
+  return slot === 0 ? 'image' : bkDotStyles[slot - 1]
+}
+
+function bkDotDirection(style: BKSurfaceStyle): BKDotDirection {
+  return style === 'dot-b' || style === 'dot-d' ? 'reverse' : 'forward'
 }
 
 const BKArtSurface = React.memo(function BKArtSurface({
@@ -3847,7 +3865,7 @@ const BKArtSurface = React.memo(function BKArtSurface({
         <>
           <div className="bk-dot-surface">
             <div className="bk-dot-gradient" />
-            <BKDotSurface seed={surface.seed} direction={surface.style === 'dot-b' ? 'reverse' : 'forward'} isRunning={isRunning} onComplete={onDotComplete} />
+            <BKDotSurface seed={surface.seed} direction={bkDotDirection(surface.style)} isRunning={isRunning} onComplete={onDotComplete} />
           </div>
           <div className="bk-shape-root">
             {shapes.map((shape) => (

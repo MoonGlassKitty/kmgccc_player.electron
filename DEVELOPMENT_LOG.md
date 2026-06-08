@@ -17,3 +17,4 @@
 - 纯油漆/image 阶段切歌前冻结旧 surface 当前 phase，避免 previous 层重挂载后从 phase-a 重启造成背景跳变；dot 阶段保持原逻辑。
 - BK image phase 改为通过 surface 主题快照同步命中 tint cache，避免 previous image 重挂载时先渲染 loading 空背景造成纯油漆切歌跳变。
 - 纯油漆 image→image transition 增加与 17 帧 paint mask 同步的轻量刷痕高光层，让无 dot 的油漆阶段也有可见小动效。
+- BK surface 普通/切歌落点改为 6 桶 seed 选择：image 仅 1/6，dot-a 到 dot-e 占 5/6，并给 dot-b/d 使用反向运动。
