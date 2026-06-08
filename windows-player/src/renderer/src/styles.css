@@ -3589,12 +3589,12 @@ input {
 .app-shell.now-playing-route .mini-player::before,
 .fullscreen-lyrics-open .mini-player::before {
   background: var(--cover-accent-text);
-  filter: invert(1) saturate(1.08);
+  filter: invert(1) saturate(0.38) brightness(1.12);
 }
 
 .app-shell.now-playing-route .mini-player.playing::before,
 .fullscreen-lyrics-open .mini-player.playing::before {
-  opacity: 0.42;
+  opacity: 0.22;
 }
 
 .mini-progress-rail {
