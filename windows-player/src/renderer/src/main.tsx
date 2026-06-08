@@ -2590,11 +2590,35 @@ const BKArtBackground = React.memo(function BKArtBackground({
 }): React.ReactElement {
   const seed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
   const shapes = React.useMemo(() => makeBKShapePlan(seed), [seed])
+  const dots = React.useMemo(() => makeBKDotPlan(seed), [seed])
   return (
     <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'}`} aria-hidden="true">
-      <div className="bk-image-phase phase-a" style={{ backgroundImage: `url(${bkBackgroundAssets[seed % bkBackgroundAssets.length]})` }} />
-      <div className="bk-image-phase phase-b" style={{ backgroundImage: `url(${bkBackgroundAssets[(seed + 1) % bkBackgroundAssets.length]})` }} />
-      <div className="bk-tone-layer" />
+      <div className="bk-image-surface">
+        <div className="bk-image-phase phase-a" style={{ backgroundImage: `url(${bkBackgroundAssets[seed % bkBackgroundAssets.length]})` }} />
+        <div className="bk-image-phase phase-b" style={{ backgroundImage: `url(${bkBackgroundAssets[(seed + 1) % bkBackgroundAssets.length]})` }} />
+        <div className="bk-tone-layer" />
+      </div>
+      <div className="bk-dot-surface">
+        <div className="bk-dot-gradient" />
+        {dots.map((dot) => (
+          <span
+            key={dot.id}
+            className="bk-dot-slot"
+            style={
+              {
+                '--dot-x': `${dot.x}%`,
+                '--dot-y': `${dot.y}%`,
+                '--dot-size': `${dot.size}px`,
+                '--dot-drift-x': `${dot.driftX}px`,
+                '--dot-drift-y': `${dot.driftY}px`,
+                '--dot-duration': `${dot.duration}s`,
+                '--dot-delay': `${dot.delay}s`,
+                '--dot-opacity': dot.opacity
+              } as React.CSSProperties
+            }
+          />
+        ))}
+      </div>
       <div className="bk-shape-root">
         {shapes.map((shape) => (
           <img
@@ -2636,6 +2660,18 @@ type BKShapePlan = {
   delay: number
   tint: string
   edgePinned: boolean
+}
+
+type BKDotPlan = {
+  id: string
+  x: number
+  y: number
+  size: number
+  driftX: number
+  driftY: number
+  duration: number
+  delay: number
+  opacity: number
 }
 
 function hashString(value: string): number {
@@ -2687,6 +2723,21 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
       edgePinned: index === 9
     }
   })
+}
+
+function makeBKDotPlan(seed: number): BKDotPlan[] {
+  const random = mulberry32(seed ^ 0x7a6c2e43)
+  return Array.from({ length: 18 }, (_, index) => ({
+    id: `dot-${index}`,
+    x: 8 + random() * 84,
+    y: 8 + random() * 84,
+    size: Math.round(34 + random() * 96),
+    driftX: Math.round(-80 + random() * 160),
+    driftY: Math.round(-56 + random() * 112),
+    duration: 8 + random() * 10,
+    delay: -random() * 9,
+    opacity: 0.22 + random() * 0.46
+  }))
 }
 
 const NowPlayingVolumeLed = React.memo(function NowPlayingVolumeLed({
