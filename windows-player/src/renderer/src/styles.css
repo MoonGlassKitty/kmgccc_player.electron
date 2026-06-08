@@ -3586,13 +3586,15 @@ input {
   opacity: 1;
 }
 
+.app-shell.now-playing-route .mini-player::before,
 .fullscreen-lyrics-open .mini-player::before {
-  background: color-mix(in srgb, var(--cover-accent-text) 32%, transparent);
+  background: var(--cover-accent-text);
   filter: invert(1) saturate(1.08);
 }
 
+.app-shell.now-playing-route .mini-player.playing::before,
 .fullscreen-lyrics-open .mini-player.playing::before {
-  opacity: 0.48;
+  opacity: 0.42;
 }
 
 .mini-progress-rail {
@@ -3913,6 +3915,9 @@ input {
   backdrop-filter: url(#lg-slider-thumb);
   -webkit-backdrop-filter: url(#lg-slider-thumb);
   pointer-events: none;
+  transition:
+    background-color 140ms ease,
+    transform 140ms ease;
 }
 
 .liquid-slider-input {
@@ -3944,6 +3949,19 @@ input {
   --liquid-slider-thumb-width: 24px;
   --liquid-slider-thumb-height: 16px;
   --liquid-slider-thumb-radius: 8px;
+}
+
+.volume-liquid-slider .liquid-slider-track {
+  background-color: color-mix(in srgb, var(--cover-accent-text) 18%, transparent);
+}
+
+.volume-liquid-slider .liquid-slider-fill {
+  background-color: color-mix(in srgb, var(--cover-accent-text) 72%, transparent);
+}
+
+.volume-liquid-slider:has(.liquid-slider-input:active) .liquid-slider-thumb {
+  background-color: rgba(255, 255, 255, 0);
+  transform: scale(1.18);
 }
 
 .lyrics-pane {
