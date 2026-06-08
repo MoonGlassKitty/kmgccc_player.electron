@@ -136,13 +136,18 @@ input {
   background:
     radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 96%, transparent), transparent 38%),
     radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 86%, transparent), transparent 46%),
-    color-mix(in srgb, var(--bk-bg-tone-1) 88%, #ffffff);
+    color-mix(in srgb, var(--bk-bg-tone-1) 92%, #ffffff);
+  filter: saturate(1.18);
 }
 
 .bk-art-surface {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  background:
+    radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 96%, transparent), transparent 38%),
+    radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 88%, transparent), transparent 46%),
+    color-mix(in srgb, var(--bk-bg-tone-1) 92%, #ffffff);
 }
 
 .bk-art-surface.current {
@@ -154,8 +159,22 @@ input {
 }
 
 .bk-art-surface.entering {
-  clip-path: circle(0% at 50% 50%);
-  animation: bkTrackReveal 900ms steps(6, end) both;
+  background: transparent;
+  -webkit-mask-image: var(--bk-paint-mask-sprite);
+  mask-image: var(--bk-paint-mask-sprite);
+  -webkit-mask-size: 1800% 100%;
+  mask-size: 1800% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 0% 0;
+  mask-position: 0% 0;
+  -webkit-mask-mode: alpha;
+  mask-mode: alpha;
+  animation: bkPaintReveal 3s steps(17, end) both;
+}
+
+.bk-art-background.frozen .bk-art-surface.entering {
+  animation-play-state: paused;
 }
 
 .bk-image-surface,
@@ -169,18 +188,18 @@ input {
 }
 
 .bk-dot-surface {
-  opacity: 0;
+  opacity: 1;
   background:
-    radial-gradient(circle at 34% 22%, color-mix(in srgb, var(--bk-bg-tone-1) 78%, transparent), transparent 36%),
-    color-mix(in srgb, var(--bk-bg-tone-2) 74%, #ffffff);
+    radial-gradient(circle at 34% 22%, color-mix(in srgb, var(--bk-bg-tone-1) 88%, transparent), transparent 36%),
+    color-mix(in srgb, var(--bk-bg-tone-2) 84%, #ffffff);
 }
 
-.bk-art-background.running .bk-art-surface.current .bk-image-surface {
-  animation: bkSurfaceImage 35s steps(1, end) infinite;
+.bk-art-surface.style-image .bk-dot-surface {
+  display: none;
 }
 
-.bk-art-background.running .bk-art-surface.current .bk-dot-surface {
-  animation: bkSurfaceDot 35s steps(1, end) infinite;
+.bk-art-surface.style-dot .bk-image-surface {
+  display: none;
 }
 
 .bk-image-phase {
@@ -188,21 +207,35 @@ input {
   inset: -3%;
   background-size: cover;
   background-position: center;
-  filter: contrast(1.02) saturate(1.08);
+  filter: contrast(1.04) saturate(1.24);
   opacity: 0.92;
   mix-blend-mode: normal;
+  transition: opacity 180ms linear;
+}
+
+.bk-image-phase.loading {
+  opacity: 0;
 }
 
 .bk-image-phase.phase-b {
   opacity: 0;
 }
 
-.bk-art-background.running .bk-art-surface.current .phase-a {
+.bk-art-surface.current .phase-a,
+.bk-art-surface.previous .phase-a {
   animation: bkPhaseA 2s steps(1, end) infinite;
 }
 
-.bk-art-background.running .bk-art-surface.current .phase-b {
+.bk-art-surface.current .phase-b,
+.bk-art-surface.previous .phase-b {
   animation: bkPhaseB 2s steps(1, end) infinite;
+}
+
+.bk-art-background.frozen .bk-art-surface.current .phase-a,
+.bk-art-background.frozen .bk-art-surface.current .phase-b,
+.bk-art-background.frozen .bk-art-surface.previous .phase-a,
+.bk-art-background.frozen .bk-art-surface.previous .phase-b {
+  animation-play-state: paused;
 }
 
 .bk-image-surface::after {
@@ -224,22 +257,36 @@ input {
     linear-gradient(135deg, rgba(12, 17, 22, 0.28), rgba(255, 255, 255, 0.08));
 }
 
-.bk-dot-slot {
+.bk-dot-window {
   position: absolute;
-  left: var(--dot-x);
-  top: var(--dot-y);
-  width: var(--dot-size);
-  height: var(--dot-size);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bk-shape-tint-1) 72%, white);
+  inset: 0;
+  overflow: hidden;
   opacity: var(--dot-opacity);
-  filter: blur(0.5px);
   mix-blend-mode: soft-light;
-  transform: translate(-50%, -50%);
+  will-change: opacity;
 }
 
-.bk-art-background.running .bk-art-surface.current .bk-dot-slot {
-  animation: bkDotDrift var(--dot-duration) ease-in-out var(--dot-delay) infinite alternate;
+.bk-dot-grid {
+  position: absolute;
+  inset: -60px;
+  background-image: radial-gradient(circle, var(--dot-tint) 0 var(--dot-big), transparent calc(var(--dot-big) + 1px));
+  background-size: 30px 30px;
+  background-position: -60px -60px;
+  opacity: 0.9;
+  filter: blur(0.15px) saturate(1.28);
+  -webkit-mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), #000 0 var(--dot-inner-radius-scaled), transparent calc(var(--dot-inner-radius-scaled) + 1px));
+  mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), #000 0 var(--dot-inner-radius-scaled), transparent calc(var(--dot-inner-radius-scaled) + 1px));
+  -webkit-mask-mode: alpha;
+  mask-mode: alpha;
+  will-change: -webkit-mask-image, mask-image;
+}
+
+.bk-dot-grid.small {
+  background-image: radial-gradient(circle, var(--dot-tint) 0 var(--dot-small), transparent calc(var(--dot-small) + 1px));
+  opacity: 0.56;
+  transform: translate(15px, 15px);
+  -webkit-mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), transparent 0 var(--dot-inner-radius-scaled), #000 calc(var(--dot-inner-radius-scaled) + 1px) var(--dot-radius-scaled), transparent calc(var(--dot-radius-scaled) + 1px));
+  mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), transparent 0 var(--dot-inner-radius-scaled), #000 calc(var(--dot-inner-radius-scaled) + 1px) var(--dot-radius-scaled), transparent calc(var(--dot-radius-scaled) + 1px));
 }
 
 .bk-shape-root {
@@ -259,7 +306,7 @@ input {
   opacity: 0.9;
   filter:
     drop-shadow(0 22px 36px rgba(0, 0, 0, 0.18))
-    saturate(1.08)
+    saturate(1.24)
     brightness(1.02);
   mix-blend-mode: screen;
   -webkit-mask-size: contain;
@@ -272,8 +319,14 @@ input {
   mask-mode: alpha;
 }
 
-.bk-art-background.running .bk-art-surface.current .bk-shape {
+.bk-art-surface.current .bk-shape,
+.bk-art-surface.previous .bk-shape {
   animation: bkShapeDrift var(--shape-duration) ease-in-out var(--shape-delay) infinite alternate;
+}
+
+.bk-art-background.frozen .bk-art-surface.current .bk-shape,
+.bk-art-background.frozen .bk-art-surface.previous .bk-shape {
+  animation-play-state: paused;
 }
 
 .now-playing-artwork-stage {
@@ -1050,28 +1103,20 @@ input {
   50%, 100% { opacity: 0; }
 }
 
-@keyframes bkSurfaceImage {
-  0%, 42.8% { opacity: 1; }
-  42.9%, 100% { opacity: 0; }
-}
-
-@keyframes bkSurfaceDot {
-  0%, 42.8% { opacity: 0; }
-  42.9%, 100% { opacity: 1; }
+@keyframes bkPaintReveal {
+  from {
+    -webkit-mask-position: 0% 0;
+    mask-position: 0% 0;
+  }
+  to {
+    -webkit-mask-position: 100% 0;
+    mask-position: 100% 0;
+  }
 }
 
 @keyframes bkPhaseB {
   0%, 49.9% { opacity: 0; }
   50%, 100% { opacity: 0.45; }
-}
-
-@keyframes bkDotDrift {
-  from {
-    transform: translate(-50%, -50%) translate(calc(var(--dot-drift-x) * -0.5), calc(var(--dot-drift-y) * -0.5)) scale(0.82);
-  }
-  to {
-    transform: translate(-50%, -50%) translate(var(--dot-drift-x), var(--dot-drift-y)) scale(1.08);
-  }
 }
 
 @keyframes bkShapeDrift {

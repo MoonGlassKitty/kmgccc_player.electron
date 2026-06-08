@@ -47,6 +47,7 @@ import shape10 from './assets/bk-themes/shapes/shape10.png'
 import shape11 from './assets/bk-themes/shapes/shape11.png'
 import bkBackground1 from './assets/bk-themes/backgrounds/bk1.png'
 import bkBackground2 from './assets/bk-themes/backgrounds/bk2.png'
+import bkPaintMaskSprite from './assets/bk-mask/paint-mask-sprite.png'
 import artworkFrame1 from './assets/bk-themes/artwork-frame/artworkframe1.png'
 import artworkFrame2 from './assets/bk-themes/artwork-frame/artworkframe2.png'
 import artworkFrame3 from './assets/bk-themes/artwork-frame/artworkframe3.png'
@@ -3186,55 +3187,102 @@ const BKArtBackground = React.memo(function BKArtBackground({
   track: Track | null | undefined
   isPlaying: boolean
 }): React.ReactElement {
-  const seed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
-  const [previousSeed, setPreviousSeed] = React.useState<number | null>(null)
-  const lastSeedRef = React.useRef(seed)
+  const trackSeed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
+  const transitionSeedRef = React.useRef(0)
+  const initialSurface = React.useMemo(() => makeBKSurfaceState(trackSeed, 0, null), [trackSeed])
+  const [currentSurface, setCurrentSurface] = React.useState(initialSurface)
+  const [previousSurface, setPreviousSurface] = React.useState<BKSurfaceState | null>(null)
+  const didMountRef = React.useRef(false)
+
   React.useEffect(() => {
-    if (lastSeedRef.current === seed) return
-    setPreviousSeed(lastSeedRef.current)
-    lastSeedRef.current = seed
-    const timer = window.setTimeout(() => setPreviousSeed(null), 960)
+    const image = new Image()
+    image.decoding = 'async'
+    image.src = bkPaintMaskSprite
+    void image.decode?.().catch(() => undefined)
+  }, [])
+
+  React.useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true
+      setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image'))
+      setPreviousSurface(null)
+      return
+    }
+    transitionSeedRef.current = 0
+    setPreviousSurface((surface) => surface ?? currentSurface)
+    setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image'))
+  }, [trackSeed])
+
+  React.useEffect(() => {
+    if (!isPlaying) return
+    const delay = currentSurface.style === 'dot' ? 20000 : 15000
+    const timer = window.setTimeout(() => {
+      transitionSeedRef.current += 1
+      setPreviousSurface(currentSurface)
+      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, currentSurface.style === 'dot' ? 'image' : 'dot'))
+    }, delay)
     return () => window.clearTimeout(timer)
-  }, [seed])
+  }, [currentSurface, isPlaying, trackSeed])
+
+  const handleRevealEnd = React.useCallback(() => {
+    setPreviousSurface(null)
+  }, [])
+
   return (
-    <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSeed !== null ? 'transitioning' : ''}`} aria-hidden="true">
-      {previousSeed !== null ? <BKArtSurface seed={previousSeed} className="previous" /> : null}
-      <BKArtSurface seed={seed} className={previousSeed !== null ? 'current entering' : 'current'} />
+    <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
+      {previousSurface ? <BKArtSurface surface={previousSurface} className="previous" isRunning={isPlaying} /> : null}
+      <BKArtSurface surface={currentSurface} className={previousSurface !== null ? 'current entering' : 'current'} isRunning={isPlaying} onRevealEnd={previousSurface ? handleRevealEnd : undefined} />
     </div>
   )
 })
 
-const BKArtSurface = React.memo(function BKArtSurface({ seed, className }: { seed: number; className: string }): React.ReactElement {
-  const shapes = React.useMemo(() => makeBKShapePlan(seed), [seed])
-  const dots = React.useMemo(() => makeBKDotPlan(seed), [seed])
-  const phaseA = bkBackgroundAssets[seed % bkBackgroundAssets.length]
-  const phaseB = bkBackgroundAssets[(seed + 1) % bkBackgroundAssets.length]
+type BKSurfaceStyle = 'image' | 'dot'
+
+type BKSurfaceState = {
+  seed: number
+  style: BKSurfaceStyle
+  phaseOffset: number
+}
+
+function makeBKSurfaceState(trackSeed: number, transitionIndex: number, forcedStyle: BKSurfaceStyle | null): BKSurfaceState {
+  const seed = (trackSeed ^ Math.imul(transitionIndex + 1, 0x9e3779b9)) >>> 0
+  const style = forcedStyle ?? 'image'
+  return {
+    seed,
+    style,
+    phaseOffset: transitionIndex % bkBackgroundAssets.length
+  }
+}
+
+const BKArtSurface = React.memo(function BKArtSurface({
+  surface,
+  className,
+  isRunning,
+  onRevealEnd
+}: {
+  surface: BKSurfaceState
+  className: string
+  isRunning: boolean
+  onRevealEnd?: () => void
+}): React.ReactElement {
+  const shapes = React.useMemo(() => makeBKShapePlan(surface.seed), [surface.seed])
+  const phaseA = bkBackgroundAssets[(surface.phaseOffset + surface.seed) % bkBackgroundAssets.length]
+  const phaseB = bkBackgroundAssets[(surface.phaseOffset + surface.seed + 1) % bkBackgroundAssets.length]
   return (
-    <div className={`bk-art-surface ${className}`}>
+    <div
+      className={`bk-art-surface ${className} style-${surface.style}`}
+      style={{ '--bk-paint-mask-sprite': `url(${bkPaintMaskSprite})` } as React.CSSProperties}
+      onAnimationEnd={(event) => {
+        if (event.animationName === 'bkPaintReveal') onRevealEnd?.()
+      }}
+    >
       <div className="bk-image-surface">
         <BKImagePhase source={phaseA} className="phase-a" />
         <BKImagePhase source={phaseB} className="phase-b" />
       </div>
       <div className="bk-dot-surface">
         <div className="bk-dot-gradient" />
-        {dots.map((dot) => (
-          <span
-            key={dot.id}
-            className="bk-dot-slot"
-            style={
-              {
-                '--dot-x': `${dot.x}%`,
-                '--dot-y': `${dot.y}%`,
-                '--dot-size': `${dot.size}px`,
-                '--dot-drift-x': `${dot.driftX}px`,
-                '--dot-drift-y': `${dot.driftY}px`,
-                '--dot-duration': `${dot.duration}s`,
-                '--dot-delay': `${dot.delay}s`,
-                '--dot-opacity': dot.opacity
-              } as React.CSSProperties
-            }
-          />
-        ))}
+        <BKDotSurface seed={surface.seed} isRunning={isRunning} />
       </div>
       <div className="bk-shape-root">
         {shapes.map((shape) => (
@@ -3264,6 +3312,135 @@ const BKArtSurface = React.memo(function BKArtSurface({ seed, className }: { see
 })
 
 const tintedBKCache = new Map<string, string>()
+
+function cubicBezierPoint(t: number, slot: BKDotPlan): { x: number; y: number } {
+  const p = clampNumber(t, 0, 1)
+  const oneMinusT = 1 - p
+  const oneMinusT2 = oneMinusT * oneMinusT
+  const oneMinusT3 = oneMinusT2 * oneMinusT
+  const t2 = p * p
+  const t3 = t2 * p
+  return {
+    x: oneMinusT3 * slot.startX + 3 * oneMinusT2 * p * slot.cp1X + 3 * oneMinusT * t2 * slot.cp2X + t3 * slot.endX,
+    y: oneMinusT3 * slot.startY + 3 * oneMinusT2 * p * slot.cp1Y + 3 * oneMinusT * t2 * slot.cp2Y + t3 * slot.endY
+  }
+}
+
+function easeOutQuint(value: number): number {
+  return 1 - Math.pow(1 - clampNumber(value, 0, 1), 5)
+}
+
+function easeInQuint(value: number): number {
+  const p = clampNumber(value, 0, 1)
+  return p * p * p * p * p
+}
+
+function dotScaleAt(t: number): number {
+  if (t < 0.25) return 0.6 + 0.4 * easeOutQuint(t / 0.25)
+  if (t > 0.8) return 1 - 0.4 * easeInQuint((t - 0.8) / 0.2)
+  return 1
+}
+
+function makeBKDotRuntimeSlot(seed: number, index: number, initialIdleDelay?: number, overlapT?: number): BKDotRuntimeSlot {
+  const plan = makeBKDotPlan(seed ^ Math.imul(index + 1, 0xdeadbeef))[0]
+  return {
+    ...plan,
+    id: `dot-window-${index}-${seed}`,
+    delay: 0,
+    leadIn: overlapT ?? plan.leadIn,
+    motion: 'idle',
+    idleRemaining: initialIdleDelay ?? plan.delay,
+    t: 0,
+    spawnedNext: false
+  }
+}
+
+const BKDotSurface = React.memo(function BKDotSurface({ seed, isRunning }: { seed: number; isRunning: boolean }): React.ReactElement {
+  const slotCounterRef = React.useRef(1)
+  const [slots, setSlots] = React.useState<BKDotRuntimeSlot[]>(() => [makeBKDotRuntimeSlot(seed, 0, 0, 0.88)])
+
+  React.useEffect(() => {
+    slotCounterRef.current = 1
+    setSlots([makeBKDotRuntimeSlot(seed, 0, 0, 0.88)])
+  }, [seed])
+
+  React.useEffect(() => {
+    if (!isRunning) return
+    const interval = window.setInterval(() => {
+      setSlots((currentSlots) => {
+        let shouldSpawnNext = false
+        let spawnSeed = seed
+        const nextSlots = currentSlots
+          .map((slot, index) => {
+            if (slot.motion === 'idle') {
+              const idleRemaining = slot.idleRemaining - 1 / 15
+              return idleRemaining <= 0 ? { ...slot, motion: 'moving' as const, idleRemaining: 0 } : { ...slot, idleRemaining }
+            }
+
+            const nextT = slot.t + (1 / 15) / slot.duration
+            if (index === currentSlots.length - 1 && !slot.spawnedNext && nextT >= slot.leadIn && currentSlots.length < 2) {
+              shouldSpawnNext = true
+              spawnSeed = hashString(`${slot.endX}:${slot.endY}:${seed}`)
+            }
+            return {
+              ...slot,
+              t: Math.min(1, nextT),
+              spawnedNext: slot.spawnedNext || shouldSpawnNext
+            }
+          })
+          .filter((slot) => slot.t < 1)
+
+        if (shouldSpawnNext) {
+          const nextIndex = slotCounterRef.current
+          slotCounterRef.current += 1
+          nextSlots.push(makeBKDotRuntimeSlot(spawnSeed, nextIndex))
+        }
+
+        if (!nextSlots.length) {
+          const nextIndex = slotCounterRef.current
+          slotCounterRef.current += 1
+          nextSlots.push(makeBKDotRuntimeSlot(seed, nextIndex, 0))
+        }
+        return nextSlots
+      })
+    }, 1000 / 15)
+    return () => window.clearInterval(interval)
+  }, [isRunning, seed])
+
+  return (
+    <>
+      {slots.map((slot) => {
+        const point = cubicBezierPoint(slot.t, slot)
+        const scale = dotScaleAt(slot.t)
+        const opacity = slot.motion === 'idle' ? 0 : slot.t > 0.92 ? clampNumber((1 - slot.t) / 0.08, 0, 1) * 0.92 : 0.92
+        return (
+          <span
+            key={slot.id}
+            className="bk-dot-window"
+            style={
+              {
+                '--dot-x': `${point.x}%`,
+                '--dot-y': `${point.y}%`,
+                '--dot-radius': `${slot.radius}vmax`,
+                '--dot-inner-radius': `${slot.radius * 0.75}vmax`,
+                '--dot-radius-scaled': `${slot.radius * scale}vmax`,
+                '--dot-inner-radius-scaled': `${slot.radius * 0.75 * scale}vmax`,
+                '--dot-big': `${slot.bigDot}px`,
+                '--dot-small': `${slot.smallDot}px`,
+                '--dot-scale': scale,
+                '--dot-opacity': opacity,
+                '--dot-tint': slot.tint
+              } as React.CSSProperties
+            }
+          >
+            <span className="bk-dot-grid big" />
+            <span className="bk-dot-grid small" />
+          </span>
+        )
+      })}
+    </>
+  )
+})
 
 const BKImagePhase = React.memo(function BKImagePhase({ source, className }: { source: string; className: string }): React.ReactElement {
   const ref = React.useRef<HTMLDivElement>(null)
@@ -3332,7 +3509,7 @@ const BKImagePhase = React.memo(function BKImagePhase({ source, className }: { s
     }
   }, [source])
 
-  return <div ref={ref} className={`bk-image-phase ${className}`} style={{ backgroundImage: `url(${tintedUrl ?? source})` }} />
+  return <div ref={ref} className={`bk-image-phase ${className} ${tintedUrl ? 'ready' : 'loading'}`} style={{ backgroundImage: tintedUrl ? `url(${tintedUrl})` : 'none' }} />
 })
 
 type BKShapePlan = {
@@ -3352,14 +3529,28 @@ type BKShapePlan = {
 
 type BKDotPlan = {
   id: string
-  x: number
-  y: number
-  size: number
-  driftX: number
-  driftY: number
+  startX: number
+  startY: number
+  cp1X: number
+  cp1Y: number
+  cp2X: number
+  cp2Y: number
+  endX: number
+  endY: number
+  radius: number
+  bigDot: number
+  smallDot: number
   duration: number
   delay: number
-  opacity: number
+  leadIn: number
+  tint: string
+}
+
+type BKDotRuntimeSlot = BKDotPlan & {
+  motion: 'idle' | 'moving'
+  idleRemaining: number
+  t: number
+  spawnedNext: boolean
 }
 
 function hashString(value: string): number {
@@ -3415,17 +3606,59 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
 
 function makeBKDotPlan(seed: number): BKDotPlan[] {
   const random = mulberry32(seed ^ 0x7a6c2e43)
-  return Array.from({ length: 18 }, (_, index) => ({
-    id: `dot-${index}`,
-    x: 8 + random() * 84,
-    y: 8 + random() * 84,
-    size: Math.round(34 + random() * 96),
-    driftX: Math.round(-80 + random() * 160),
-    driftY: Math.round(-56 + random() * 112),
-    duration: 8 + random() * 10,
-    delay: -random() * 9,
-    opacity: 0.22 + random() * 0.46
-  }))
+  const tints = [
+    'var(--bk-shape-tint-1)',
+    'var(--bk-shape-tint-2)',
+    'var(--bk-shape-tint-3)'
+  ]
+  const randomOffscreenPoint = (marginMul: number): { x: number; y: number } => {
+    const radius = 30
+    const margin = radius * marginMul
+    const side = Math.floor(random() * 4)
+    if (side === 0) return { x: -margin + random() * (100 + margin * 2), y: 100 + margin }
+    if (side === 1) return { x: -margin + random() * (100 + margin * 2), y: -margin }
+    if (side === 2) return { x: -margin, y: -margin + random() * (100 + margin * 2) }
+    return { x: 100 + margin, y: -margin + random() * (100 + margin * 2) }
+  }
+  const randomControlPoint = (): { x: number; y: number } => ({
+    x: random() * 100,
+    y: random() * 100
+  })
+  let cumulativeDelay = 0
+  return Array.from({ length: 2 }, (_, index) => {
+    const angle = random() * Math.PI * 2
+    const center = { x: 34 + random() * 32, y: 34 + random() * 32 }
+    const travel = 118
+    const dx = Math.cos(angle) * travel
+    const dy = Math.sin(angle) * travel
+    const start = { x: center.x - dx, y: center.y - dy }
+    const end = { x: center.x + dx, y: center.y + dy }
+    const cp1 = { x: start.x + (end.x - start.x) / 3, y: start.y + (end.y - start.y) / 3 }
+    const cp2 = { x: start.x + (end.x - start.x) * 2 / 3, y: start.y + (end.y - start.y) * 2 / 3 }
+    const duration = 12 + random() * 5
+    const leadIn = index === 0 ? 0.88 : 0.55 + random() * 0.2
+    const idleDelay = 0.1 + random() * 0.35
+    const delay = cumulativeDelay + idleDelay
+    cumulativeDelay = delay + duration * leadIn
+    return {
+      id: `dot-window-${index}`,
+      startX: start.x,
+      startY: start.y,
+      cp1X: cp1.x,
+      cp1Y: cp1.y,
+      cp2X: cp2.x,
+      cp2Y: cp2.y,
+      endX: end.x,
+      endY: end.y,
+      radius: 26 + random() * 8,
+      bigDot: 10 + random() * 2.4,
+      smallDot: 6 + random() * 2,
+      duration,
+      delay,
+      leadIn,
+      tint: tints[index % tints.length]
+    }
+  })
 }
 
 const NowPlayingVolumeLed = React.memo(function NowPlayingVolumeLed({
