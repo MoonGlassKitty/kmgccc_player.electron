@@ -275,7 +275,7 @@ input {
   background-size: 30px 30px;
   background-position: -60px -60px;
   opacity: 0.9;
-  filter: blur(0.15px) saturate(1.24);
+  filter: blur(0.15px) saturate(1.12);
   -webkit-mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), #000 0 var(--dot-inner-radius-scaled), transparent calc(var(--dot-inner-radius-scaled) + 1px));
   mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), #000 0 var(--dot-inner-radius-scaled), transparent calc(var(--dot-inner-radius-scaled) + 1px));
   -webkit-mask-mode: alpha;
@@ -307,7 +307,7 @@ input {
   opacity: 0.9;
   filter:
     drop-shadow(0 22px 36px rgba(0, 0, 0, 0.18))
-    saturate(1.12)
+    saturate(1.04)
     brightness(1.02);
   mix-blend-mode: screen;
   -webkit-mask-size: contain;

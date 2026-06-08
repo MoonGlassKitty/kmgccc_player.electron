@@ -594,19 +594,19 @@ function harmonizedShapeTints(colors: RgbColor[]): [string, string, string] {
   const isNearGray = avgS < 0.18
   if (isNearGray) {
     return [
-      hsbCss(8, 0.42, 0.96, 0.92),
-      hsbCss(205, 0.36, 0.98, 0.88),
-      hsbCss(292, 0.32, 0.96, 0.84)
+      hsbCss(8, 0.36, 0.96, 0.92),
+      hsbCss(205, 0.31, 0.98, 0.88),
+      hsbCss(292, 0.28, 0.96, 0.84)
     ]
   }
 
   const primaryHue = firstHsl.h
   const accentHue = Math.abs(normalizeHue(secondHsl.h - primaryHue)) > 26 ? secondHsl.h : normalizeHue(primaryHue + 58)
-  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.52 + 0.32, 0.52, 0.82)
+  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.44 + 0.28, 0.44, 0.72)
   return [
     hsbCss(primaryHue + 4, baseSaturation, 0.96, 0.92),
-    hsbCss(accentHue - 3, clampNumber(baseSaturation + 0.04, 0, 0.86), 0.98, 0.88),
-    hsbCss(thirdHsl.h + 6, clampNumber(baseSaturation * 0.86, 0.46, 0.78), 0.95, 0.84)
+    hsbCss(accentHue - 3, clampNumber(baseSaturation + 0.03, 0, 0.76), 0.98, 0.88),
+    hsbCss(thirdHsl.h + 6, clampNumber(baseSaturation * 0.84, 0.40, 0.68), 0.95, 0.84)
   ]
 }
 
@@ -617,17 +617,17 @@ function harmonizedDotTints(colors: RgbColor[]): [string, string, string] {
   const avgS = (firstHsl.s + secondHsl.s + thirdHsl.s) / 3
   if (avgS < 0.18) {
     return [
-      hsbCss(8, 0.42, 0.96, 0.92),
-      hsbCss(205, 0.36, 0.98, 0.88),
-      hsbCss(292, 0.32, 0.96, 0.84)
+      hsbCss(8, 0.35, 0.96, 0.92),
+      hsbCss(205, 0.30, 0.98, 0.88),
+      hsbCss(292, 0.27, 0.96, 0.84)
     ]
   }
 
-  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.46 + 0.30, 0.50, 0.78)
+  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.38 + 0.25, 0.40, 0.66)
   return [
     hsbCss(firstHsl.h + 180, baseSaturation, 0.98, 0.92),
-    hsbCss(secondHsl.h + 184, clampNumber(baseSaturation + 0.03, 0, 0.82), 0.98, 0.88),
-    hsbCss(thirdHsl.h + 176, clampNumber(baseSaturation * 0.88, 0.45, 0.74), 0.96, 0.84)
+    hsbCss(secondHsl.h + 184, clampNumber(baseSaturation + 0.02, 0, 0.70), 0.98, 0.88),
+    hsbCss(thirdHsl.h + 176, clampNumber(baseSaturation * 0.86, 0.36, 0.62), 0.96, 0.84)
   ]
 }
 
@@ -3878,8 +3878,8 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
       rotation: Math.round(random() * 360),
       driftX: index === 9 ? 0 : Math.round(-12 + random() * 24),
       driftY: index === 9 ? 0 : Math.round(-16 + random() * 32),
-      duration: 9 + random() * 9,
-      delay: -random() * 7,
+      duration: 5.8 + random() * 5.8,
+      delay: -random() * 4.6,
       tint: tints[index % tints.length],
       edgePinned: index === 9
     }
