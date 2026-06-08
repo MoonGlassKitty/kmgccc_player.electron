@@ -643,12 +643,12 @@ input {
 
 .now-playing-track-copy {
   position: absolute;
-  left: clamp(30px, 4vw, 64px);
+  left: calc(var(--sidebar-width, 82px) + 18px);
   bottom: clamp(24px, 5vh, 52px);
   z-index: 4;
   display: grid;
   gap: 7px;
-  max-width: min(460px, 42vw);
+  max-width: min(460px, calc(100vw - var(--sidebar-width, 82px) - 80px));
   text-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 
@@ -2218,7 +2218,18 @@ input {
 }
 
 .app-shell.now-playing-route .toolbar {
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.app-shell.now-playing-route .toolbar-left,
+.app-shell.now-playing-route .search-field {
   display: none;
+}
+
+.app-shell.now-playing-route .toolbar-right {
+  pointer-events: auto;
 }
 
 .fullscreen-lyrics-open .sidebar {

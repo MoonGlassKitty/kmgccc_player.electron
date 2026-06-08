@@ -2830,7 +2830,7 @@ const Toolbar = React.memo(function Toolbar({
           <CircleX size={17} className="search-clear" />
         </label>
         <button
-          className={`toolbar-circle toolbar-liquid-pad glass-panel ${isLyricsSidebarOpen ? 'active' : ''}`}
+          className={`toolbar-circle toolbar-liquid-pad toolbar-lyrics-button glass-panel ${isLyricsSidebarOpen ? 'active' : ''}`}
           type="button"
           aria-label="歌词"
           aria-pressed={isLyricsSidebarOpen}
