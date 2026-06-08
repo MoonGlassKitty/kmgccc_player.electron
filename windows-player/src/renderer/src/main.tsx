@@ -343,6 +343,35 @@ function albumArtworkFor(album?: Pick<HomeAlbumCard, 'artworkUrl'> | null): stri
   return album?.artworkUrl || albumArtwork
 }
 
+function storedBoolean(key: string, fallback: boolean): boolean {
+  try {
+    const value = window.localStorage.getItem(key)
+    if (value === 'true') return true
+    if (value === 'false') return false
+  } catch {
+    return fallback
+  }
+  return fallback
+}
+
+function storedVisualizerMode(): 'off' | 'led' | 'spectrum' {
+  try {
+    const value = window.localStorage.getItem('skin.classicLED.visualizerMode')
+    if (value === 'off' || value === 'led' || value === 'spectrum') return value
+  } catch {
+    return 'led'
+  }
+  return 'led'
+}
+
+function persistSetting(key: string, value: string | boolean): void {
+  try {
+    window.localStorage.setItem(key, String(value))
+  } catch {
+    // Settings still work for the current session if localStorage is unavailable.
+  }
+}
+
 function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<string, HomeAlbumCard>): React.CSSProperties {
   if (!track) {
     return {
@@ -1201,9 +1230,9 @@ function App(): React.ReactElement {
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [settingsCategory, setSettingsCategory] = React.useState<SettingsCategoryKey>('appearance')
   const [nowPlayingSettingsTab, setNowPlayingSettingsTab] = React.useState<NowPlayingSettingsTab>('general')
-  const [isNowPlayingArtBackgroundEnabled, setIsNowPlayingArtBackgroundEnabled] = React.useState(true)
-  const [nowPlayingVisualizerMode, setNowPlayingVisualizerMode] = React.useState<'off' | 'led' | 'spectrum'>('led')
-  const [isArtworkFrameMaskEnabled, setIsArtworkFrameMaskEnabled] = React.useState(true)
+  const [isNowPlayingArtBackgroundEnabled, setIsNowPlayingArtBackgroundEnabled] = React.useState(() => storedBoolean('nowPlayingArtBackgroundEnabled', true))
+  const [nowPlayingVisualizerMode, setNowPlayingVisualizerMode] = React.useState<'off' | 'led' | 'spectrum'>(() => storedVisualizerMode())
+  const [isArtworkFrameMaskEnabled, setIsArtworkFrameMaskEnabled] = React.useState(() => storedBoolean('skin.classicLED.artworkFrameMaskEnabled', true))
   const [artworkFrameIndex, setArtworkFrameIndex] = React.useState(0)
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
@@ -1266,6 +1295,18 @@ function App(): React.ReactElement {
     if (!currentTrack?.id) return
     setArtworkFrameIndex(hashString(currentTrack.id) % artworkFrameAssets.length)
   }, [currentTrack?.id])
+
+  React.useEffect(() => {
+    persistSetting('nowPlayingArtBackgroundEnabled', isNowPlayingArtBackgroundEnabled)
+  }, [isNowPlayingArtBackgroundEnabled])
+
+  React.useEffect(() => {
+    persistSetting('skin.classicLED.visualizerMode', nowPlayingVisualizerMode)
+  }, [nowPlayingVisualizerMode])
+
+  React.useEffect(() => {
+    persistSetting('skin.classicLED.artworkFrameMaskEnabled', isArtworkFrameMaskEnabled)
+  }, [isArtworkFrameMaskEnabled])
 
   React.useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth)
@@ -1353,6 +1394,7 @@ function App(): React.ReactElement {
     setRoute({ name: 'nowPlaying' })
   }, [])
   const openSettings = React.useCallback(() => {
+    setSettingsCategory('nowPlaying')
     setIsSettingsOpen(true)
   }, [])
   const importAudioFile = React.useCallback(async () => {
