@@ -1837,7 +1837,6 @@ function App(): React.ReactElement {
   }, [])
   const openNowPlaying = React.useCallback(() => {
     setRoute({ name: 'nowPlaying' })
-    setIsFullscreenLyricsOpen(true)
     setIsSidebarCollapsed(true)
   }, [])
   const openSettings = React.useCallback(() => {
@@ -2066,6 +2065,19 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     if (isFullscreenLyricsOpen) setIsSidebarCollapsed(true)
   }, [isFullscreenLyricsOpen])
+
+  React.useEffect(() => {
+    if (!isFullscreenLyricsOpen) return
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        setIsFullscreenLyricsOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isFullscreenLyricsOpen])
   const handleSidebarResizeStart = React.useCallback((event: React.PointerEvent) => {
     event.preventDefault()
     event.stopPropagation()
@@ -2193,7 +2205,7 @@ function App(): React.ReactElement {
       <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
       <LiquidGlassFilters />
       <div
-        className={`app-shell ${isSidebarVisuallyCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''}`}
+        className={`app-shell ${isSidebarVisuallyCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''} ${route.name === 'nowPlaying' ? 'now-playing-route' : ''}`}
         style={
           {
             '--sidebar-width': `${isSidebarVisuallyCollapsed ? 82 : adaptiveSidebarWidth}px`,

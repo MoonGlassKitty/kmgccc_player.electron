@@ -2207,6 +2207,20 @@ input {
   padding-bottom: 19px;
 }
 
+.app-shell.now-playing-route .sidebar {
+  --glass-alpha: 0;
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-shadow: transparent;
+  --glass-inner-shadow: transparent;
+  --glass-inner-highlight: transparent;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.app-shell.now-playing-route .toolbar {
+  display: none;
+}
+
 .fullscreen-lyrics-open .sidebar {
   --glass-alpha: 0;
   --glass-border: rgba(255, 255, 255, 0.16);
