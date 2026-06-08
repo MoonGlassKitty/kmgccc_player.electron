@@ -178,6 +178,18 @@ input {
   animation-play-state: paused;
 }
 
+.bk-art-surface.dot-exiting .bk-dot-surface {
+  animation: bkDotSurfaceExit 900ms ease-out forwards;
+}
+
+.bk-art-surface.dot-exiting .bk-shape-root {
+  animation: bkShapeHoldDuringDotExit 900ms ease-out forwards;
+}
+
+.bk-art-surface.previous.dot-exited {
+  opacity: 0;
+}
+
 .bk-image-surface,
 .bk-dot-surface {
   position: absolute;
@@ -1112,6 +1124,24 @@ input {
   to {
     -webkit-mask-position: 100% 0;
     mask-position: 100% 0;
+  }
+}
+
+@keyframes bkDotSurfaceExit {
+  from {
+    opacity: 1;
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    filter: blur(10px);
+  }
+}
+
+@keyframes bkShapeHoldDuringDotExit {
+  from,
+  to {
+    opacity: 1;
   }
 }
 

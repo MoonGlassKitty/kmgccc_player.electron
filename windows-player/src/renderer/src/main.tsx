@@ -3474,6 +3474,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const initialSurface = React.useMemo(() => makeBKSurfaceState(trackSeed, 0, null), [trackSeed])
   const [currentSurface, setCurrentSurface] = React.useState(initialSurface)
   const [previousSurface, setPreviousSurface] = React.useState<BKSurfaceState | null>(null)
+  const [isDotExiting, setIsDotExiting] = React.useState(false)
   const didMountRef = React.useRef(false)
 
   React.useEffect(() => {
@@ -3491,20 +3492,37 @@ const BKArtBackground = React.memo(function BKArtBackground({
       return
     }
     transitionSeedRef.current = 0
+    setIsDotExiting(false)
     setPreviousSurface((surface) => surface ?? currentSurface)
     setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image'))
   }, [trackSeed])
 
   React.useEffect(() => {
     if (!isPlaying) return
+    if (isDotExiting) return
     const delay = currentSurface.style === 'dot' ? 20000 : 15000
+    const timer = window.setTimeout(() => {
+      if (currentSurface.style === 'dot') {
+        setIsDotExiting(true)
+        return
+      }
+      transitionSeedRef.current += 1
+      setPreviousSurface(currentSurface)
+      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, 'dot'))
+    }, delay)
+    return () => window.clearTimeout(timer)
+  }, [currentSurface, isDotExiting, isPlaying, trackSeed])
+
+  React.useEffect(() => {
+    if (!isDotExiting) return
     const timer = window.setTimeout(() => {
       transitionSeedRef.current += 1
       setPreviousSurface(currentSurface)
-      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, currentSurface.style === 'dot' ? 'image' : 'dot'))
-    }, delay)
+      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, 'image'))
+      setIsDotExiting(false)
+    }, 900)
     return () => window.clearTimeout(timer)
-  }, [currentSurface, isPlaying, trackSeed])
+  }, [currentSurface, isDotExiting, trackSeed])
 
   const handleRevealEnd = React.useCallback(() => {
     setPreviousSurface(null)
@@ -3512,8 +3530,8 @@ const BKArtBackground = React.memo(function BKArtBackground({
 
   return (
     <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
-      {previousSurface ? <BKArtSurface surface={previousSurface} className="previous" isRunning={isPlaying} /> : null}
-      <BKArtSurface surface={currentSurface} className={previousSurface !== null ? 'current entering' : 'current'} isRunning={isPlaying} onRevealEnd={previousSurface ? handleRevealEnd : undefined} />
+      {previousSurface ? <BKArtSurface surface={previousSurface} className={`previous ${previousSurface.style === 'dot' && currentSurface.style === 'image' ? 'dot-exited' : ''}`} isRunning={isPlaying} /> : null}
+      <BKArtSurface surface={currentSurface} className={previousSurface !== null ? 'current entering' : `current ${isDotExiting ? 'dot-exiting' : ''}`} isRunning={isPlaying && !isDotExiting} onRevealEnd={previousSurface ? handleRevealEnd : undefined} />
     </div>
   )
 })
@@ -3522,6 +3540,7 @@ type BKSurfaceStyle = 'image' | 'dot'
 
 type BKSurfaceState = {
   seed: number
+  shapeSeed: number
   style: BKSurfaceStyle
   phaseOffset: number
 }
@@ -3531,6 +3550,7 @@ function makeBKSurfaceState(trackSeed: number, transitionIndex: number, forcedSt
   const style = forcedStyle ?? 'image'
   return {
     seed,
+    shapeSeed: trackSeed,
     style,
     phaseOffset: transitionIndex % bkBackgroundAssets.length
   }
@@ -3547,7 +3567,7 @@ const BKArtSurface = React.memo(function BKArtSurface({
   isRunning: boolean
   onRevealEnd?: () => void
 }): React.ReactElement {
-  const shapes = React.useMemo(() => makeBKShapePlan(surface.seed), [surface.seed])
+  const shapes = React.useMemo(() => makeBKShapePlan(surface.shapeSeed), [surface.shapeSeed])
   const phaseA = bkBackgroundAssets[(surface.phaseOffset + surface.seed) % bkBackgroundAssets.length]
   const phaseB = bkBackgroundAssets[(surface.phaseOffset + surface.seed + 1) % bkBackgroundAssets.length]
   return (
