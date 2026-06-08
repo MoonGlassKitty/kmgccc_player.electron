@@ -454,7 +454,12 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
       '--cover-accent-shadow': 'rgba(20, 24, 28, 0.08)',
       '--ambient-shape-1': 'rgba(110, 116, 123, 0.3)',
       '--ambient-shape-2': 'rgba(154, 158, 164, 0.24)',
-      '--ambient-shape-3': 'rgba(82, 87, 94, 0.18)'
+      '--ambient-shape-3': 'rgba(82, 87, 94, 0.18)',
+      '--bk-bg-tone-1': 'rgba(72, 82, 90, 0.62)',
+      '--bk-bg-tone-2': 'rgba(38, 48, 56, 0.72)',
+      '--bk-shape-tint-1': 'rgba(156, 168, 178, 0.88)',
+      '--bk-shape-tint-2': 'rgba(112, 126, 138, 0.84)',
+      '--bk-shape-tint-3': 'rgba(194, 200, 205, 0.78)'
     } as React.CSSProperties
   }
 
@@ -475,7 +480,12 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
     '--cover-accent-shadow': shadow,
     '--ambient-shape-1': ambient1,
     '--ambient-shape-2': ambient2,
-    '--ambient-shape-3': ambient3
+    '--ambient-shape-3': ambient3,
+    '--bk-bg-tone-1': accent,
+    '--bk-bg-tone-2': border,
+    '--bk-shape-tint-1': ambient1,
+    '--bk-shape-tint-2': ambient2,
+    '--bk-shape-tint-3': ambient3
   } as React.CSSProperties
 }
 
@@ -645,7 +655,12 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
     '--cover-accent-shadow': rgbaString(first, 0.1),
     '--ambient-shape-1': rgbaString(first, 0.54),
     '--ambient-shape-2': rgbaString(second, 0.5),
-    '--ambient-shape-3': rgbaString(third, 0.48)
+    '--ambient-shape-3': rgbaString(third, 0.48),
+    '--bk-bg-tone-1': rgbaString(first, 0.58),
+    '--bk-bg-tone-2': rgbaString(second, 0.42),
+    '--bk-shape-tint-1': rgbaString(boostThemeColor(first), 0.88),
+    '--bk-shape-tint-2': rgbaString(boostThemeColor(second), 0.82),
+    '--bk-shape-tint-3': rgbaString(boostThemeColor(third), 0.78)
   } as React.CSSProperties
 }
 
@@ -3048,12 +3063,9 @@ const BKArtBackground = React.memo(function BKArtBackground({
       </div>
       <div className="bk-shape-root">
         {shapes.map((shape) => (
-          <img
+          <span
             key={shape.id}
             className={`bk-shape ${shape.edgePinned ? 'edge-pinned' : ''}`}
-            src={bkShapeAssets[shape.assetIndex]}
-            alt=""
-            decoding="async"
             style={
               {
                 '--shape-x': `${shape.x}%`,
@@ -3064,7 +3076,9 @@ const BKArtBackground = React.memo(function BKArtBackground({
                 '--shape-drift-y': `${shape.driftY}px`,
                 '--shape-duration': `${shape.duration}s`,
                 '--shape-delay': `${shape.delay}s`,
-                '--shape-tint': shape.tint
+                '--shape-tint': shape.tint,
+                WebkitMaskImage: `url(${bkShapeAssets[shape.assetIndex]})`,
+                maskImage: `url(${bkShapeAssets[shape.assetIndex]})`
               } as React.CSSProperties
             }
           />
@@ -3125,10 +3139,10 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
   const random = mulberry32(seed ^ 0xa54f66d1)
   const count = 10 + Math.floor(random() * 7)
   const tints = [
-    'color-mix(in srgb, var(--cover-accent) 70%, rgba(255,255,255,0.92))',
-    'color-mix(in srgb, var(--cover-accent-text) 58%, rgba(255,255,255,0.84))',
-    'rgba(255, 255, 255, 0.72)',
-    'color-mix(in srgb, var(--ambient-shape-2) 72%, rgba(255,255,255,0.82))'
+    'var(--bk-shape-tint-1)',
+    'var(--bk-shape-tint-2)',
+    'var(--bk-shape-tint-3)',
+    'color-mix(in srgb, var(--bk-shape-tint-1) 66%, var(--bk-shape-tint-2))'
   ]
   return Array.from({ length: count }, (_, index) => {
     const edge = random()
