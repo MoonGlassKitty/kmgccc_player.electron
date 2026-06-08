@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Liquid Glass Block</title>
+    <style>
+      :root {
+        --glass-radius: 34px;
+        --glass-tint: rgba(255, 255, 255, 0.38);
+        --glass-border: rgba(255, 255, 255, 0.58);
+        --glass-shadow: rgba(16, 36, 52, 0.09);
+        --glass-inner-dark: rgba(0, 0, 0, 0.045);
+        --glass-inner-light: rgba(255, 255, 255, 0.34);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        color: rgba(14, 35, 48, 0.86);
+        background:
+          radial-gradient(circle at 18% 24%, rgba(77, 181, 238, 0.45), transparent 30%),
+          radial-gradient(circle at 80% 26%, rgba(255, 111, 160, 0.36), transparent 28%),
+          radial-gradient(circle at 68% 78%, rgba(117, 214, 186, 0.42), transparent 34%),
+          linear-gradient(135deg, #f7fbff 0%, #fdfdf9 100%);
+      }
+
+      .background-grid {
+        position: fixed;
+        inset: -8%;
+        background:
+          linear-gradient(rgba(15, 65, 90, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(15, 65, 90, 0.08) 1px, transparent 1px);
+        background-size: 46px 46px;
+        transform: rotate(-8deg) scale(1.08);
+      }
+
+      .ribbon {
+        position: fixed;
+        width: 760px;
+        height: 150px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(41, 151, 216, 0.24), rgba(255, 112, 170, 0.24));
+        filter: blur(2px);
+        transform: rotate(-18deg) translateY(38px);
+      }
+
+      .liquid-glass-def {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .glass-panel {
+        position: relative;
+        width: min(560px, calc(100vw - 48px));
+        min-height: 300px;
+        overflow: hidden;
+        border: 1px solid var(--glass-border);
+        border-radius: var(--glass-radius);
+        background: var(--glass-tint);
+        box-shadow:
+          0 22px 70px var(--glass-shadow),
+          0 1px 20px var(--glass-inner-dark) inset,
+          0 -1px 18px var(--glass-inner-light) inset;
+        isolation: isolate;
+      }
+
+      .glass-panel::before {
+        content: "";
+        position: absolute;
+        inset: 1px;
+        z-index: 0;
+        border-radius: calc(var(--glass-radius) - 1px);
+        background:
+          linear-gradient(110deg, rgba(255, 255, 255, 0.38), transparent 26%, transparent 72%, rgba(255, 255, 255, 0.18)),
+          radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.36), transparent 34%);
+        pointer-events: none;
+      }
+
+      .glass-panel::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        backdrop-filter: blur(22px) saturate(178%) url(#liquid-glass-distortion);
+        -webkit-backdrop-filter: blur(22px) saturate(178%) url(#liquid-glass-distortion);
+        pointer-events: none;
+      }
+
+      .glass-content {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        gap: 18px;
+        padding: 38px;
+      }
+
+      .glass-title {
+        margin: 0;
+        font-size: 34px;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .glass-copy {
+        max-width: 34ch;
+        margin: 0;
+        color: rgba(14, 35, 48, 0.62);
+        font-size: 16px;
+        line-height: 1.7;
+      }
+
+      .glass-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding-top: 12px;
+      }
+
+      .glass-pill {
+        height: 34px;
+        padding: 0 15px;
+        border: 1px solid rgba(255, 255, 255, 0.58);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.32);
+        box-shadow:
+          0 1px 9px rgba(14, 35, 48, 0.045),
+          0 1px 10px rgba(255, 255, 255, 0.26) inset;
+        color: rgba(14, 35, 48, 0.72);
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <svg class="liquid-glass-def" aria-hidden="true" focusable="false">
+      <defs>
+        <filter id="liquid-glass-distortion" color-interpolation-filters="sRGB" x="-12%" y="-12%" width="124%" height="124%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.008 0.018" numOctaves="2" seed="12" result="noise" />
+          <feGaussianBlur in="noise" stdDeviation="1.6" result="soft-noise" />
+          <feDisplacementMap in="SourceGraphic" in2="soft-noise" scale="18" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
+    </svg>
+
+    <div class="background-grid"></div>
+    <div class="ribbon"></div>
+
+    <section class="glass-panel" aria-label="Liquid Glass example">
+      <div class="glass-content">
+        <h1 class="glass-title">Liquid Glass</h1>
+        <p class="glass-copy">一块可直接复制的玻璃：背景模糊、轻微折射、白色高光、内阴影和细边框都在这个 HTML 里。</p>
+        <div class="glass-row" aria-hidden="true">
+          <span class="glass-pill">blur</span>
+          <span class="glass-pill">distortion</span>
+          <span class="glass-pill">inner light</span>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>
