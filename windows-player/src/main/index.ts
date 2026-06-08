@@ -40,6 +40,8 @@ type LocalAudioImport = {
   album: string
   albumId: string
   duration: number
+  discNumber?: number
+  trackNumber?: number
   sourcePath: string
   sourceUrl: string
   originalSourcePath?: string
@@ -596,6 +598,8 @@ async function localAudioImportFromPath(audioPath: string): Promise<LocalAudioIm
   let artist = filenameMetadata.artist
   let album = '未知专辑'
   let duration = 0
+  let discNumber: number | undefined
+  let trackNumber: number | undefined
   let artworkUrl: string | undefined
 
   try {
@@ -605,6 +609,8 @@ async function localAudioImportFromPath(audioPath: string): Promise<LocalAudioIm
     artist = metadata.common.artist?.trim() || artist
     album = metadata.common.album?.trim() || album
     duration = metadata.format.duration ? Math.round(metadata.format.duration) : 0
+    discNumber = positiveInteger(metadata.common.disk.no)
+    trackNumber = positiveInteger(metadata.common.track.no)
     const picture = selectCover(metadata.common.picture)
     if (picture) {
       artworkUrl = dataUrlForImage(picture.data, picture.format)
@@ -623,6 +629,8 @@ async function localAudioImportFromPath(audioPath: string): Promise<LocalAudioIm
     album,
     albumId: ids.albumId,
     duration,
+    discNumber,
+    trackNumber,
     sourcePath: audioPath,
     sourceUrl: mediaUrlForPath(audioPath),
     artworkUrl
@@ -636,6 +644,12 @@ function isUnknown(value: string): boolean {
 function upgradeArtworkUrl(rawUrl?: string): string | undefined {
   if (!rawUrl) return undefined
   return rawUrl.replace(/\/\d+x\d+bb\./, '/1000x1000bb.')
+}
+
+function positiveInteger(value: unknown): number | undefined {
+  const numberValue = Number(value)
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return undefined
+  return Math.round(numberValue)
 }
 
 function upgradeNetEaseArtworkUrl(rawUrl?: string): string | undefined {

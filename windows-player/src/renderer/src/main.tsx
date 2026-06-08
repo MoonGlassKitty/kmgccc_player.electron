@@ -69,6 +69,8 @@ type Track = {
   album: string
   albumId: string
   duration: number
+  discNumber?: number
+  trackNumber?: number
   artworkUrl?: string
   sourcePath?: string
   sourceUrl?: string
@@ -1165,7 +1167,7 @@ function tracksForRoute(route: DetailRoute, snapshot: HomeSnapshot): HomeTrack[]
     return snapshot.tracks.filter((track) => track.artistId === route.id)
   case 'albumDetail':
     if (route.id === 'all-albums') return snapshot.tracks
-    return snapshot.tracks.filter((track) => track.albumId === route.id)
+    return sortAlbumTracks(snapshot.tracks.filter((track) => track.albumId === route.id))
   case 'playlistDetail': {
     const playlist = snapshot.playlists.find((entry) => entry.id === route.id)
     if (!playlist) return []
@@ -1173,6 +1175,26 @@ function tracksForRoute(route: DetailRoute, snapshot: HomeSnapshot): HomeTrack[]
     return snapshot.tracks.filter((track) => trackIds.has(track.id))
   }
   }
+}
+
+function sortAlbumTracks(tracks: HomeTrack[]): HomeTrack[] {
+  return tracks
+    .map((track, index) => ({ track, index }))
+    .sort((left, right) => {
+      const leftDisc = left.track.discNumber ?? 1
+      const rightDisc = right.track.discNumber ?? 1
+      if (leftDisc !== rightDisc) return leftDisc - rightDisc
+
+      const leftTrack = left.track.trackNumber ?? Number.MAX_SAFE_INTEGER
+      const rightTrack = right.track.trackNumber ?? Number.MAX_SAFE_INTEGER
+      if (leftTrack !== rightTrack) return leftTrack - rightTrack
+
+      if (left.track.trackNumber === undefined && right.track.trackNumber === undefined) {
+        return left.index - right.index
+      }
+      return left.track.title.localeCompare(right.track.title, 'zh-Hans-CN') || left.index - right.index
+    })
+    .map((entry) => entry.track)
 }
 
 function detailArtwork(route: DetailRoute, snapshot: HomeSnapshot, albums: Map<string, HomeAlbumCard>): string {

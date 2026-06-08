@@ -9,6 +9,8 @@ declare global {
     album: string
     albumId: string
     duration: number
+    discNumber?: number
+    trackNumber?: number
     artworkUrl?: string
     sourcePath?: string
     sourceUrl?: string
