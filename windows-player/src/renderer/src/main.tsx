@@ -25,6 +25,7 @@ import {
   SkipBack,
   SkipForward,
   Square,
+  Sparkles,
   Sun,
   UserRound,
   Volume2,
@@ -501,6 +502,23 @@ type HslColor = {
   l: number
 }
 
+const lyricsFontWeightOptions = [
+  { label: '极细', value: 100 },
+  { label: '细', value: 300 },
+  { label: '常规', value: 400 },
+  { label: '半粗', value: 600 },
+  { label: '粗', value: 700 }
+]
+
+const lyricsFontFamilyOptions = [
+  'PingFang SC',
+  'Microsoft YaHei',
+  'SF Pro Text',
+  'Segoe UI Variable',
+  'Arial',
+  'Times New Roman'
+]
+
 const artworkThemeCache = new Map<string, React.CSSProperties>()
 
 function rgbToHsl({ r, g, b }: RgbColor): HslColor {
@@ -554,6 +572,40 @@ function boostThemeColor(color: RgbColor): RgbColor {
     s: clampNumber(hsl.s * 1.28 + 0.08, 0, 0.86),
     l: clampNumber(hsl.l * 0.94 + 0.05, 0.22, 0.72)
   })
+}
+
+function normalizeHue(hue: number): number {
+  return ((hue % 360) + 360) % 360
+}
+
+function hslCss(h: number, s: number, l: number, alpha: number): string {
+  return `hsla(${Math.round(normalizeHue(h))}, ${Math.round(clampNumber(s, 0, 1) * 100)}%, ${Math.round(clampNumber(l, 0, 1) * 100)}%, ${alpha})`
+}
+
+function harmonizedShapeTints(colors: RgbColor[]): [string, string, string] {
+  const firstHsl = rgbToHsl(colors[0])
+  const secondHsl = rgbToHsl(colors[1] ?? colors[0])
+  const thirdHsl = rgbToHsl(colors[2] ?? colors[1] ?? colors[0])
+  const avgS = (firstHsl.s + secondHsl.s + thirdHsl.s) / 3
+  const isNearGray = avgS < 0.18
+  if (isNearGray) {
+    return [
+      hslCss(188, 0.34, 0.72, 0.9),
+      hslCss(268, 0.28, 0.70, 0.86),
+      hslCss(156, 0.24, 0.74, 0.8)
+    ]
+  }
+
+  const primaryHue = firstHsl.h
+  const accentHue = Math.abs(normalizeHue(secondHsl.h - primaryHue)) > 26 ? secondHsl.h : normalizeHue(primaryHue + 58)
+  const inverseHue = normalizeHue(primaryHue + 180)
+  const baseLightness = clampNumber(firstHsl.l * 0.45 + 0.43, 0.52, 0.72)
+  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s) * 0.72 + 0.18, 0.42, 0.78)
+  return [
+    hslCss(primaryHue + 6, baseSaturation, baseLightness + 0.04, 0.9),
+    hslCss(accentHue - 4, clampNumber(baseSaturation + 0.1, 0, 0.82), baseLightness + 0.02, 0.86),
+    hslCss(inverseHue + 7, clampNumber(baseSaturation * 0.72, 0.34, 0.68), baseLightness + 0.08, 0.8)
+  ]
 }
 
 function rgbaString(color: RgbColor, alpha: number): string {
@@ -646,6 +698,9 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
   const second = colors[1] ?? colors[0]
   const third = colors[2] ?? colors[1] ?? colors[0]
   if (!first || !second || !third) return fallback
+  const shapeTints = harmonizedShapeTints([first, second, third])
+  const firstHsl = rgbToHsl(first)
+  const secondHsl = rgbToHsl(second)
 
   return {
     ...fallback,
@@ -656,11 +711,11 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
     '--ambient-shape-1': rgbaString(first, 0.54),
     '--ambient-shape-2': rgbaString(second, 0.5),
     '--ambient-shape-3': rgbaString(third, 0.48),
-    '--bk-bg-tone-1': rgbaString(first, 0.58),
-    '--bk-bg-tone-2': rgbaString(second, 0.42),
-    '--bk-shape-tint-1': rgbaString(boostThemeColor(first), 0.88),
-    '--bk-shape-tint-2': rgbaString(boostThemeColor(second), 0.82),
-    '--bk-shape-tint-3': rgbaString(boostThemeColor(third), 0.78)
+    '--bk-bg-tone-1': hslCss(firstHsl.h, clampNumber(firstHsl.s * 0.28, 0.04, 0.16), 0.992, 0.96),
+    '--bk-bg-tone-2': hslCss(secondHsl.h, clampNumber(secondHsl.s * 0.26, 0.04, 0.14), 0.968, 0.9),
+    '--bk-shape-tint-1': shapeTints[0],
+    '--bk-shape-tint-2': shapeTints[1],
+    '--bk-shape-tint-3': shapeTints[2]
   } as React.CSSProperties
 }
 
@@ -1331,11 +1386,18 @@ function App(): React.ReactElement {
   const [isCassetteKmgLookEnabled, setIsCassetteKmgLookEnabled] = React.useState(() => storedBoolean('skin.kmgcccCassette.showKmgLook', false))
   const [lyricsRenderQuality, setLyricsRenderQuality] = React.useState<'performance' | 'balanced' | 'quality'>(() => storedString('amllLyricsRenderQuality', 'balanced', ['performance', 'balanced', 'quality']))
   const [isDiscreteWordHighlightEnabled, setIsDiscreteWordHighlightEnabled] = React.useState(() => storedBoolean('amllDiscreteWordHighlightEnabled', false))
-  const [lyricsFontSize, setLyricsFontSize] = React.useState(() => storedNumber('lyricsFontSize', 26))
-  const [lyricsTranslationFontSize, setLyricsTranslationFontSize] = React.useState(() => storedNumber('lyricsTranslationFontSize', 16))
-  const [lyricsLeadInMs, setLyricsLeadInMs] = React.useState(() => storedNumber('lyricsLeadInMs', 600))
-  const [lyricsNearSwitchGapMs, setLyricsNearSwitchGapMs] = React.useState(() => storedNumber('lyricsNearSwitchGapMs', 160))
-  const [lyricsGlobalAdvanceMs, setLyricsGlobalAdvanceMs] = React.useState(() => storedNumber('lyricsGlobalAdvanceMs', 0))
+  const [lyricsFontSize, setLyricsFontSize] = React.useState(() => clampNumber(storedNumber('lyricsFontSize', 26), 16, 48))
+  const [lyricsTranslationFontSize, setLyricsTranslationFontSize] = React.useState(() => clampNumber(storedNumber('lyricsTranslationFontSize', 16), 12, 36))
+  const [lyricsFontWeightLight, setLyricsFontWeightLight] = React.useState(() => clampNumber(storedNumber('lyricsFontWeightLight', 600), 100, 700))
+  const [lyricsFontWeightDark, setLyricsFontWeightDark] = React.useState(() => clampNumber(storedNumber('lyricsFontWeightDark', 100), 100, 700))
+  const [lyricsTranslationFontWeightLight, setLyricsTranslationFontWeightLight] = React.useState(() => clampNumber(storedNumber('lyricsTranslationFontWeightLight', 400), 100, 700))
+  const [lyricsTranslationFontWeightDark, setLyricsTranslationFontWeightDark] = React.useState(() => clampNumber(storedNumber('lyricsTranslationFontWeightDark', 100), 100, 700))
+  const [lyricsFontNameZh, setLyricsFontNameZh] = React.useState(() => storedString('lyricsFontNameZh', 'PingFang SC', lyricsFontFamilyOptions))
+  const [lyricsFontNameEn, setLyricsFontNameEn] = React.useState(() => storedString('lyricsFontNameEn', 'SF Pro Text', lyricsFontFamilyOptions))
+  const [lyricsTranslationFontName, setLyricsTranslationFontName] = React.useState(() => storedString('lyricsTranslationFontName', 'PingFang SC', lyricsFontFamilyOptions))
+  const [lyricsLeadInMs, setLyricsLeadInMs] = React.useState(() => clampNumber(storedNumber('lyricsLeadInMs', 600), 0, 1200))
+  const [lyricsNearSwitchGapMs, setLyricsNearSwitchGapMs] = React.useState(() => clampNumber(storedNumber('lyricsNearSwitchGapMs', 160), 0, 500))
+  const [lyricsGlobalAdvanceMs, setLyricsGlobalAdvanceMs] = React.useState(() => clampNumber(storedNumber('lyricsGlobalAdvanceMs', 0), -1000, 1000))
   const [ledCount, setLedCount] = React.useState(() => storedNumber('ledCount', 11))
   const [ledBrightnessLevels, setLedBrightnessLevels] = React.useState(() => storedNumber('ledBrightnessLevels', 5))
   const [ledCutoffHz, setLedCutoffHz] = React.useState(() => storedNumber('ledCutoffHz', 1200))
@@ -1478,6 +1540,34 @@ function App(): React.ReactElement {
   }, [lyricsTranslationFontSize])
 
   React.useEffect(() => {
+    persistSetting('lyricsFontWeightLight', lyricsFontWeightLight)
+  }, [lyricsFontWeightLight])
+
+  React.useEffect(() => {
+    persistSetting('lyricsFontWeightDark', lyricsFontWeightDark)
+  }, [lyricsFontWeightDark])
+
+  React.useEffect(() => {
+    persistSetting('lyricsTranslationFontWeightLight', lyricsTranslationFontWeightLight)
+  }, [lyricsTranslationFontWeightLight])
+
+  React.useEffect(() => {
+    persistSetting('lyricsTranslationFontWeightDark', lyricsTranslationFontWeightDark)
+  }, [lyricsTranslationFontWeightDark])
+
+  React.useEffect(() => {
+    persistSetting('lyricsFontNameZh', lyricsFontNameZh)
+  }, [lyricsFontNameZh])
+
+  React.useEffect(() => {
+    persistSetting('lyricsFontNameEn', lyricsFontNameEn)
+  }, [lyricsFontNameEn])
+
+  React.useEffect(() => {
+    persistSetting('lyricsTranslationFontName', lyricsTranslationFontName)
+  }, [lyricsTranslationFontName])
+
+  React.useEffect(() => {
     persistSetting('lyricsLeadInMs', lyricsLeadInMs)
   }, [lyricsLeadInMs])
 
@@ -1612,21 +1702,22 @@ function App(): React.ReactElement {
     setImportSyncState({
       title: '准备导入',
       artist: '',
-      detail: '选择文件后开始导入；NCM 会先转换为本地可播放音频',
+      detail: '选择文件后开始导入；支持一次选择多首，NCM 会先转换为本地可播放音频',
       status: 'running',
       progress: 0.06,
       processedCount: 0,
       totalCount: 1
     })
 
-    let importedTrack: LocalAudioImport | null | undefined
+    let importedTracks: LocalAudioImport[] | null | undefined
     try {
-      importedTrack = await window.kmgccc?.importAudioFile()
+      const result = await window.kmgccc?.importAudioFiles()
+      importedTracks = result?.tracks
     } catch {
       setImportSyncState({
         title: '导入失败',
         artist: '',
-        detail: 'NCM 转换或音频导入失败',
+        detail: 'NCM 转换或音频批量导入失败',
         status: 'failed',
         progress: 1,
         processedCount: 0,
@@ -1635,60 +1726,59 @@ function App(): React.ReactElement {
       return
     }
 
-    if (!importedTrack) {
+    if (!importedTracks?.length) {
       setImportSyncState(null)
       return
     }
 
-    setHomeSnapshot((snapshot) => snapshotWithImportedTrack(snapshot, importedTrack))
-    setCurrentId(importedTrack.id)
+    importedTracks.forEach((track) => {
+      setHomeSnapshot((snapshot) => snapshotWithImportedTrack(snapshot, track))
+    })
+    setCurrentId(importedTracks[0].id)
     setRoute({ name: 'allTracks' })
     setPlaybackTime(0)
     setPlaybackDuration(0)
     setIsPlaying(true)
 
-    setImportSyncState({
-      title: importedTrack.title,
-      artist: importedTrack.artist,
-      detail: importedTrack.convertedFromNcm
-        ? `NCM 已转换为 ${importedTrack.conversionFormat?.toUpperCase() ?? 'MP3'}，正在补全歌词、歌曲信息、歌手信息、专辑信息`
-        : '正在补全歌词、歌曲信息、歌手信息、专辑信息',
-      status: 'running',
-      progress: importedTrack.convertedFromNcm ? 0.32 : 0.18,
-      processedCount: 0,
-      totalCount: 1
-    })
-
+    let completedCount = 0
     try {
-      const result = await window.kmgccc?.syncTrackInfo(importedTrack)
-      if (!result) throw new Error('sync unavailable')
-
-      setHomeSnapshot((snapshot) => snapshotWithSyncedTrack(snapshot, result))
-      setCurrentId(result.track.id)
-      const completedDetail = result.track.convertedFromNcm
-        ? `NCM 已转换为 ${result.track.conversionFormat?.toUpperCase() ?? 'MP3'}，${
-          result.statuses.lyrics === 'completed' ? '已补全歌曲信息、专辑信息与歌词' : '已补全可用的歌曲信息与专辑信息'
-        }`
-        : result.statuses.lyrics === 'completed' ? '已补全歌曲信息、专辑信息与歌词' : '已补全可用的歌曲信息与专辑信息'
+      for (const [index, importedTrack] of importedTracks.entries()) {
+        setImportSyncState({
+          title: importedTrack.title,
+          artist: importedTrack.artist,
+          detail: importedTrack.convertedFromNcm
+            ? `NCM 已转换为 ${importedTrack.conversionFormat?.toUpperCase() ?? 'MP3'}，正在补全歌词、歌曲信息、歌手信息、专辑信息`
+            : '正在补全歌词、歌曲信息、歌手信息、专辑信息',
+          status: 'running',
+          progress: (index + 0.24) / importedTracks.length,
+          processedCount: index,
+          totalCount: importedTracks.length
+        })
+        const result = await window.kmgccc?.syncTrackInfo(importedTrack)
+        if (!result) throw new Error('sync unavailable')
+        completedCount += 1
+        setHomeSnapshot((snapshot) => snapshotWithSyncedTrack(snapshot, result))
+        if (index === 0) setCurrentId(result.track.id)
+      }
       setImportSyncState({
-        title: result.track.title,
-        artist: result.track.artist,
-        detail: completedDetail,
+        title: importedTracks.length === 1 ? importedTracks[0].title : `已导入 ${importedTracks.length} 首歌曲`,
+        artist: importedTracks.length === 1 ? importedTracks[0].artist : '',
+        detail: '已补全可用的歌曲信息、专辑信息与歌词',
         status: 'completed',
         progress: 1,
-        processedCount: 1,
-        totalCount: 1
+        processedCount: completedCount,
+        totalCount: importedTracks.length
       })
       window.setTimeout(() => setImportSyncState(null), 1400)
     } catch {
       setImportSyncState({
-        title: importedTrack.title,
-        artist: importedTrack.artist,
+        title: importedTracks.length === 1 ? importedTracks[0].title : '批量导入',
+        artist: importedTracks.length === 1 ? importedTracks[0].artist : '',
         detail: '补全失败，已保留本地导入信息',
         status: 'failed',
         progress: 1,
-        processedCount: 1,
-        totalCount: 1
+        processedCount: completedCount,
+        totalCount: importedTracks.length
       })
     }
   }, [])
@@ -1975,6 +2065,20 @@ function App(): React.ReactElement {
             onLyricsFontSizeChange={setLyricsFontSize}
             lyricsTranslationFontSize={lyricsTranslationFontSize}
             onLyricsTranslationFontSizeChange={setLyricsTranslationFontSize}
+            lyricsFontWeightLight={lyricsFontWeightLight}
+            onLyricsFontWeightLightChange={setLyricsFontWeightLight}
+            lyricsFontWeightDark={lyricsFontWeightDark}
+            onLyricsFontWeightDarkChange={setLyricsFontWeightDark}
+            lyricsTranslationFontWeightLight={lyricsTranslationFontWeightLight}
+            onLyricsTranslationFontWeightLightChange={setLyricsTranslationFontWeightLight}
+            lyricsTranslationFontWeightDark={lyricsTranslationFontWeightDark}
+            onLyricsTranslationFontWeightDarkChange={setLyricsTranslationFontWeightDark}
+            lyricsFontNameZh={lyricsFontNameZh}
+            onLyricsFontNameZhChange={setLyricsFontNameZh}
+            lyricsFontNameEn={lyricsFontNameEn}
+            onLyricsFontNameEnChange={setLyricsFontNameEn}
+            lyricsTranslationFontName={lyricsTranslationFontName}
+            onLyricsTranslationFontNameChange={setLyricsTranslationFontName}
             lyricsLeadInMs={lyricsLeadInMs}
             onLyricsLeadInMsChange={setLyricsLeadInMs}
             lyricsNearSwitchGapMs={lyricsNearSwitchGapMs}
@@ -2135,7 +2239,7 @@ const ImportSyncCard = React.memo(function ImportSyncCard({
   const statusText = state.status === 'running' ? '进行中' : state.status === 'completed' ? '完成' : '失败'
   return (
     <div className="import-sync-backdrop no-drag">
-      <div className="import-sync-card glass-panel" style={{ '--filter-url': 'url(#lg-home-liquid)' } as React.CSSProperties}>
+      <div className="import-sync-card">
         <div className="import-sync-head">
           <h2>{state.status === 'running' ? '正在补全导入信息' : state.status === 'completed' ? '导入信息补全完成' : '导入信息补全失败'}</h2>
           <span>
@@ -2209,7 +2313,7 @@ const Toolbar = React.memo(function Toolbar({
             <Play size={20} fill="currentColor" />
           </button>
           <span className="toolbar-divider" />
-          <button type="button" aria-label="导入单曲" onClick={onImportAudioFile}>
+          <button type="button" aria-label="导入歌曲" onClick={onImportAudioFile}>
             <Plus size={22} />
           </button>
         </div>
@@ -3031,10 +3135,28 @@ const BKArtBackground = React.memo(function BKArtBackground({
   isPlaying: boolean
 }): React.ReactElement {
   const seed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
+  const [previousSeed, setPreviousSeed] = React.useState<number | null>(null)
+  const lastSeedRef = React.useRef(seed)
+  React.useEffect(() => {
+    if (lastSeedRef.current === seed) return
+    setPreviousSeed(lastSeedRef.current)
+    lastSeedRef.current = seed
+    const timer = window.setTimeout(() => setPreviousSeed(null), 960)
+    return () => window.clearTimeout(timer)
+  }, [seed])
+  return (
+    <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSeed !== null ? 'transitioning' : ''}`} aria-hidden="true">
+      {previousSeed !== null ? <BKArtSurface seed={previousSeed} className="previous" /> : null}
+      <BKArtSurface seed={seed} className={previousSeed !== null ? 'current entering' : 'current'} />
+    </div>
+  )
+})
+
+const BKArtSurface = React.memo(function BKArtSurface({ seed, className }: { seed: number; className: string }): React.ReactElement {
   const shapes = React.useMemo(() => makeBKShapePlan(seed), [seed])
   const dots = React.useMemo(() => makeBKDotPlan(seed), [seed])
   return (
-    <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'}`} aria-hidden="true">
+    <div className={`bk-art-surface ${className}`}>
       <div className="bk-image-surface">
         <div className="bk-image-phase phase-a" style={{ backgroundImage: `url(${bkBackgroundAssets[seed % bkBackgroundAssets.length]})` }} />
         <div className="bk-image-phase phase-b" style={{ backgroundImage: `url(${bkBackgroundAssets[(seed + 1) % bkBackgroundAssets.length]})` }} />
@@ -3281,6 +3403,20 @@ const SettingsPanel = React.memo(function SettingsPanel({
   onLyricsFontSizeChange,
   lyricsTranslationFontSize,
   onLyricsTranslationFontSizeChange,
+  lyricsFontWeightLight,
+  onLyricsFontWeightLightChange,
+  lyricsFontWeightDark,
+  onLyricsFontWeightDarkChange,
+  lyricsTranslationFontWeightLight,
+  onLyricsTranslationFontWeightLightChange,
+  lyricsTranslationFontWeightDark,
+  onLyricsTranslationFontWeightDarkChange,
+  lyricsFontNameZh,
+  onLyricsFontNameZhChange,
+  lyricsFontNameEn,
+  onLyricsFontNameEnChange,
+  lyricsTranslationFontName,
+  onLyricsTranslationFontNameChange,
   lyricsLeadInMs,
   onLyricsLeadInMsChange,
   lyricsNearSwitchGapMs,
@@ -3331,6 +3467,20 @@ const SettingsPanel = React.memo(function SettingsPanel({
   onLyricsFontSizeChange: (value: number) => void
   lyricsTranslationFontSize: number
   onLyricsTranslationFontSizeChange: (value: number) => void
+  lyricsFontWeightLight: number
+  onLyricsFontWeightLightChange: (value: number) => void
+  lyricsFontWeightDark: number
+  onLyricsFontWeightDarkChange: (value: number) => void
+  lyricsTranslationFontWeightLight: number
+  onLyricsTranslationFontWeightLightChange: (value: number) => void
+  lyricsTranslationFontWeightDark: number
+  onLyricsTranslationFontWeightDarkChange: (value: number) => void
+  lyricsFontNameZh: string
+  onLyricsFontNameZhChange: (value: string) => void
+  lyricsFontNameEn: string
+  onLyricsFontNameEnChange: (value: string) => void
+  lyricsTranslationFontName: string
+  onLyricsTranslationFontNameChange: (value: string) => void
   lyricsLeadInMs: number
   onLyricsLeadInMsChange: (value: number) => void
   lyricsNearSwitchGapMs: number
@@ -3348,7 +3498,7 @@ const SettingsPanel = React.memo(function SettingsPanel({
 }): React.ReactElement {
   return (
     <div className="settings-overlay no-drag">
-      <div className="settings-window glass-panel" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
+      <div className="settings-window">
         <aside className="settings-sidebar">
           {settingsCategories.map((category) => (
             <button
@@ -3400,6 +3550,20 @@ const SettingsPanel = React.memo(function SettingsPanel({
               onLyricsFontSizeChange={onLyricsFontSizeChange}
               lyricsTranslationFontSize={lyricsTranslationFontSize}
               onLyricsTranslationFontSizeChange={onLyricsTranslationFontSizeChange}
+              lyricsFontWeightLight={lyricsFontWeightLight}
+              onLyricsFontWeightLightChange={onLyricsFontWeightLightChange}
+              lyricsFontWeightDark={lyricsFontWeightDark}
+              onLyricsFontWeightDarkChange={onLyricsFontWeightDarkChange}
+              lyricsTranslationFontWeightLight={lyricsTranslationFontWeightLight}
+              onLyricsTranslationFontWeightLightChange={onLyricsTranslationFontWeightLightChange}
+              lyricsTranslationFontWeightDark={lyricsTranslationFontWeightDark}
+              onLyricsTranslationFontWeightDarkChange={onLyricsTranslationFontWeightDarkChange}
+              lyricsFontNameZh={lyricsFontNameZh}
+              onLyricsFontNameZhChange={onLyricsFontNameZhChange}
+              lyricsFontNameEn={lyricsFontNameEn}
+              onLyricsFontNameEnChange={onLyricsFontNameEnChange}
+              lyricsTranslationFontName={lyricsTranslationFontName}
+              onLyricsTranslationFontNameChange={onLyricsTranslationFontNameChange}
               lyricsLeadInMs={lyricsLeadInMs}
               onLyricsLeadInMsChange={onLyricsLeadInMsChange}
               lyricsNearSwitchGapMs={lyricsNearSwitchGapMs}
@@ -3460,6 +3624,20 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
   onLyricsFontSizeChange,
   lyricsTranslationFontSize,
   onLyricsTranslationFontSizeChange,
+  lyricsFontWeightLight,
+  onLyricsFontWeightLightChange,
+  lyricsFontWeightDark,
+  onLyricsFontWeightDarkChange,
+  lyricsTranslationFontWeightLight,
+  onLyricsTranslationFontWeightLightChange,
+  lyricsTranslationFontWeightDark,
+  onLyricsTranslationFontWeightDarkChange,
+  lyricsFontNameZh,
+  onLyricsFontNameZhChange,
+  lyricsFontNameEn,
+  onLyricsFontNameEnChange,
+  lyricsTranslationFontName,
+  onLyricsTranslationFontNameChange,
   lyricsLeadInMs,
   onLyricsLeadInMsChange,
   lyricsNearSwitchGapMs,
@@ -3507,6 +3685,20 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
   onLyricsFontSizeChange: (value: number) => void
   lyricsTranslationFontSize: number
   onLyricsTranslationFontSizeChange: (value: number) => void
+  lyricsFontWeightLight: number
+  onLyricsFontWeightLightChange: (value: number) => void
+  lyricsFontWeightDark: number
+  onLyricsFontWeightDarkChange: (value: number) => void
+  lyricsTranslationFontWeightLight: number
+  onLyricsTranslationFontWeightLightChange: (value: number) => void
+  lyricsTranslationFontWeightDark: number
+  onLyricsTranslationFontWeightDarkChange: (value: number) => void
+  lyricsFontNameZh: string
+  onLyricsFontNameZhChange: (value: string) => void
+  lyricsFontNameEn: string
+  onLyricsFontNameEnChange: (value: string) => void
+  lyricsTranslationFontName: string
+  onLyricsTranslationFontNameChange: (value: string) => void
   lyricsLeadInMs: number
   onLyricsLeadInMsChange: (value: number) => void
   lyricsNearSwitchGapMs: number
@@ -3526,7 +3718,7 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
   return (
     <div className="settings-now-playing">
       <header className="settings-header-label">
-        <Settings size={18} />
+        <Sparkles size={18} />
         <strong>窗口播放</strong>
       </header>
       <div className="settings-tabs">
@@ -3591,40 +3783,60 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
         </div>
       ) : selectedTab === 'lyrics' ? (
         <div className="settings-section-stack">
-          <div className="settings-card-section">
-            <strong>外观</strong>
+          <SettingsSection title="外观">
             <SettingsSegment
               title="歌词渲染质量"
               values={['performance', 'balanced', 'quality']}
-              labels={['性能', '均衡', '质量']}
+              labels={['低', '中', '高']}
               selected={lyricsRenderQuality}
               onSelect={(value) => onLyricsRenderQualityChange(value as 'performance' | 'balanced' | 'quality')}
             />
             <SettingsSwitch title="减弱高亮(beta)" detail="开启后可能减少高亮移动干扰" checked={discreteWordHighlightEnabled} onChange={onDiscreteWordHighlightEnabledChange} />
-          </div>
-          <div className="settings-card-section">
-            <strong>字体</strong>
-            <SettingsRange title="歌词字号" valueText={`${Math.round(lyricsFontSize)} px`} value={lyricsFontSize} min={16} max={48} step={1} onChange={onLyricsFontSizeChange} />
-            <SettingsRange title="翻译字号" valueText={`${Math.round(lyricsTranslationFontSize)} px`} value={lyricsTranslationFontSize} min={12} max={36} step={1} onChange={onLyricsTranslationFontSizeChange} />
-          </div>
-          <div className="settings-card-section lyrics-preview-settings-card">
-            <strong>预览</strong>
+          </SettingsSection>
+          <SettingsSection title="字体">
+            <SettingsRange title="字体大小" valueText={`${Math.round(lyricsFontSize)} px`} value={lyricsFontSize} min={16} max={48} step={1} onChange={onLyricsFontSizeChange} />
+            <SettingsSelect title="浅色模式字重" value={String(lyricsFontWeightLight)} options={lyricsFontWeightOptions.map((option) => ({ label: option.label, value: String(option.value) }))} onChange={(value) => onLyricsFontWeightLightChange(Number(value))} />
+            <SettingsSelect title="深色模式字重" value={String(lyricsFontWeightDark)} options={lyricsFontWeightOptions.map((option) => ({ label: option.label, value: String(option.value) }))} onChange={(value) => onLyricsFontWeightDarkChange(Number(value))} />
+            <div className="settings-divider" />
+            <SettingsRange title="翻译大小" valueText={`${Math.round(lyricsTranslationFontSize)} px`} value={lyricsTranslationFontSize} min={12} max={36} step={1} onChange={onLyricsTranslationFontSizeChange} />
+            <SettingsSelect title="翻译浅色字重" value={String(lyricsTranslationFontWeightLight)} options={lyricsFontWeightOptions.map((option) => ({ label: option.label, value: String(option.value) }))} onChange={(value) => onLyricsTranslationFontWeightLightChange(Number(value))} />
+            <SettingsSelect title="翻译深色字重" value={String(lyricsTranslationFontWeightDark)} options={lyricsFontWeightOptions.map((option) => ({ label: option.label, value: String(option.value) }))} onChange={(value) => onLyricsTranslationFontWeightDarkChange(Number(value))} />
+            <div className="settings-divider" />
+            <SettingsSelect title="中文字体" value={lyricsFontNameZh} options={lyricsFontFamilyOptions.map((font) => ({ label: font, value: font }))} onChange={onLyricsFontNameZhChange} wide />
+            <SettingsSelect title="英文字体" value={lyricsFontNameEn} options={lyricsFontFamilyOptions.map((font) => ({ label: font, value: font }))} onChange={onLyricsFontNameEnChange} wide />
+            <SettingsSelect title="翻译字体" value={lyricsTranslationFontName} options={lyricsFontFamilyOptions.map((font) => ({ label: font, value: font }))} onChange={onLyricsTranslationFontNameChange} wide />
+          </SettingsSection>
+          <SettingsSection title="预览">
             <div className="lyrics-settings-preview light">
-              <b style={{ fontSize: lyricsFontSize }}>窗边的光 慢慢落进耳机</b>
-              <span style={{ fontSize: lyricsTranslationFontSize }}>The light by the window slips into the headphones.</span>
+              <small>浅色模式预览</small>
+              <b style={{ fontSize: lyricsFontSize, fontWeight: lyricsFontWeightLight, fontFamily: `"${lyricsFontNameZh}", "${lyricsFontNameEn}", sans-serif` }}>雪把世界删改成更少的字</b>
+              <b className="preview-english" style={{ fontSize: lyricsFontSize, fontWeight: lyricsFontWeightLight, fontFamily: `"${lyricsFontNameEn}", sans-serif` }}>Snow edits the world into fewer words</b>
+              <span style={{ fontSize: lyricsTranslationFontSize, fontWeight: lyricsTranslationFontWeightLight, fontFamily: `"${lyricsTranslationFontName}", sans-serif` }}>时光像河流入海</span>
             </div>
             <div className="lyrics-settings-preview dark">
-              <b style={{ fontSize: lyricsFontSize }}>旧旋律在玻璃里折回去</b>
-              <span style={{ fontSize: lyricsTranslationFontSize }}>The old melody folds back through glass.</span>
+              <small>深色模式预览</small>
+              <b style={{ fontSize: lyricsFontSize, fontWeight: lyricsFontWeightDark, fontFamily: `"${lyricsFontNameZh}", "${lyricsFontNameEn}", sans-serif` }}>雪把世界删改成更少的字</b>
+              <b className="preview-english" style={{ fontSize: lyricsFontSize, fontWeight: lyricsFontWeightDark, fontFamily: `"${lyricsFontNameEn}", sans-serif` }}>Snow edits the world into fewer words</b>
+              <span style={{ fontSize: lyricsTranslationFontSize, fontWeight: lyricsTranslationFontWeightDark, fontFamily: `"${lyricsTranslationFontName}", sans-serif` }}>时光像河流入海</span>
             </div>
-          </div>
-          <div className="settings-card-section">
-            <strong>歌词时间</strong>
+          </SettingsSection>
+          <SettingsSection
+            title="时间轴"
+            action={
+              <button className="settings-text-action" type="button" onClick={() => {
+                onLyricsLeadInMsChange(600)
+                onLyricsNearSwitchGapMsChange(160)
+                onLyricsGlobalAdvanceMsChange(0)
+              }}>恢复默认值</button>
+            }
+          >
             <small className="settings-description">参数仅供调试，正常使用无需调整</small>
-            <SettingsRange title="提前入场" valueText={`${Math.round(lyricsLeadInMs)} ms`} value={lyricsLeadInMs} min={0} max={1200} step={20} onChange={onLyricsLeadInMsChange} />
-            <SettingsRange title="近距离切换间隔" valueText={`${Math.round(lyricsNearSwitchGapMs)} ms`} value={lyricsNearSwitchGapMs} min={0} max={500} step={5} onChange={onLyricsNearSwitchGapMsChange} />
-            <SettingsRange title="歌词整体提前量" valueText={`${Math.round(lyricsGlobalAdvanceMs)} ms`} value={lyricsGlobalAdvanceMs} min={-1000} max={1000} step={10} onChange={onLyricsGlobalAdvanceMsChange} />
-          </div>
+            <SettingsRange title="提前量" detail="调整歌词行首和行尾单词的出现时机。" valueText={`${Math.round(lyricsLeadInMs)} ms`} value={lyricsLeadInMs} min={0} max={1200} step={20} onChange={onLyricsLeadInMsChange} />
+            <div className="settings-divider" />
+            <SettingsRange title="紧邻切行阈值" detail="当下一句开始时间与当前句结束时间间隔小于该值时，会在提前量剩余时提前切到下一句，并让当前句快速隐退。" valueText={`${Math.round(lyricsNearSwitchGapMs)} ms`} value={lyricsNearSwitchGapMs} min={0} max={500} step={5} onChange={onLyricsNearSwitchGapMsChange} />
+            <div className="settings-divider" />
+            <SettingsRange title="歌词整体提前量" detail="全曲统一提前（正值=更早显示，负值=更晚显示）。会与单曲时间偏移共同作用。" valueText={`${Math.round(lyricsGlobalAdvanceMs)} ms`} value={lyricsGlobalAdvanceMs} min={-1000} max={1000} step={10} onChange={onLyricsGlobalAdvanceMsChange} />
+          </SettingsSection>
         </div>
       ) : (
         <div className="settings-section-stack">
@@ -3670,8 +3882,29 @@ const SettingsSwitch = React.memo(function SettingsSwitch({
   )
 })
 
+const SettingsSection = React.memo(function SettingsSection({
+  title,
+  action,
+  children
+}: {
+  title: string
+  action?: React.ReactNode
+  children: React.ReactNode
+}): React.ReactElement {
+  return (
+    <section className="settings-section">
+      <header>
+        <strong>{title}</strong>
+        {action}
+      </header>
+      <div className="settings-card-section">{children}</div>
+    </section>
+  )
+})
+
 const SettingsRange = React.memo(function SettingsRange({
   title,
+  detail,
   valueText,
   value,
   min,
@@ -3680,6 +3913,7 @@ const SettingsRange = React.memo(function SettingsRange({
   onChange
 }: {
   title: string
+  detail?: string
   valueText: string
   value: number
   min: number
@@ -3691,9 +3925,37 @@ const SettingsRange = React.memo(function SettingsRange({
     <label className="settings-range-row">
       <span>
         <strong>{title}</strong>
-        <small>{valueText}</small>
+        {detail ? <small>{detail}</small> : null}
       </span>
+      <em>{valueText}</em>
       <input type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange?.(Number(event.currentTarget.value))} />
+    </label>
+  )
+})
+
+const SettingsSelect = React.memo(function SettingsSelect({
+  title,
+  value,
+  options,
+  wide = false,
+  onChange
+}: {
+  title: string
+  value: string
+  options: Array<{ label: string; value: string }>
+  wide?: boolean
+  onChange?: (value: string) => void
+}): React.ReactElement {
+  return (
+    <label className={`settings-select-row ${wide ? 'wide' : ''}`}>
+      <strong>{title}</strong>
+      <select value={value} onChange={(event) => onChange?.(event.currentTarget.value)}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   )
 })

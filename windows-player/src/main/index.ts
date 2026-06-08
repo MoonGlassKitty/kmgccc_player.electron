@@ -120,6 +120,10 @@ type TrackMetadataSyncResult = {
   }
 }
 
+type AudioImportBatchResult = {
+  tracks: LocalAudioImport[]
+}
+
 type ItunesSearchResult = {
   trackName?: string
   artistName?: string
@@ -215,8 +219,21 @@ function upsertPersistedTrack(track: LocalAudioImport): void {
   savePersistedTracks(mergeTrackList([...loadPersistedTracks(), track]))
 }
 
+function upsertPersistedTracks(tracks: LocalAudioImport[]): void {
+  savePersistedTracks(mergeTrackList([...loadPersistedTracks(), ...tracks]))
+}
+
 function tracksForHomeSnapshot(): LocalAudioImport[] {
   return mergeTrackList([...(demoTracks as LocalAudioImport[]), ...loadPersistedTracks()])
+}
+
+async function importAudioFilesFromPaths(filePaths: string[]): Promise<AudioImportBatchResult> {
+  const tracks: LocalAudioImport[] = []
+  for (const filePath of filePaths) {
+    tracks.push(await localAudioImportFromPath(filePath))
+  }
+  upsertPersistedTracks(tracks)
+  return { tracks }
 }
 
 function albumsForTracks(tracks: LocalAudioImport[]) {
@@ -905,6 +922,21 @@ ipcMain.handle('library:import-audio-file', async (event): Promise<LocalAudioImp
   const importedTrack = await localAudioImportFromPath(result.filePaths[0])
   upsertPersistedTrack(importedTrack)
   return importedTrack
+})
+ipcMain.handle('library:import-audio-files', async (event): Promise<AudioImportBatchResult | null> => {
+  const owner = BrowserWindow.fromWebContents(event.sender)
+  const options: Electron.OpenDialogOptions = {
+    title: '批量导入歌曲',
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: '音频文件', extensions: ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg', 'opus', 'ncm'] },
+      { name: '网易云音乐 NCM', extensions: ['ncm'] },
+      { name: '所有文件', extensions: ['*'] }
+    ]
+  }
+  const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
+  if (result.canceled || result.filePaths.length === 0) return null
+  return importAudioFilesFromPaths(result.filePaths)
 })
 ipcMain.handle('library:sync-track-info', async (_event, track: LocalAudioImport): Promise<TrackMetadataSyncResult> => {
   const result = await syncTrackInfo(track)
