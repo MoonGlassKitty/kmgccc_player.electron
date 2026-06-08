@@ -4050,6 +4050,7 @@ function mulberry32(seed: number): () => number {
 function makeBKShapePlan(seed: number): BKShapePlan[] {
   const random = mulberry32(seed ^ 0xa54f66d1)
   const count = 10 + Math.floor(random() * 7)
+  const durationBands = [4.2, 6.8, 10.4, 15.6, 22.5, 8.4, 18.2]
   const tints = [
     'var(--bk-shape-tint-1)',
     'var(--bk-shape-tint-2)',
@@ -4061,6 +4062,8 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
     const x = edge < 0.25 ? 7 + random() * 12 : edge < 0.5 ? 81 + random() * 12 : 16 + random() * 68
     const y = edge >= 0.5 && edge < 0.75 ? 8 + random() * 14 : edge >= 0.75 ? 78 + random() * 14 : 12 + random() * 76
     const specialScale = index === 9 ? 3 : index === 10 ? 2 : 1
+    const baseDuration = durationBands[index % durationBands.length]
+    const duration = (baseDuration + random() * baseDuration * 0.32) * (specialScale > 1 ? 1.18 : 1)
     return {
       id: `shape-${index}`,
       assetIndex: index % bkShapeAssets.length,
@@ -4070,8 +4073,8 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
       rotation: Math.round(random() * 360),
       driftX: index === 9 ? 0 : Math.round(-12 + random() * 24),
       driftY: index === 9 ? 0 : Math.round(-16 + random() * 32),
-      duration: 5.8 + random() * 5.8,
-      delay: -random() * 4.6,
+      duration,
+      delay: -random() * duration,
       tint: tints[index % tints.length],
       edgePinned: index === 9
     }
