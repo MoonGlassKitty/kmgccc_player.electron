@@ -5187,25 +5187,34 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onSeek: (seconds: number) => void
 }): React.ReactElement {
   const [isQueueOpen, setIsQueueOpen] = React.useState(false)
+  const progressRailRef = React.useRef<HTMLDivElement | null>(null)
   const queueTracks = tracks.length ? tracks : [track]
   const safePlaybackDuration = Math.max(1, playbackDuration)
   const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
+  const handleProgressPointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const rail = progressRailRef.current
+    if (!rail) return
+    const rect = rail.getBoundingClientRect()
+    const ratio = rect.width > 0 ? clampNumber((event.clientX - rect.left) / rect.width, 0, 1) : 0
+    onSeek(ratio * safePlaybackDuration)
+  }, [onSeek, safePlaybackDuration])
 
   return (
     <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress': `${progress}%` } as React.CSSProperties}>
-      <div className="mini-progress-rail">
+      <div
+        className="mini-progress-rail"
+        ref={progressRailRef}
+        role="slider"
+        aria-label="播放进度"
+        aria-valuemax={safePlaybackDuration}
+        aria-valuemin={0}
+        aria-valuenow={Math.min(playbackTime, safePlaybackDuration)}
+        tabIndex={0}
+        onPointerDown={handleProgressPointerDown}
+      >
         <span className="mini-progress-line" aria-hidden="true" />
-        <input
-          aria-label="播放进度"
-          className="mini-progress-input"
-          max={safePlaybackDuration}
-          min={0}
-          step="0.1"
-          type="range"
-          value={Math.min(playbackTime, safePlaybackDuration)}
-          onInput={(event) => onSeek(Number(event.currentTarget.value))}
-          onChange={(event) => onSeek(Number(event.currentTarget.value))}
-        />
       </div>
       <button className="mini-track" type="button" aria-label="打开窗口播放" onClick={onOpenNowPlaying}>
         <img src={trackArtwork(track, albums)} alt="" decoding="async" />

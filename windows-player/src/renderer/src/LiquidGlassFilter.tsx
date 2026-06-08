@@ -424,17 +424,17 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
       />
       <LiquidGlassFilter
         id="lg-mini"
-        width={1024}
-        height={86}
-        radius={43}
+        width={717}
+        height={60}
+        radius={30}
         blur={3.3}
-        bezelWidth={38}
+        bezelWidth={27}
         glassThickness={92}
         refractiveIndex={1.3}
         scaleRatio={1}
         specularOpacity={1}
         specularSaturation={25}
-        specularWidth={60}
+        specularWidth={42}
         dpr={0.6}
       />
       <LiquidGlassFilter

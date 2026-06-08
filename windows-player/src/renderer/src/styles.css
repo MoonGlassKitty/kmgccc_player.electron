@@ -3544,13 +3544,13 @@ input {
   left: calc(var(--sidebar-width) + ((100% - var(--sidebar-width) - var(--lyrics-width)) / 2));
   z-index: var(--layer-floating-glass);
   display: grid;
-  grid-template-columns: minmax(205px, 304px) 51px 166px 74px minmax(131px, 189px);
+  grid-template-columns: minmax(130px, 165px) 40px 132px 58px minmax(150px, 170px);
   align-items: center;
-  gap: 16px;
-  width: clamp(672px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - 48px), 1024px);
-  height: 86px;
-  padding: 11px 26px;
-  border-radius: 43px;
+  gap: 14px;
+  width: clamp(620px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - 48px), 717px);
+  height: 60px;
+  padding: 8px 18px;
+  border-radius: 30px;
   --glass-alpha: 0.28;
   --glass-shadow: rgba(12, 33, 48, 0.0525);
   overflow: visible;
@@ -3573,8 +3573,8 @@ input {
   z-index: 0;
   width: var(--mini-player-progress, 0%);
   max-width: calc(100% - 2px);
-  border-radius: 42px 16px 16px 42px;
-  background: rgba(255, 255, 255, 0.22);
+  border-radius: 29px 12px 12px 29px;
+  background: color-mix(in srgb, var(--cover-accent-text) 48%, transparent);
   opacity: 0;
   pointer-events: none;
   transition:
@@ -3595,6 +3595,7 @@ input {
   height: 42px;
   pointer-events: auto;
   contain: layout style;
+  touch-action: none;
 }
 
 .mini-progress-line {
@@ -3609,32 +3610,22 @@ input {
   pointer-events: none;
 }
 
-.mini-progress-input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  cursor: pointer;
-  opacity: 0;
-}
-
 .mini-track {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 45px minmax(0, 1fr);
   align-items: center;
-  gap: 16px;
+  gap: 11px;
   min-width: 0;
   padding: 0;
-  border-radius: 19px;
+  border-radius: 13px;
   background: transparent;
   text-align: left;
 }
 
 .mini-queue-button {
   display: grid;
-  width: 51px;
-  height: 51px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.36);
@@ -3654,8 +3645,8 @@ input {
 
 .mini-queue-button svg,
 .mode-button svg {
-  width: 29px;
-  height: 29px;
+  width: 20px;
+  height: 20px;
 }
 
 .mini-queue-popover {
@@ -3779,9 +3770,9 @@ input {
 }
 
 .mini-track img {
-  width: 64px;
-  height: 64px;
-  border-radius: 11px;
+  width: 45px;
+  height: 45px;
+  border-radius: 8px;
   object-fit: cover;
 }
 
@@ -3795,28 +3786,28 @@ input {
 
 .mini-track strong {
   color: #0b2a3c;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 820;
 }
 
 .mini-track span {
-  margin-top: 5px;
+  margin-top: 3px;
   color: rgba(11, 42, 60, 0.54);
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 660;
 }
 
 .mini-controls {
   display: flex;
   justify-content: center;
-  gap: 19px;
+  gap: 15px;
 }
 
 .mini-controls button,
 .mode-button {
   display: grid;
-  width: 48px;
-  height: 48px;
+  width: 34px;
+  height: 34px;
   place-items: center;
   border-radius: 50%;
   background: transparent;
@@ -3824,13 +3815,13 @@ input {
 }
 
 .mini-controls button svg {
-  width: 30px;
-  height: 30px;
+  width: 21px;
+  height: 21px;
 }
 
 .mode-button {
-  width: 74px;
-  border-radius: 24px;
+  width: 58px;
+  border-radius: 17px;
   background: rgba(92, 184, 219, 0.28);
   box-shadow:
     0 0 0 1px rgba(31, 132, 174, 0.14) inset,
@@ -3855,16 +3846,16 @@ input {
 .volume-track {
   position: relative;
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 17px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   color: rgba(27, 58, 74, 0.58);
   min-width: 0;
 }
 
 .volume-track > svg {
-  width: 24px;
-  height: 24px;
+  width: 17px;
+  height: 17px;
 }
 
 .liquid-slider {
@@ -3939,10 +3930,10 @@ input {
 }
 
 .volume-liquid-slider {
-  --liquid-slider-track-height: 6px;
-  --liquid-slider-thumb-width: 36px;
-  --liquid-slider-thumb-height: 24px;
-  --liquid-slider-thumb-radius: 12px;
+  --liquid-slider-track-height: 4px;
+  --liquid-slider-thumb-width: 24px;
+  --liquid-slider-thumb-height: 16px;
+  --liquid-slider-thumb-radius: 8px;
 }
 
 .lyrics-pane {
