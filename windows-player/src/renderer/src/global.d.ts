@@ -34,6 +34,7 @@ declare global {
     artistMetadataSource?: string
     artistMetadataFetchedAt?: string
     artistMetadataConfidence?: number
+    artistArtworkUrl?: string
     albumDescription?: string
     albumReleaseYear?: number
     albumReleaseDate?: string
@@ -45,6 +46,7 @@ declare global {
     albumMetadataSource?: string
     albumMetadataFetchedAt?: string
     albumMetadataConfidence?: number
+    albumArtworkUrl?: string
   }
 
   type HomeArtistCard = {
@@ -61,6 +63,7 @@ declare global {
     metadataSource?: string
     metadataFetchedAt?: string
     metadataConfidence?: number
+    customArtworkUrl?: string
   }
 
   type HomeAlbumCard = {
@@ -81,6 +84,7 @@ declare global {
     metadataSource?: string
     metadataFetchedAt?: string
     metadataConfidence?: number
+    customArtworkUrl?: string
   }
 
   type HomePlaylistCard = {

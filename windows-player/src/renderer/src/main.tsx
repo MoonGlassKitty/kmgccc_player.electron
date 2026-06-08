@@ -109,6 +109,7 @@ type Track = {
   artistMetadataSource?: string
   artistMetadataFetchedAt?: string
   artistMetadataConfidence?: number
+  artistArtworkUrl?: string
   albumDescription?: string
   albumReleaseYear?: number
   albumReleaseDate?: string
@@ -120,6 +121,7 @@ type Track = {
   albumMetadataSource?: string
   albumMetadataFetchedAt?: string
   albumMetadataConfidence?: number
+  albumArtworkUrl?: string
 }
 
 type ImportSyncState = {
@@ -2101,6 +2103,7 @@ function App(): React.ReactElement {
         title: values.title?.trim() || dialog.track.title,
         artist: values.artist?.trim() || dialog.track.artist,
         album: values.album?.trim() || dialog.track.album,
+        artworkUrl: values.artworkUrl ?? dialog.track.artworkUrl,
         discNumber: values.discNumber ? Number(values.discNumber) : undefined,
         trackNumber: values.trackNumber ? Number(values.trackNumber) : undefined,
         lyricsText: values.lyricsText,
@@ -2130,7 +2133,8 @@ function App(): React.ReactElement {
         qqMusicAlbumMid: values.qqMusicAlbumMid?.trim() || '',
         metadataSource: values.metadataSource?.trim() || dialog.album.metadataSource || '',
         metadataFetchedAt: values.metadataFetchedAt?.trim() || dialog.album.metadataFetchedAt || '',
-        metadataConfidence: values.metadataConfidence ? Number(values.metadataConfidence) : dialog.album.metadataConfidence
+        metadataConfidence: values.metadataConfidence ? Number(values.metadataConfidence) : dialog.album.metadataConfidence,
+        artworkUrl: values.artworkUrl ?? dialog.album.customArtworkUrl ?? dialog.album.artworkUrl ?? ''
       })
     } else if (dialog.kind === 'editArtist') {
       snapshot = await window.kmgccc?.updateArtist(dialog.artist.id, {
@@ -2142,7 +2146,8 @@ function App(): React.ReactElement {
         qqMusicSingerMid: values.qqMusicSingerMid?.trim() || '',
         metadataSource: values.metadataSource?.trim() || dialog.artist.metadataSource || '',
         metadataFetchedAt: values.metadataFetchedAt?.trim() || dialog.artist.metadataFetchedAt || '',
-        metadataConfidence: values.metadataConfidence ? Number(values.metadataConfidence) : dialog.artist.metadataConfidence
+        metadataConfidence: values.metadataConfidence ? Number(values.metadataConfidence) : dialog.artist.metadataConfidence,
+        artworkUrl: values.artworkUrl ?? dialog.artist.customArtworkUrl ?? dialog.artist.artworkUrl ?? ''
       })
     } else if (dialog.kind === 'editPlaylist') {
       snapshot = await window.kmgccc?.updatePlaylist(dialog.playlist.id, values.name?.trim() || dialog.playlist.name)
@@ -2570,6 +2575,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
         metadataSource: state.track.metadataSource ?? '',
         metadataFetchedAt: state.track.metadataFetchedAt ?? '',
         metadataConfidence: state.track.metadataConfidence ? String(state.track.metadataConfidence) : '',
+        artworkUrl: state.track.artworkUrl ?? '',
         discNumber: state.track.discNumber ? String(state.track.discNumber) : '',
         trackNumber: state.track.trackNumber ? String(state.track.trackNumber) : '',
         lyricsText: state.track.syncedLyrics ?? state.track.lyricsText ?? '',
@@ -2590,7 +2596,8 @@ const LibraryDialog = React.memo(function LibraryDialog({
         qqMusicAlbumMid: state.album.qqMusicAlbumMid ?? '',
         metadataSource: state.album.metadataSource ?? '',
         metadataFetchedAt: state.album.metadataFetchedAt ?? '',
-        metadataConfidence: state.album.metadataConfidence ? String(state.album.metadataConfidence) : ''
+        metadataConfidence: state.album.metadataConfidence ? String(state.album.metadataConfidence) : '',
+        artworkUrl: state.album.customArtworkUrl ?? state.album.artworkUrl ?? ''
       } as Record<string, string>
     }
     if (state.kind === 'editArtist') {
@@ -2603,7 +2610,8 @@ const LibraryDialog = React.memo(function LibraryDialog({
         qqMusicSingerMid: state.artist.qqMusicSingerMid ?? '',
         metadataSource: state.artist.metadataSource ?? '',
         metadataFetchedAt: state.artist.metadataFetchedAt ?? '',
-        metadataConfidence: state.artist.metadataConfidence ? String(state.artist.metadataConfidence) : ''
+        metadataConfidence: state.artist.metadataConfidence ? String(state.artist.metadataConfidence) : '',
+        artworkUrl: state.artist.customArtworkUrl ?? state.artist.artworkUrl ?? ''
       } as Record<string, string>
     }
     if (state.kind === 'editPlaylist') return { name: state.playlist.name } as Record<string, string>
@@ -2648,7 +2656,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
           <p className="library-dialog-message">{detail}</p>
         ) : state.kind === 'editTrack' ? (
           <div className="library-dialog-form metadata-sheet-body">
-            <MetadataArtworkSection title="插图" artworkUrl={state.track.artworkUrl} hasArtwork={Boolean(state.track.artworkUrl)} removeLabel="移除插图" />
+            <MetadataArtworkSection title="插图" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} removeLabel="移除插图" onArtworkChange={(url) => update('artworkUrl', url)} />
             <MetadataSectionTitle icon={<Info size={16} />} title="元数据" />
             <LibraryDialogField label="歌曲标题" value={values.title ?? ''} onChange={(value) => update('title', value)} />
             <LibraryDialogField label="艺人" value={values.artist ?? ''} onChange={(value) => update('artist', value)} />
@@ -2667,7 +2675,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
           </div>
         ) : state.kind === 'editAlbum' ? (
           <div className="library-dialog-form metadata-sheet-body">
-            <MetadataArtworkSection title="封面" artworkUrl={state.album.artworkUrl} hasArtwork={Boolean(state.album.artworkUrl)} generateLabel="使用歌曲封面" />
+            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="使用歌曲封面" fallbackArtworkUrl={state.album.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} />
             <LibraryDialogField label="专辑名称" value={values.title ?? ''} onChange={(value) => update('title', value)} />
             <LibraryDialogField label="介绍" multiline placeholder="添加专辑介绍..." value={values.description ?? ''} onChange={(value) => update('description', value)} />
             <LibraryDialogField label="发行年份" value={values.releaseYear ?? ''} onChange={(value) => update('releaseYear', value)} />
@@ -2692,7 +2700,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
           </div>
         ) : state.kind === 'editArtist' ? (
           <div className="library-dialog-form metadata-sheet-body">
-            <MetadataArtworkSection title="封面" artworkUrl={state.artist.artworkUrl} hasArtwork={Boolean(state.artist.artworkUrl)} generateLabel="生成封面" />
+            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="生成封面" fallbackArtworkUrl={state.artist.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} />
             <LibraryDialogField label="艺人名称" value={values.name ?? ''} onChange={(value) => update('name', value)} />
             <LibraryDialogField label="介绍" multiline value={values.description ?? ''} onChange={(value) => update('description', value)} />
             <LibraryDialogField label="流派 / 标签" placeholder="用逗号分隔" value={values.genreTags ?? ''} onChange={(value) => update('genreTags', value)} />
@@ -2763,14 +2771,30 @@ function MetadataArtworkSection({
   artworkUrl,
   hasArtwork,
   generateLabel,
-  removeLabel
+  removeLabel,
+  fallbackArtworkUrl,
+  onArtworkChange
 }: {
   title: string
   artworkUrl?: string
   hasArtwork: boolean
   generateLabel?: string
   removeLabel?: string
+  fallbackArtworkUrl?: string
+  onArtworkChange: (url: string) => void
 }): React.ReactElement {
+  const inputRef = React.useRef<HTMLInputElement | null>(null)
+  const handleFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.addEventListener('load', () => {
+      if (typeof reader.result === 'string') onArtworkChange(reader.result)
+    })
+    reader.readAsDataURL(file)
+    event.currentTarget.value = ''
+  }, [onArtworkChange])
+
   return (
     <section className="metadata-artwork-section">
       <MetadataSectionTitle icon={<ImageIcon size={17} />} title={title} />
@@ -2779,10 +2803,11 @@ function MetadataArtworkSection({
           {artworkUrl ? <img src={artworkUrl} alt="" decoding="async" /> : <ImageIcon size={36} />}
         </div>
         <div className="metadata-artwork-actions">
-          <button className="metadata-pill-button" type="button"><Upload size={14} />选择图片</button>
+          <input ref={inputRef} className="metadata-artwork-file" type="file" accept="image/*" onChange={handleFileChange} />
+          <button className="metadata-pill-button" type="button" onClick={() => inputRef.current?.click()}><Upload size={14} />选择图片</button>
           <button className="metadata-pill-button" type="button"><Search size={14} />查找封面</button>
-          {generateLabel ? <button className="metadata-pill-button" type="button"><Sparkles size={14} />{generateLabel}</button> : null}
-          {hasArtwork && removeLabel ? <button className="metadata-pill-button" type="button"><Trash2 size={14} />{removeLabel}</button> : null}
+          {generateLabel ? <button className="metadata-pill-button" type="button" onClick={() => onArtworkChange(fallbackArtworkUrl || '')}><Sparkles size={14} />{generateLabel}</button> : null}
+          {hasArtwork && removeLabel ? <button className="metadata-pill-button" type="button" onClick={() => onArtworkChange('')}><Trash2 size={14} />{removeLabel}</button> : null}
         </div>
       </div>
     </section>

@@ -69,6 +69,7 @@ type LocalAudioImport = {
   artistMetadataSource?: string
   artistMetadataFetchedAt?: string
   artistMetadataConfidence?: number
+  artistArtworkUrl?: string
   albumDescription?: string
   albumReleaseYear?: number
   albumReleaseDate?: string
@@ -80,6 +81,7 @@ type LocalAudioImport = {
   albumMetadataSource?: string
   albumMetadataFetchedAt?: string
   albumMetadataConfidence?: number
+  albumArtworkUrl?: string
 }
 
 type PersistedLibrary = {
@@ -326,12 +328,13 @@ function albumsForTracks(tracks: LocalAudioImport[]) {
     metadataSource?: string
     metadataFetchedAt?: string
     metadataConfidence?: number
+    customArtworkUrl?: string
   }>()
   tracks.forEach((track) => {
     const existing = albums.get(track.albumId)
     if (existing) {
       existing.trackCount += 1
-      existing.artworkUrl ||= track.artworkUrl
+      existing.artworkUrl ||= track.albumArtworkUrl || track.artworkUrl
       return
     }
     albums.set(track.albumId, {
@@ -339,7 +342,7 @@ function albumsForTracks(tracks: LocalAudioImport[]) {
       title: track.album,
       artist: track.artist,
       artistId: track.artistId,
-      artworkUrl: track.artworkUrl,
+      artworkUrl: track.albumArtworkUrl || track.artworkUrl,
       trackCount: 1,
       description: track.albumDescription,
       releaseYear: track.albumReleaseYear,
@@ -351,7 +354,8 @@ function albumsForTracks(tracks: LocalAudioImport[]) {
       qqMusicAlbumMid: track.qqMusicAlbumMid,
       metadataSource: track.albumMetadataSource,
       metadataFetchedAt: track.albumMetadataFetchedAt,
-      metadataConfidence: track.albumMetadataConfidence
+      metadataConfidence: track.albumMetadataConfidence,
+      customArtworkUrl: track.albumArtworkUrl
     })
   })
   return Array.from(albums.values())
@@ -372,19 +376,20 @@ function artistsForTracks(tracks: LocalAudioImport[]) {
     metadataSource?: string
     metadataFetchedAt?: string
     metadataConfidence?: number
+    customArtworkUrl?: string
   }>()
   tracks.forEach((track) => {
     const existing = artists.get(track.artistId)
     if (existing) {
       existing.trackCount += 1
       existing.albumIds.add(track.albumId)
-      existing.artworkUrl ||= track.artworkUrl
+      existing.artworkUrl ||= track.artistArtworkUrl || track.artworkUrl
       return
     }
     artists.set(track.artistId, {
       id: track.artistId,
       name: track.artist,
-      artworkUrl: track.artworkUrl,
+      artworkUrl: track.artistArtworkUrl || track.artworkUrl,
       trackCount: 1,
       albumIds: new Set([track.albumId]),
       description: track.artistDescription,
@@ -394,7 +399,8 @@ function artistsForTracks(tracks: LocalAudioImport[]) {
       qqMusicSingerMid: track.qqMusicSingerMid,
       metadataSource: track.artistMetadataSource,
       metadataFetchedAt: track.artistMetadataFetchedAt,
-      metadataConfidence: track.artistMetadataConfidence
+      metadataConfidence: track.artistMetadataConfidence,
+      customArtworkUrl: track.artistArtworkUrl
     })
   })
   return Array.from(artists.values()).map((artist) => ({
@@ -410,7 +416,8 @@ function artistsForTracks(tracks: LocalAudioImport[]) {
     qqMusicSingerMid: artist.qqMusicSingerMid,
     metadataSource: artist.metadataSource,
     metadataFetchedAt: artist.metadataFetchedAt,
-    metadataConfidence: artist.metadataConfidence
+    metadataConfidence: artist.metadataConfidence,
+    customArtworkUrl: artist.customArtworkUrl
   }))
 }
 
@@ -1361,7 +1368,8 @@ ipcMain.handle('library:update-album', (_event, albumId: string, values: Record<
       qqMusicAlbumMid: typeof values.qqMusicAlbumMid === 'string' ? values.qqMusicAlbumMid.trim() : track.qqMusicAlbumMid,
       albumMetadataSource: typeof values.metadataSource === 'string' ? values.metadataSource.trim() : track.albumMetadataSource,
       albumMetadataFetchedAt: typeof values.metadataFetchedAt === 'string' ? values.metadataFetchedAt.trim() : track.albumMetadataFetchedAt,
-      albumMetadataConfidence: typeof values.metadataConfidence === 'number' && Number.isFinite(values.metadataConfidence) ? values.metadataConfidence : track.albumMetadataConfidence
+      albumMetadataConfidence: typeof values.metadataConfidence === 'number' && Number.isFinite(values.metadataConfidence) ? values.metadataConfidence : track.albumMetadataConfidence,
+      albumArtworkUrl: typeof values.artworkUrl === 'string' ? values.artworkUrl : track.albumArtworkUrl
     }
   })
   savePersistedLibrary({ tracks, playlists: library.playlists })
@@ -1385,7 +1393,8 @@ ipcMain.handle('library:update-artist', (_event, artistId: string, values: Recor
       qqMusicSingerMid: typeof values.qqMusicSingerMid === 'string' ? values.qqMusicSingerMid.trim() : track.qqMusicSingerMid,
       artistMetadataSource: typeof values.metadataSource === 'string' ? values.metadataSource.trim() : track.artistMetadataSource,
       artistMetadataFetchedAt: typeof values.metadataFetchedAt === 'string' ? values.metadataFetchedAt.trim() : track.artistMetadataFetchedAt,
-      artistMetadataConfidence: typeof values.metadataConfidence === 'number' && Number.isFinite(values.metadataConfidence) ? values.metadataConfidence : track.artistMetadataConfidence
+      artistMetadataConfidence: typeof values.metadataConfidence === 'number' && Number.isFinite(values.metadataConfidence) ? values.metadataConfidence : track.artistMetadataConfidence,
+      artistArtworkUrl: typeof values.artworkUrl === 'string' ? values.artworkUrl : track.artistArtworkUrl
     }
   })
   savePersistedLibrary({ tracks, playlists: library.playlists })

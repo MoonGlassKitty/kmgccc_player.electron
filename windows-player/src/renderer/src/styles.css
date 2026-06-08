@@ -2036,6 +2036,10 @@ input {
   gap: 8px;
 }
 
+.metadata-artwork-file {
+  display: none;
+}
+
 .metadata-pill-button,
 .metadata-token-row button,
 .metadata-lyrics-head a {
