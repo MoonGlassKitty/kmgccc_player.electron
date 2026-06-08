@@ -277,23 +277,51 @@ input {
 
 .now-playing-led-pill {
   gap: 7px;
-  min-width: 184px;
-  height: 42px;
-  padding: 0 24px;
+  min-width: 222px;
+  height: 44px;
+  padding: 0 14px;
   border-radius: 999px;
 }
 
+.now-playing-status-led,
 .now-playing-led-dot {
   width: 12px;
   height: 12px;
   border-radius: 999px;
+}
+
+.now-playing-status-led {
+  flex: 0 0 auto;
   background:
-    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, calc(0.26 + var(--led-brightness) * 0.54)), transparent 52%),
-    color-mix(in srgb, var(--cover-accent-text) calc(24% + var(--led-brightness) * 58%), rgba(22, 27, 32, 0.72));
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.72), transparent 48%),
+    color-mix(in srgb, var(--cover-accent-text) 68%, rgba(78, 236, 160, 0.9));
   box-shadow:
-    0 0 calc(2px + var(--led-brightness) * 14px) color-mix(in srgb, var(--cover-accent-text) 58%, transparent),
-    0 0 0 1px rgba(255, 255, 255, 0.16) inset;
-  opacity: calc(0.34 + var(--led-brightness) * 0.66);
+    0 0 12px color-mix(in srgb, var(--cover-accent-text) 48%, rgba(78, 236, 160, 0.76)),
+    0 0 0 0.7px rgba(255, 255, 255, 0.34) inset;
+  opacity: 0.86;
+}
+
+.now-playing-led-pill.playing .now-playing-status-led {
+  animation: statusLedBreath 2.88s steps(5, end) infinite;
+}
+
+.now-playing-led-divider {
+  width: 1px;
+  height: 8px;
+  margin: 0 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.20);
+}
+
+.now-playing-led-dot {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, calc(0.12 + var(--led-brightness) * 0.62)), transparent 54%),
+    color-mix(in srgb, var(--cover-accent-text) calc(10% + var(--led-brightness) * 72%), rgba(255, 255, 255, 0.11));
+  box-shadow:
+    0 0 calc(var(--led-brightness) * 15px) color-mix(in srgb, var(--cover-accent-text) 62%, transparent),
+    0 0 0 0.7px rgba(255, 255, 255, calc(0.14 + var(--led-brightness) * 0.28)) inset;
+  opacity: calc(0.30 + var(--led-brightness) * 0.70);
+  transition: opacity 30ms ease-out, box-shadow 30ms ease-out, background 30ms ease-out;
 }
 
 .now-playing-spectrum-pill {
@@ -646,6 +674,15 @@ input {
 @keyframes spectrumPulse {
   from { transform: scaleY(0.54); opacity: 0.48; }
   to { transform: scaleY(1.08); opacity: 0.9; }
+}
+
+@keyframes statusLedBreath {
+  0% { opacity: 0.22; }
+  22% { opacity: 0.52; }
+  44% { opacity: 0.86; }
+  66% { opacity: 1; }
+  82% { opacity: 0.58; }
+  100% { opacity: 0.34; }
 }
 
 button {

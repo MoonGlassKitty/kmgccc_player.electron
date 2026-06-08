@@ -2766,13 +2766,30 @@ const NowPlayingVolumeLed = React.memo(function NowPlayingVolumeLed({
 }): React.ReactElement {
   const ledCount = 11
   const center = Math.floor(ledCount / 2)
-  const litRadius = Math.round(clampNumber(volume, 0, 1) * center)
+  const brightnessLevels = 5
+  const totalSlots = (center + 1) * brightnessLevels
+  const currentSlot = clampNumber(volume, 0, 1) * totalSlots
   return (
     <div className={`now-playing-led-pill glass-panel ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
+      <span className="now-playing-status-led" />
+      <span className="now-playing-led-divider" />
       {Array.from({ length: ledCount }, (_, index) => {
         const distance = Math.abs(index - center)
-        const brightness = distance <= litRadius ? 1 - distance / (center + 1) : 0
-        return <span key={index} className="now-playing-led-dot" style={{ '--led-brightness': brightness } as React.CSSProperties} />
+        const ledStartSlot = distance * brightnessLevels
+        const state = currentSlot < ledStartSlot ? 0 : currentSlot >= ledStartSlot + brightnessLevels ? brightnessLevels - 1 : Math.floor(currentSlot - ledStartSlot)
+        const brightness = state / (brightnessLevels - 1)
+        return (
+          <span
+            key={index}
+            className="now-playing-led-dot"
+            style={
+              {
+                '--led-brightness': brightness,
+                '--led-state': state
+              } as React.CSSProperties
+            }
+          />
+        )
       })}
     </div>
   )
