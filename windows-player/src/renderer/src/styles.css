@@ -134,10 +134,10 @@ input {
   z-index: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 100%, transparent), transparent 38%),
-    radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 94%, transparent), transparent 46%),
-    linear-gradient(135deg, color-mix(in srgb, var(--bk-bg-tone-1) 98%, #ffffff), color-mix(in srgb, var(--bk-bg-tone-2) 92%, var(--bk-bg-tone-1)));
-  filter: saturate(1.36);
+    radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 96%, transparent), transparent 38%),
+    radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 90%, transparent), transparent 46%),
+    linear-gradient(135deg, color-mix(in srgb, var(--bk-bg-tone-1) 96%, #ffffff), color-mix(in srgb, var(--bk-bg-tone-2) 88%, var(--bk-bg-tone-1)));
+  filter: saturate(1.22);
 }
 
 .bk-art-surface {
@@ -145,10 +145,10 @@ input {
   inset: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 100%, transparent), transparent 38%),
-    radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 94%, transparent), transparent 46%),
-    radial-gradient(circle at 52% 44%, color-mix(in srgb, var(--bk-bg-tone-3, var(--bk-bg-tone-2)) 58%, transparent), transparent 58%),
-    linear-gradient(135deg, color-mix(in srgb, var(--bk-bg-tone-1) 98%, #ffffff), color-mix(in srgb, var(--bk-bg-tone-2) 92%, var(--bk-bg-tone-1)));
+    radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 96%, transparent), transparent 38%),
+    radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 90%, transparent), transparent 46%),
+    radial-gradient(circle at 52% 44%, color-mix(in srgb, var(--bk-bg-tone-3, var(--bk-bg-tone-2)) 52%, transparent), transparent 58%),
+    linear-gradient(135deg, color-mix(in srgb, var(--bk-bg-tone-1) 96%, #ffffff), color-mix(in srgb, var(--bk-bg-tone-2) 88%, var(--bk-bg-tone-1)));
 }
 
 .bk-art-surface.current {
@@ -191,9 +191,9 @@ input {
 .bk-dot-surface {
   opacity: 1;
   background:
-    radial-gradient(circle at 34% 22%, color-mix(in srgb, var(--bk-bg-tone-1) 96%, transparent), transparent 36%),
-    radial-gradient(circle at 72% 76%, color-mix(in srgb, var(--bk-bg-tone-3, var(--bk-bg-tone-2)) 62%, transparent), transparent 46%),
-    color-mix(in srgb, var(--bk-bg-tone-2) 94%, var(--bk-bg-tone-1));
+    radial-gradient(circle at 34% 22%, color-mix(in srgb, var(--bk-bg-tone-1) 90%, transparent), transparent 36%),
+    radial-gradient(circle at 72% 76%, color-mix(in srgb, var(--bk-bg-tone-3, var(--bk-bg-tone-2)) 54%, transparent), transparent 46%),
+    color-mix(in srgb, var(--bk-bg-tone-2) 88%, var(--bk-bg-tone-1));
 }
 
 .bk-art-surface.style-image .bk-dot-surface {
@@ -209,7 +209,7 @@ input {
   inset: -3%;
   background-size: cover;
   background-position: center;
-  filter: contrast(1.04) saturate(1.24);
+  filter: contrast(1.04) saturate(1.14);
   opacity: 0.92;
   mix-blend-mode: normal;
   transition: opacity 180ms linear;
@@ -254,8 +254,8 @@ input {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 18% 22%, color-mix(in srgb, var(--bk-dot-tint-1, var(--bk-shape-tint-1)) 56%, transparent), transparent 36%),
-    radial-gradient(circle at 78% 72%, color-mix(in srgb, var(--bk-bg-tone-3, var(--bk-bg-tone-2)) 58%, transparent), transparent 42%),
+    radial-gradient(circle at 18% 22%, color-mix(in srgb, var(--bk-dot-tint-1, var(--bk-shape-tint-1)) 48%, transparent), transparent 36%),
+    radial-gradient(circle at 78% 72%, color-mix(in srgb, var(--bk-bg-tone-3, var(--bk-bg-tone-2)) 50%, transparent), transparent 42%),
     linear-gradient(135deg, rgba(12, 17, 22, 0.18), rgba(255, 255, 255, 0.04));
 }
 
@@ -275,7 +275,7 @@ input {
   background-size: 30px 30px;
   background-position: -60px -60px;
   opacity: 0.9;
-  filter: blur(0.15px) saturate(1.42);
+  filter: blur(0.15px) saturate(1.24);
   -webkit-mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), #000 0 var(--dot-inner-radius-scaled), transparent calc(var(--dot-inner-radius-scaled) + 1px));
   mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), #000 0 var(--dot-inner-radius-scaled), transparent calc(var(--dot-inner-radius-scaled) + 1px));
   -webkit-mask-mode: alpha;
@@ -307,7 +307,7 @@ input {
   opacity: 0.9;
   filter:
     drop-shadow(0 22px 36px rgba(0, 0, 0, 0.18))
-    saturate(1.24)
+    saturate(1.12)
     brightness(1.02);
   mix-blend-mode: screen;
   -webkit-mask-size: contain;

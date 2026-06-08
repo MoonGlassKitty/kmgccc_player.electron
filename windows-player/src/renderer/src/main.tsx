@@ -602,11 +602,11 @@ function harmonizedShapeTints(colors: RgbColor[]): [string, string, string] {
 
   const primaryHue = firstHsl.h
   const accentHue = Math.abs(normalizeHue(secondHsl.h - primaryHue)) > 26 ? secondHsl.h : normalizeHue(primaryHue + 58)
-  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.58 + 0.36, 0.58, 0.9)
+  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.52 + 0.32, 0.52, 0.82)
   return [
     hsbCss(primaryHue + 4, baseSaturation, 0.96, 0.92),
-    hsbCss(accentHue - 3, clampNumber(baseSaturation + 0.06, 0, 0.94), 0.98, 0.88),
-    hsbCss(thirdHsl.h + 6, clampNumber(baseSaturation * 0.88, 0.52, 0.86), 0.95, 0.84)
+    hsbCss(accentHue - 3, clampNumber(baseSaturation + 0.04, 0, 0.86), 0.98, 0.88),
+    hsbCss(thirdHsl.h + 6, clampNumber(baseSaturation * 0.86, 0.46, 0.78), 0.95, 0.84)
   ]
 }
 
@@ -623,11 +623,11 @@ function harmonizedDotTints(colors: RgbColor[]): [string, string, string] {
     ]
   }
 
-  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.52 + 0.34, 0.56, 0.86)
+  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.46 + 0.30, 0.50, 0.78)
   return [
     hsbCss(firstHsl.h + 180, baseSaturation, 0.98, 0.92),
-    hsbCss(secondHsl.h + 184, clampNumber(baseSaturation + 0.04, 0, 0.9), 0.98, 0.88),
-    hsbCss(thirdHsl.h + 176, clampNumber(baseSaturation * 0.9, 0.5, 0.82), 0.96, 0.84)
+    hsbCss(secondHsl.h + 184, clampNumber(baseSaturation + 0.03, 0, 0.82), 0.98, 0.88),
+    hsbCss(thirdHsl.h + 176, clampNumber(baseSaturation * 0.88, 0.45, 0.74), 0.96, 0.84)
   ]
 }
 
@@ -774,8 +774,8 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
   const firstHsl = rgbToHsl(first)
   const secondHsl = rgbToHsl(second)
   const thirdHsl = rgbToHsl(third)
-  const backgroundSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s) * 0.36 + 0.26, 0.34, 0.58)
-  const overlaySaturation = clampNumber(Math.max(secondHsl.s, thirdHsl.s, firstHsl.s) * 0.44 + 0.30, 0.42, 0.68)
+  const backgroundSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s) * 0.32 + 0.23, 0.30, 0.52)
+  const overlaySaturation = clampNumber(Math.max(secondHsl.s, thirdHsl.s, firstHsl.s) * 0.38 + 0.26, 0.36, 0.60)
 
   return {
     ...fallback,
@@ -788,7 +788,7 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
     '--ambient-shape-3': shapeTints[2],
     '--bk-bg-tone-1': hsbCss(firstHsl.h, backgroundSaturation, 0.99, 0.98),
     '--bk-bg-tone-2': hsbCss(secondHsl.h + 4, overlaySaturation, 0.98, 0.94),
-    '--bk-bg-tone-3': hsbCss(thirdHsl.h - 5, clampNumber(overlaySaturation + 0.06, 0, 0.72), 0.96, 0.9),
+    '--bk-bg-tone-3': hsbCss(thirdHsl.h - 5, clampNumber(overlaySaturation + 0.04, 0, 0.64), 0.96, 0.9),
     '--bk-shape-tint-1': shapeTints[0],
     '--bk-shape-tint-2': shapeTints[1],
     '--bk-shape-tint-3': shapeTints[2],
