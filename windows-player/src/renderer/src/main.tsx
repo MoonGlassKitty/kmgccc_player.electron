@@ -2619,10 +2619,45 @@ const LibraryDialog = React.memo(function LibraryDialog({
     return {}
   }, [state])
   const [values, setValues] = React.useState<Record<string, string>>(initialValues)
+  const [metadataMessage, setMetadataMessage] = React.useState<string>('')
+  const [isMetadataLookupInFlight, setIsMetadataLookupInFlight] = React.useState(false)
   React.useEffect(() => setValues(initialValues), [initialValues])
   const update = React.useCallback((key: string, value: string) => {
     setValues((current) => ({ ...current, [key]: value }))
   }, [])
+  const handleTrackMetadataLookup = React.useCallback(async () => {
+    if (state.kind !== 'editTrack' || !window.kmgccc?.syncTrackInfo) return
+    setIsMetadataLookupInFlight(true)
+    setMetadataMessage('')
+    try {
+      const result = await window.kmgccc.syncTrackInfo({
+        ...state.track,
+        title: values.title?.trim() || state.track.title,
+        artist: values.artist?.trim() || state.track.artist,
+        album: values.album?.trim() || state.track.album,
+        artworkUrl: values.artworkUrl || state.track.artworkUrl,
+        lyricsText: values.lyricsText,
+        syncedLyrics: values.lyricsText
+      } as LocalAudioImport)
+      const track = result.track
+      setValues((current) => ({
+        ...current,
+        title: track.title || current.title,
+        artist: track.artist || current.artist,
+        album: track.album || current.album,
+        artworkUrl: track.artworkUrl || current.artworkUrl,
+        lyricsText: track.syncedLyrics || track.lyricsText || current.lyricsText,
+        metadataSource: track.metadataSource || current.metadataSource || 'metadata',
+        metadataFetchedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
+        metadataConfidence: current.metadataConfidence || '0.86'
+      }))
+      setMetadataMessage(result.statuses.track === 'completed' || result.statuses.lyrics === 'completed' ? '已补全缺失字段' : '没有可补全字段')
+    } catch {
+      setMetadataMessage('暂未补全元数据')
+    } finally {
+      setIsMetadataLookupInFlight(false)
+    }
+  }, [state, values])
 
   const title =
     state.kind === 'editTrack' ? '编辑歌曲信息'
@@ -2663,13 +2698,10 @@ const LibraryDialog = React.memo(function LibraryDialog({
             <LibraryDialogField label="专辑" value={values.album ?? ''} onChange={(value) => update('album', value)} />
             <LibraryDialogField label="简介" multiline placeholder="添加歌曲介绍..." value={values.description ?? ''} onChange={(value) => update('description', value)} />
             <AlbumDescriptionFallback text={state.track.albumDescription} />
-            <button className="metadata-pill-button metadata-lookup" type="button" onClick={() => {
-              update('metadataSource', values.metadataSource || 'qqmusic')
-              update('metadataFetchedAt', values.metadataFetchedAt || new Date().toLocaleString('zh-CN', { hour12: false }))
-              update('metadataConfidence', values.metadataConfidence || '0.86')
-            }}>
-              <Search size={15} />查找元数据
+            <button className="metadata-pill-button metadata-lookup" type="button" disabled={isMetadataLookupInFlight} onClick={handleTrackMetadataLookup}>
+              <Search size={15} />{isMetadataLookupInFlight ? '查找中...' : '查找元数据'}
             </button>
+            {metadataMessage ? <span className="metadata-lookup-message">{metadataMessage}</span> : null}
             <MetadataDetails values={values} update={update} />
             <TrackLyricsEditor values={values} update={update} />
           </div>
