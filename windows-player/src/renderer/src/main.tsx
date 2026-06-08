@@ -2959,6 +2959,8 @@ function AlbumDescriptionFallback({ text }: { text?: string }): React.ReactEleme
 
 function TrackLyricsEditor({ values, update }: { values: Record<string, string>; update: (key: string, value: string) => void }): React.ReactElement {
   const offset = Number(values.lyricsTimeOffsetMs || 0)
+  const [searchMessage, setSearchMessage] = React.useState('')
+  const [isSearching, setIsSearching] = React.useState(false)
   const lyricsInputRef = React.useRef<HTMLInputElement | null>(null)
   const handleLyricsFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0]
@@ -2970,6 +2972,29 @@ function TrackLyricsEditor({ values, update }: { values: Record<string, string>;
     reader.readAsText(file)
     event.currentTarget.value = ''
   }, [update])
+  const handleLyricsSearch = React.useCallback(async () => {
+    if (!window.kmgccc?.lookupLyrics) return
+    setIsSearching(true)
+    setSearchMessage('')
+    try {
+      const result = await window.kmgccc.lookupLyrics({
+        title: values.title,
+        artist: values.artist,
+        album: values.album
+      })
+      const text = result?.syncedLyrics || result?.lyricsText || ''
+      if (text.trim()) {
+        update('lyricsText', text)
+        setSearchMessage('已应用歌词')
+      } else {
+        setSearchMessage('暂未找到歌词')
+      }
+    } catch {
+      setSearchMessage('歌词搜索失败')
+    } finally {
+      setIsSearching(false)
+    }
+  }, [update, values.album, values.artist, values.title])
   return (
     <section className="metadata-lyrics-editor">
       <div className="metadata-lyrics-head">
@@ -2999,7 +3024,8 @@ function TrackLyricsEditor({ values, update }: { values: Record<string, string>;
           <LibraryDialogField label="艺人" value={values.artist ?? ''} onChange={(value) => update('artist', value)} />
         </div>
         <div className="metadata-token-row"><span>模式</span><button type="button">逐行</button><button className="active" type="button">逐词</button><span>翻译</span><button className="active" type="button">开</button><button type="button">关</button></div>
-        <div className="metadata-token-row"><span>平台</span><button className="active" type="button">AMLL DB</button><button type="button">QQ 音乐</button><button type="button">酷狗</button><button type="button">网易云</button><button className="search" type="button"><Search size={14} />搜索</button></div>
+        <div className="metadata-token-row"><span>平台</span><button className="active" type="button">AMLL DB</button><button type="button">QQ 音乐</button><button type="button">酷狗</button><button type="button">网易云</button><button className="search" type="button" disabled={isSearching} onClick={handleLyricsSearch}><Search size={14} />{isSearching ? '搜索中...' : '搜索'}</button></div>
+        {searchMessage ? <span className="metadata-lookup-message">{searchMessage}</span> : null}
       </section>
     </section>
   )

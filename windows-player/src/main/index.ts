@@ -1411,6 +1411,25 @@ ipcMain.handle('library:lookup-album-metadata', async (_event, values: Record<st
 ipcMain.handle('library:lookup-artist-metadata', async (_event, values: Record<string, unknown>) => {
   return lookupArtistMetadata(values)
 })
+ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, unknown>) => {
+  const title = typeof values.title === 'string' ? values.title.trim() : ''
+  const artist = typeof values.artist === 'string' ? values.artist.trim() : ''
+  const album = typeof values.album === 'string' ? values.album.trim() : ''
+  const duration = typeof values.duration === 'number' && Number.isFinite(values.duration) ? values.duration : 0
+  if (!title) return null
+  const ids = idsForMetadata(artist || '未知艺人', album || '未知专辑')
+  return fetchLyrics({
+    id: `lookup-${createHash('sha1').update(`${title}|${artist}|${album}|${duration}`).digest('hex').slice(0, 12)}`,
+    title,
+    artist: artist || '未知艺人',
+    artistId: ids.artistId,
+    album: album || '未知专辑',
+    albumId: ids.albumId,
+    duration,
+    sourcePath: '',
+    sourceUrl: ''
+  })
+})
 ipcMain.handle('library:clear', () => {
   rmSync(libraryStorePath(), { force: true })
   return getHomeSnapshot()
