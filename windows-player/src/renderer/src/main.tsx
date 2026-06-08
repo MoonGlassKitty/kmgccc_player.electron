@@ -2745,7 +2745,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
 
   return (
     <div className="library-dialog-backdrop no-drag" role="presentation" onMouseDown={onClose}>
-      <section className={`library-dialog metadata-sheet ${isDelete ? 'danger' : ''}`} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+      <section className={`library-dialog metadata-sheet ${state.kind === 'editTrack' ? 'track-sheet' : ''} ${isDelete ? 'danger' : ''}`} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
         <header className="metadata-sheet-header">
           <strong>{icon}{title}</strong>
           <button className="metadata-sheet-close" type="button" aria-label="关闭" onClick={onClose}>
@@ -2758,6 +2758,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
         ) : state.kind === 'editTrack' ? (
           <div className="library-dialog-form metadata-sheet-body">
             <MetadataArtworkSection title="插图" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} removeLabel="移除插图" onArtworkChange={(url) => update('artworkUrl', url)} />
+            <span className="metadata-divider" />
             <MetadataSectionTitle icon={<Info size={16} />} title="元数据" />
             <LibraryDialogField label="歌曲标题" value={values.title ?? ''} onChange={(value) => update('title', value)} />
             <LibraryDialogField label="艺人" value={values.artist ?? ''} onChange={(value) => update('artist', value)} />
@@ -2769,11 +2770,13 @@ const LibraryDialog = React.memo(function LibraryDialog({
             </button>
             {metadataMessage ? <span className="metadata-lookup-message">{metadataMessage}</span> : null}
             <MetadataDetails values={values} update={update} />
+            <span className="metadata-divider" />
             <TrackLyricsEditor values={values} update={update} />
           </div>
         ) : state.kind === 'editAlbum' ? (
           <div className="library-dialog-form metadata-sheet-body">
             <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="使用歌曲封面" fallbackArtworkUrl={state.album.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} />
+            <span className="metadata-divider" />
             <LibraryDialogField label="专辑名称" value={values.title ?? ''} onChange={(value) => update('title', value)} />
             <LibraryDialogField label="介绍" multiline placeholder="添加专辑介绍..." value={values.description ?? ''} onChange={(value) => update('description', value)} />
             <LibraryDialogField label="发行年份" value={values.releaseYear ?? ''} onChange={(value) => update('releaseYear', value)} />
@@ -2796,6 +2799,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
         ) : state.kind === 'editArtist' ? (
           <div className="library-dialog-form metadata-sheet-body">
             <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="生成封面" fallbackArtworkUrl={state.artist.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} />
+            <span className="metadata-divider" />
             <LibraryDialogField label="艺人名称" value={values.name ?? ''} onChange={(value) => update('name', value)} />
             <LibraryDialogField label="介绍" multiline value={values.description ?? ''} onChange={(value) => update('description', value)} />
             <LibraryDialogField label="流派 / 标签" placeholder="用逗号分隔" value={values.genreTags ?? ''} onChange={(value) => update('genreTags', value)} />

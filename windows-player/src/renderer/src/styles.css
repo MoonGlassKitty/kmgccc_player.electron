@@ -1993,8 +1993,20 @@ input {
   border-bottom: 1px solid rgba(0, 0, 0, 0.12);
 }
 
+.metadata-sheet.track-sheet {
+  width: min(550px, calc(100vw - 56px));
+  height: min(750px, calc(100vh - 56px));
+}
+
 .metadata-sheet-body {
   scrollbar-width: thin;
+}
+
+.metadata-divider {
+  display: block;
+  height: 1px;
+  margin: 2px -24px 0;
+  background: rgba(0, 0, 0, 0.10);
 }
 
 .metadata-artwork-section {
