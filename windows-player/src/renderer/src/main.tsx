@@ -5188,18 +5188,37 @@ const MiniPlayer = React.memo(function MiniPlayer({
 }): React.ReactElement {
   const [isQueueOpen, setIsQueueOpen] = React.useState(false)
   const progressRailRef = React.useRef<HTMLDivElement | null>(null)
+  const isProgressDraggingRef = React.useRef(false)
   const queueTracks = tracks.length ? tracks : [track]
   const safePlaybackDuration = Math.max(1, playbackDuration)
   const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
-  const handleProgressPointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    event.stopPropagation()
+  const seekFromProgressClientX = React.useCallback((clientX: number) => {
     const rail = progressRailRef.current
     if (!rail) return
     const rect = rail.getBoundingClientRect()
-    const ratio = rect.width > 0 ? clampNumber((event.clientX - rect.left) / rect.width, 0, 1) : 0
+    const ratio = rect.width > 0 ? clampNumber((clientX - rect.left) / rect.width, 0, 1) : 0
     onSeek(ratio * safePlaybackDuration)
   }, [onSeek, safePlaybackDuration])
+  const handleProgressPointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    isProgressDraggingRef.current = true
+    event.currentTarget.setPointerCapture(event.pointerId)
+    seekFromProgressClientX(event.clientX)
+  }, [seekFromProgressClientX])
+  const handleProgressPointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isProgressDraggingRef.current) return
+    event.preventDefault()
+    event.stopPropagation()
+    seekFromProgressClientX(event.clientX)
+  }, [seekFromProgressClientX])
+  const handleProgressPointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isProgressDraggingRef.current) return
+    event.preventDefault()
+    event.stopPropagation()
+    isProgressDraggingRef.current = false
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }, [])
 
   return (
     <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress': `${progress}%` } as React.CSSProperties}>
@@ -5213,6 +5232,9 @@ const MiniPlayer = React.memo(function MiniPlayer({
         aria-valuenow={Math.min(playbackTime, safePlaybackDuration)}
         tabIndex={0}
         onPointerDown={handleProgressPointerDown}
+        onPointerMove={handleProgressPointerMove}
+        onPointerUp={handleProgressPointerUp}
+        onPointerCancel={handleProgressPointerUp}
       >
         <span className="mini-progress-line" aria-hidden="true" />
       </div>
