@@ -2867,13 +2867,25 @@ function AlbumDescriptionFallback({ text }: { text?: string }): React.ReactEleme
 
 function TrackLyricsEditor({ values, update }: { values: Record<string, string>; update: (key: string, value: string) => void }): React.ReactElement {
   const offset = Number(values.lyricsTimeOffsetMs || 0)
+  const lyricsInputRef = React.useRef<HTMLInputElement | null>(null)
+  const handleLyricsFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.addEventListener('load', () => {
+      if (typeof reader.result === 'string') update('lyricsText', reader.result)
+    })
+    reader.readAsText(file)
+    event.currentTarget.value = ''
+  }, [update])
   return (
     <section className="metadata-lyrics-editor">
       <div className="metadata-lyrics-head">
         <MetadataSectionTitle icon={<TextQuote size={16} />} title="歌词 (TTML)" />
         <a className="metadata-pill-button" href="https://github.com/amll-dev/amll-ttml-db" target="_blank" rel="noreferrer"><ExternalLink size={14} />AMLL DB</a>
         <a className="metadata-pill-button" href="https://amll-ttml-tool.stevexmh.net/" target="_blank" rel="noreferrer"><Hammer size={14} />TTML Tool</a>
-        <button className="metadata-pill-button" type="button"><Upload size={14} />导入...</button>
+        <input ref={lyricsInputRef} className="metadata-artwork-file" type="file" accept=".ttml,.xml,.txt,.lrc,text/plain,text/xml,application/xml" onChange={handleLyricsFileChange} />
+        <button className="metadata-pill-button" type="button" onClick={() => lyricsInputRef.current?.click()}><Upload size={14} />导入...</button>
         <button className="metadata-pill-button" type="button" onClick={() => update('lyricsText', '')}>清除歌词</button>
       </div>
       <p>AMLL DB 歌词库中的 TTML 专为 AMLL 组件设计，支持对唱歌词、背景歌词等高级特性，来自网络的转换歌词仅为歌词缺失情况下的备选。您也可以使用 AMLL TTML Tool 自己制作歌词使用或贡献到 AMLL DB。</p>
