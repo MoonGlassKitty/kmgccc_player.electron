@@ -1071,7 +1071,7 @@ input {
 
 .home-stats-block {
   display: grid;
-  grid-template-columns: minmax(320px, 0.86fr) minmax(300px, 1.14fr);
+  grid-template-columns: minmax(380px, 1.2fr) minmax(260px, 0.8fr);
   gap: 16px;
   contain-intrinsic-size: auto 620px;
 }
@@ -2401,7 +2401,7 @@ input {
 
 @media (max-width: 1500px) {
   .home-stats-block {
-    grid-template-columns: minmax(320px, 0.86fr) minmax(300px, 1.14fr);
+    grid-template-columns: minmax(360px, 1.18fr) minmax(250px, 0.82fr);
   }
 
   .home-stats-block .home-stat-grid {
