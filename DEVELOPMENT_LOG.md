@@ -20,3 +20,4 @@
 - BK surface 普通/切歌落点改为 6 桶 seed 选择：image 仅 1/6，dot-a 到 dot-e 占 5/6，并给 dot-b/d 使用反向运动。
 - BK 小点缀生成改为多候选避让采样，按尺寸和距离惩罚初始重叠，并按边缘方向打散初始落点。
 - 底部播放进度垫层从 width 动画改为 transform scaleX，并将 audio timeupdate 先直写 CSS 变量、降低 React playbackTime 刷新频率，减少对 BK 点缀动画的抢占。
+- 播放中 mini 进度更新进一步降频：普通播放约 1.1s 更新一次 CSS/React，歌词打开时保留更高刷新，seek 仍即时同步。

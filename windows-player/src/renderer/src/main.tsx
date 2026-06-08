@@ -1807,10 +1807,16 @@ function App(): React.ReactElement {
     }
   }, [applyHomeSnapshot])
 
+  const writeMiniProgressRatio = React.useCallback((seconds: number, duration: number) => {
+    const ratio = duration > 0 ? clampNumber(seconds / duration, 0, 1) : 0
+    document.querySelector<HTMLElement>('.mini-player')?.style.setProperty('--mini-player-progress-ratio', String(ratio))
+  }, [])
+
   const seekTo = React.useCallback((seconds: number) => {
     if (!Number.isFinite(seconds)) return
     const nextTime = Math.max(0, seconds)
     const audio = audioRef.current
+    const duration = Number.isFinite(audio?.duration) && audio && audio.duration > 0 ? audio.duration : currentTrack?.duration ?? 0
     if (audio && currentTrack?.sourceUrl) {
       try {
         audio.currentTime = nextTime
@@ -1818,9 +1824,10 @@ function App(): React.ReactElement {
         // Keep the visual timeline responsive even if the media element cannot seek yet.
       }
     }
+    writeMiniProgressRatio(nextTime, duration)
     lastPlaybackTimeRef.current = nextTime
     setPlaybackTime(nextTime)
-  }, [currentTrack?.sourceUrl])
+  }, [currentTrack?.duration, currentTrack?.sourceUrl, writeMiniProgressRatio])
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
   }, [])
@@ -2215,12 +2222,12 @@ function App(): React.ReactElement {
     if (!audio) return
     const nextTime = audio.currentTime
     const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : currentTrack?.duration ?? 0
-    const ratio = duration > 0 ? clampNumber(nextTime / duration, 0, 1) : 0
-    document.querySelector<HTMLElement>('.mini-player')?.style.setProperty('--mini-player-progress-ratio', String(ratio))
-    if (!audio.paused && Math.abs(nextTime - lastPlaybackTimeRef.current) < 0.5) return
+    const refreshInterval = isLyricsSidebarOpen || isFullscreenLyricsOpen ? 0.25 : 1.1
+    if (!audio.paused && Math.abs(nextTime - lastPlaybackTimeRef.current) < refreshInterval) return
+    writeMiniProgressRatio(nextTime, duration)
     lastPlaybackTimeRef.current = nextTime
     setPlaybackTime(nextTime)
-  }, [currentTrack?.duration])
+  }, [currentTrack?.duration, isFullscreenLyricsOpen, isLyricsSidebarOpen, writeMiniProgressRatio])
 
   const handleAudioEnded = React.useCallback(() => {
     if (homeSnapshot.tracks.length > 1) {
