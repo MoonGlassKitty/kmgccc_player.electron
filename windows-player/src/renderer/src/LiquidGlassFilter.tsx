@@ -24,7 +24,8 @@ type LiquidGlassFilterData = {
 }
 
 const liquidGlassFilterDataCache = new Map<string, LiquidGlassFilterData>()
-const LIQUID_GLASS_FILTER_DPR = 0.2
+const LARGE_GLASS_FILTER_DPR = 0.2
+const SMALL_GLASS_FILTER_DPR = 0.65
 
 const convexSquircle = (value: number): number => Math.pow(1 - Math.pow(1 - value, 4), 1 / 4)
 
@@ -419,7 +420,7 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
         specularSaturation={8}
         specularWidth={56}
         includeSpecular={false}
-        dpr={LIQUID_GLASS_FILTER_DPR}
+        dpr={LARGE_GLASS_FILTER_DPR}
       />
       <LiquidGlassFilter
         id="lg-mini"
@@ -434,7 +435,7 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
         specularOpacity={1}
         specularSaturation={25}
         specularWidth={42}
-        dpr={LIQUID_GLASS_FILTER_DPR}
+        dpr={SMALL_GLASS_FILTER_DPR}
       />
       <LiquidGlassFilter
         id="lg-toolbar-pill"
@@ -449,7 +450,7 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
         specularOpacity={0.9}
         specularSaturation={12}
         specularWidth={24}
-        dpr={LIQUID_GLASS_FILTER_DPR}
+        dpr={SMALL_GLASS_FILTER_DPR}
       />
       <LiquidGlassFilter
         id="lg-search"
@@ -464,7 +465,7 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
         specularOpacity={0.95}
         specularSaturation={18}
         specularWidth={26}
-        dpr={LIQUID_GLASS_FILTER_DPR}
+        dpr={SMALL_GLASS_FILTER_DPR}
       />
       <LiquidGlassFilter
         id="lg-circle"
@@ -479,7 +480,7 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
         specularOpacity={0.9}
         specularSaturation={14}
         specularWidth={20}
-        dpr={LIQUID_GLASS_FILTER_DPR}
+        dpr={SMALL_GLASS_FILTER_DPR}
       />
     </div>
   )

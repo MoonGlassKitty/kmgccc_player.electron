@@ -209,7 +209,7 @@ input {
 .home-ambient-layer {
   position: absolute;
   inset: 0;
-  z-index: var(--layer-decor);
+  z-index: var(--layer-home);
   overflow: hidden;
   pointer-events: none;
   contain: layout paint style;

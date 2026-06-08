@@ -885,7 +885,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       context.clearRect(0, 0, rootRect.width, rootRect.height)
       context.save()
       context.beginPath()
-      context.rect(0, 0, centerMaxX, rootRect.height)
+      context.rect(0, 0, rootRect.width, rootRect.height)
       context.clip()
 
       for (const spec of specs) {
