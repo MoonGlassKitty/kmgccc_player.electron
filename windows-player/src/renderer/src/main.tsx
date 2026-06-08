@@ -5189,18 +5189,22 @@ const MiniPlayer = React.memo(function MiniPlayer({
   const [isQueueOpen, setIsQueueOpen] = React.useState(false)
   const queueTracks = tracks.length ? tracks : [track]
   const safePlaybackDuration = Math.max(1, playbackDuration)
+  const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
 
   return (
-    <div className="mini-player glass-panel no-drag" style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
+    <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress': `${progress}%` } as React.CSSProperties}>
       <div className="mini-progress-rail">
-        <LiquidGlassSlider
-          ariaLabel="播放进度"
-          className="mini-progress-slider"
+        <span className="mini-progress-line" aria-hidden="true" />
+        <input
+          aria-label="播放进度"
+          className="mini-progress-input"
           max={safePlaybackDuration}
           min={0}
           step="0.1"
+          type="range"
           value={Math.min(playbackTime, safePlaybackDuration)}
-          onChange={onSeek}
+          onInput={(event) => onSeek(Number(event.currentTarget.value))}
+          onChange={(event) => onSeek(Number(event.currentTarget.value))}
         />
       </div>
       <button className="mini-track" type="button" aria-label="打开窗口播放" onClick={onOpenNowPlaying}>

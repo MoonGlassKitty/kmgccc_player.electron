@@ -424,18 +424,18 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
       />
       <LiquidGlassFilter
         id="lg-mini"
-        width={1800}
-        height={58}
-        radius={29}
+        width={1024}
+        height={86}
+        radius={43}
         blur={3.3}
-        bezelWidth={25}
+        bezelWidth={38}
         glassThickness={92}
         refractiveIndex={1.3}
         scaleRatio={1}
         specularOpacity={1}
         specularSaturation={25}
-        specularWidth={42}
-        dpr={SMALL_GLASS_FILTER_DPR}
+        specularWidth={60}
+        dpr={0.6}
       />
       <LiquidGlassFilter
         id="lg-toolbar-pill"
