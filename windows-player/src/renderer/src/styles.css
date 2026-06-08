@@ -160,7 +160,6 @@ input {
 }
 
 .bk-art-surface.entering {
-  background: transparent;
   -webkit-mask-image: var(--bk-paint-mask-sprite);
   mask-image: var(--bk-paint-mask-sprite);
   -webkit-mask-size: 1800% 100%;
@@ -176,14 +175,6 @@ input {
 
 .bk-art-background.frozen .bk-art-surface.entering {
   animation-play-state: paused;
-}
-
-.bk-art-surface.dot-exiting .bk-dot-surface {
-  animation: bkDotSurfaceExit 900ms ease-out forwards;
-}
-
-.bk-art-surface.dot-exiting .bk-shape-root {
-  animation: bkShapeHoldDuringDotExit 900ms ease-out forwards;
 }
 
 .bk-image-surface,
@@ -1120,24 +1111,6 @@ input {
   to {
     -webkit-mask-position: 100% 0;
     mask-position: 100% 0;
-  }
-}
-
-@keyframes bkDotSurfaceExit {
-  from {
-    opacity: 1;
-    filter: blur(0);
-  }
-  to {
-    opacity: 0;
-    filter: blur(10px);
-  }
-}
-
-@keyframes bkShapeHoldDuringDotExit {
-  from,
-  to {
-    opacity: 1;
   }
 }
 
