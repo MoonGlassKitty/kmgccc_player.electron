@@ -44,6 +44,12 @@ import shape8 from './assets/bk-themes/shapes/shape8.png'
 import shape9 from './assets/bk-themes/shapes/shape9.png'
 import shape10 from './assets/bk-themes/shapes/shape10.png'
 import shape11 from './assets/bk-themes/shapes/shape11.png'
+import bkBackground1 from './assets/bk-themes/backgrounds/bk1.png'
+import bkBackground2 from './assets/bk-themes/backgrounds/bk2.png'
+import artworkFrame1 from './assets/bk-themes/artwork-frame/artworkframe1.png'
+import artworkFrame2 from './assets/bk-themes/artwork-frame/artworkframe2.png'
+import artworkFrame3 from './assets/bk-themes/artwork-frame/artworkframe3.png'
+import artworkFrame4 from './assets/bk-themes/artwork-frame/artworkframe4.png'
 import './styles.css'
 
 type Track = {
@@ -90,6 +96,114 @@ function mediaUrlForLocalPath(audioPath: string): string {
   })
   const encodedPath = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
   return `kmgccc-media://audio/${encodedPath}`
+}
+
+function createCoverPixelStretchBackground(artworkUrl: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+    image.decoding = 'async'
+    image.onload = () => {
+      try {
+        const canvasWidth = 1470
+        const canvasHeight = 923
+        const baseCanvas = document.createElement('canvas')
+        baseCanvas.width = canvasWidth
+        baseCanvas.height = canvasHeight
+        const baseContext = baseCanvas.getContext('2d')
+        const outputCanvas = document.createElement('canvas')
+        outputCanvas.width = canvasWidth
+        outputCanvas.height = canvasHeight
+        const outputContext = outputCanvas.getContext('2d')
+        if (!baseContext || !outputContext || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+          resolve(null)
+          return
+        }
+
+        const scale = canvasHeight / image.naturalHeight
+        const artworkWidth = image.naturalWidth * scale
+        const artworkRightEdge = Math.min(canvasWidth, Math.max(1, artworkWidth))
+        baseContext.imageSmoothingEnabled = true
+        baseContext.imageSmoothingQuality = 'high'
+        baseContext.drawImage(image, 0, 0, artworkWidth, canvasHeight)
+
+        if (artworkRightEdge < canvasWidth) {
+          const stripSourceWidth = Math.max(1, Math.ceil((4 / artworkWidth) * image.naturalWidth))
+          const stripSourceX = Math.max(0, image.naturalWidth - stripSourceWidth)
+          baseContext.imageSmoothingEnabled = false
+          baseContext.drawImage(
+            image,
+            stripSourceX,
+            0,
+            stripSourceWidth,
+            image.naturalHeight,
+            artworkRightEdge,
+            0,
+            canvasWidth - artworkRightEdge,
+            canvasHeight
+          )
+        }
+
+        outputContext.drawImage(baseCanvas, 0, 0)
+
+        const blurRadius = 200
+        const blurStartRatioFromEdge = 0.48
+        const overlayStartRatioFromEdge = 0.28
+        const colorOverlayOpacity = 0.5
+        const blurStartX = artworkRightEdge - artworkRightEdge * blurStartRatioFromEdge
+        const blurEndX = Math.max(blurStartX + 1, canvasWidth - artworkRightEdge * 0.04)
+        const segmentCount = 96
+
+        for (let index = 0; index < segmentCount; index += 1) {
+          const t0 = index / segmentCount
+          const t1 = (index + 1) / segmentCount
+          const x0 = blurStartX + (blurEndX - blurStartX) * t0
+          const x1 = blurStartX + (blurEndX - blurStartX) * t1
+          const mask = Math.min(1, 0.1 * t1 + 0.34 * t1 * t1 + 0.56 * t1 * t1 * t1)
+          const radius = Math.min(blurRadius, blurRadius * mask)
+
+          outputContext.save()
+          outputContext.beginPath()
+          outputContext.rect(x0 - 2, 0, x1 - x0 + 8, canvasHeight)
+          outputContext.clip()
+          outputContext.filter = `blur(${radius}px)`
+          outputContext.drawImage(baseCanvas, 0, 0)
+          outputContext.restore()
+        }
+        outputContext.filter = 'none'
+
+        const sampleCanvas = document.createElement('canvas')
+        sampleCanvas.width = 1
+        sampleCanvas.height = 1
+        const sampleContext = sampleCanvas.getContext('2d')
+        let overlayRed = 38
+        let overlayGreen = 38
+        let overlayBlue = 38
+        if (sampleContext) {
+          sampleContext.drawImage(image, 0, 0, 1, 1)
+          const [red, green, blue] = sampleContext.getImageData(0, 0, 1, 1).data
+          overlayRed = red
+          overlayGreen = green
+          overlayBlue = blue
+        }
+
+        const overlayStartX = artworkRightEdge - artworkRightEdge * overlayStartRatioFromEdge
+        const overlayGradient = outputContext.createLinearGradient(overlayStartX, 0, canvasWidth, 0)
+        overlayGradient.addColorStop(0, `rgba(${overlayRed}, ${overlayGreen}, ${overlayBlue}, 0)`)
+        overlayGradient.addColorStop(0.55, `rgba(${overlayRed}, ${overlayGreen}, ${overlayBlue}, ${colorOverlayOpacity * 0.08})`)
+        overlayGradient.addColorStop(0.78, `rgba(${overlayRed}, ${overlayGreen}, ${overlayBlue}, ${colorOverlayOpacity * 0.28})`)
+        overlayGradient.addColorStop(1, `rgba(${overlayRed}, ${overlayGreen}, ${overlayBlue}, ${colorOverlayOpacity})`)
+        outputContext.fillStyle = overlayGradient
+        outputContext.fillRect(overlayStartX, 0, canvasWidth - overlayStartX, canvasHeight)
+
+        resolve(outputCanvas.toDataURL('image/png'))
+      } catch {
+        resolve(null)
+      }
+    }
+    image.onerror = () => resolve(null)
+    image.src = artworkUrl
+  })
 }
 
 const liuhenAudioPath = '/Users/moonglasskitty/Music/网易云音乐/MoonGlassKitty - 潮落.mp3'
@@ -195,12 +309,19 @@ function useElasticScroll<T extends HTMLElement>(): {
 
 type AppRoute =
   | { name: 'home' }
+  | { name: 'nowPlaying' }
   | { name: 'allTracks' }
   | { name: 'artistDetail'; id: string; title: string }
   | { name: 'albumDetail'; id: string; title: string }
   | { name: 'playlistDetail'; id: string; title: string }
 
-type DetailRoute = Exclude<AppRoute, { name: 'home' }>
+type DetailRoute = Exclude<AppRoute, { name: 'home' } | { name: 'nowPlaying' }>
+type SettingsCategoryKey = 'appearance' | 'nowPlaying' | 'fullscreen' | 'externalPlayback' | 'data' | 'about'
+type NowPlayingSettingsTab = 'general' | 'lyrics' | 'led'
+
+const bkShapeAssets = [shape1, shape2, shape3, shape4, shape5, shape6, shape7, shape8, shape9, shape10, shape11]
+const bkBackgroundAssets = [bkBackground1, bkBackground2]
+const artworkFrameAssets = [artworkFrame1, artworkFrame2, artworkFrame3, artworkFrame4]
 
 function formatDuration(seconds: number): string {
   const safeSeconds = Math.max(0, Math.round(seconds))
@@ -1077,6 +1198,13 @@ function App(): React.ReactElement {
   const [sidebarWidth, setSidebarWidth] = React.useState(280)
   const [viewportWidth, setViewportWidth] = React.useState(() => window.innerWidth)
   const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
+  const [settingsCategory, setSettingsCategory] = React.useState<SettingsCategoryKey>('appearance')
+  const [nowPlayingSettingsTab, setNowPlayingSettingsTab] = React.useState<NowPlayingSettingsTab>('general')
+  const [isNowPlayingArtBackgroundEnabled, setIsNowPlayingArtBackgroundEnabled] = React.useState(true)
+  const [nowPlayingVisualizerMode, setNowPlayingVisualizerMode] = React.useState<'off' | 'led' | 'spectrum'>('led')
+  const [isArtworkFrameMaskEnabled, setIsArtworkFrameMaskEnabled] = React.useState(true)
+  const [artworkFrameIndex, setArtworkFrameIndex] = React.useState(0)
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
@@ -1215,6 +1343,12 @@ function App(): React.ReactElement {
   }, [])
   const navigateHome = React.useCallback(() => {
     setRoute({ name: 'home' })
+  }, [])
+  const openNowPlaying = React.useCallback(() => {
+    setRoute({ name: 'nowPlaying' })
+  }, [])
+  const openSettings = React.useCallback(() => {
+    setIsSettingsOpen(true)
   }, [])
   const importAudioFile = React.useCallback(async () => {
     setImportSyncState({
@@ -1464,6 +1598,8 @@ function App(): React.ReactElement {
           isCollapsed={isSidebarVisuallyCollapsed}
           onToggle={toggleSidebar}
           onResizeStart={handleSidebarResizeStart}
+          onToggleFullscreenLyrics={toggleFullscreenLyrics}
+          onOpenSettings={openSettings}
         />
         <WindowControls />
         <div className="titlebar-drag-region chrome-drag" aria-hidden="true" />
@@ -1477,6 +1613,18 @@ function App(): React.ReactElement {
           />
           {route.name === 'home' ? (
             <HomePage snapshot={homeSnapshot} albums={albums} onNavigate={setRoute} onPlayTrack={playHomeTrack} />
+          ) : route.name === 'nowPlaying' ? (
+            <NowPlayingPage
+              track={currentTrack}
+              albums={albums}
+              isPlaying={isPlaying}
+              volume={volume}
+              visualizerMode={nowPlayingVisualizerMode}
+              artBackgroundEnabled={isNowPlayingArtBackgroundEnabled}
+              artworkFrameMaskEnabled={isArtworkFrameMaskEnabled}
+              artworkFrameIndex={artworkFrameIndex}
+              onArtworkFrameAdvance={() => setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)}
+            />
           ) : (
             <LibraryDetailPage
               route={route}
@@ -1507,7 +1655,7 @@ function App(): React.ReactElement {
                 onToggleShuffle={toggleShuffle}
                 onVolumeChange={changeVolume}
                 onSelectTrack={selectTrack}
-                onToggleFullscreenLyrics={toggleFullscreenLyrics}
+                onOpenNowPlaying={openNowPlaying}
                 onSeek={seekTo}
               />
             </>
@@ -1522,6 +1670,21 @@ function App(): React.ReactElement {
             isPlaying={isPlaying}
             onSeek={seekTo}
             onResizeStart={handleLyricsResizeStart}
+          />
+        ) : null}
+        {isSettingsOpen ? (
+          <SettingsPanel
+            selectedCategory={settingsCategory}
+            onSelectCategory={setSettingsCategory}
+            onClose={() => setIsSettingsOpen(false)}
+            selectedNowPlayingTab={nowPlayingSettingsTab}
+            onSelectNowPlayingTab={setNowPlayingSettingsTab}
+            artBackgroundEnabled={isNowPlayingArtBackgroundEnabled}
+            onArtBackgroundEnabledChange={setIsNowPlayingArtBackgroundEnabled}
+            visualizerMode={nowPlayingVisualizerMode}
+            onVisualizerModeChange={setNowPlayingVisualizerMode}
+            artworkFrameMaskEnabled={isArtworkFrameMaskEnabled}
+            onArtworkFrameMaskEnabledChange={setIsArtworkFrameMaskEnabled}
           />
         ) : null}
         {isFullscreenLyricsOpen ? (
@@ -1548,7 +1711,9 @@ const Sidebar = React.memo(function Sidebar({
   onNavigate,
   isCollapsed,
   onToggle,
-  onResizeStart
+  onResizeStart,
+  onToggleFullscreenLyrics,
+  onOpenSettings
 }: {
   snapshot: HomeSnapshot
   route: AppRoute
@@ -1556,6 +1721,8 @@ const Sidebar = React.memo(function Sidebar({
   isCollapsed: boolean
   onToggle: () => void
   onResizeStart: (event: React.PointerEvent) => void
+  onToggleFullscreenLyrics: () => void
+  onOpenSettings: () => void
 }): React.ReactElement {
   const primaryPlaylist = snapshot.playlists[0]
   return (
@@ -1623,13 +1790,13 @@ const Sidebar = React.memo(function Sidebar({
         </div>
 
         <div className="sidebar-bottom">
-          <button className="round-control" type="button" aria-label="设置">
+          <button className="round-control" type="button" aria-label="设置" onClick={onOpenSettings}>
             <Settings size={18} />
           </button>
           <button className="round-control" type="button" aria-label="外观">
             <Sun size={18} />
           </button>
-          <button className="round-control" type="button" aria-label="全屏">
+          <button className="round-control" type="button" aria-label="全屏" onClick={onToggleFullscreenLyrics}>
             <Maximize2 size={17} />
           </button>
         </div>
@@ -2072,6 +2239,141 @@ type FullscreenLyricHitTarget = {
   height: number
 }
 
+const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
+  lines,
+  track,
+  playbackTime,
+  isPlaying,
+  onSeek,
+  variant
+}: {
+  lines: ParsedLyricLine[]
+  track: Track | null | undefined
+  playbackTime: number
+  isPlaying: boolean
+  onSeek: (seconds: number) => void
+  variant: 'side' | 'fullscreen'
+}): React.ReactElement {
+  const amllLines = React.useMemo(() => amllLyricLinesFromParsed(lines, track?.duration ?? 0), [lines, track?.duration])
+  const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
+  const amllShellRef = React.useRef<HTMLDivElement | null>(null)
+  const [amllHitTargets, setAmllHitTargets] = React.useState<FullscreenLyricHitTarget[]>([])
+  const amllOptimizeOptions = React.useMemo(() => ({ resetLineTimestamps: false }), [])
+  const amllBottomLine = React.useMemo(
+    () => variant === 'fullscreen' ? <span className="fullscreen-amll-bottom">{track ? `${track.artist} · ${track.album}` : ''}</span> : undefined,
+    [track, variant]
+  )
+
+  React.useLayoutEffect(() => {
+    const shell = amllShellRef.current
+    if (!shell) return
+    let frameId = 0
+    const timeoutIds: number[] = []
+
+    const measureLyricRows = (): void => {
+      const shellRect = shell.getBoundingClientRect()
+      const lineElements = Array.from(shell.querySelectorAll<HTMLElement>('[class*="_lyricLine"]'))
+        .filter((element) => {
+          const classNames = Array.from(element.classList)
+          return (
+            classNames.some((className) => className.includes('_lyricLine')) &&
+            !classNames.some((className) => className.includes('_lyricLineWrapper') || className.includes('_bottomLine'))
+          )
+        })
+        .slice(0, amllLines.length)
+
+      const nextTargets = lineElements
+        .map((element, index): FullscreenLyricHitTarget | null => {
+          const line = amllLines[index]
+          if (!line) return null
+          const rect = element.getBoundingClientRect()
+          if (rect.width <= 0 || rect.height <= 0) return null
+          return {
+            index,
+            text: line.words.map((word) => word.word).join(''),
+            startTime: line.startTime,
+            top: Math.max(0, rect.top - shellRect.top - 10),
+            left: Math.max(0, rect.left - shellRect.left - 12),
+            width: Math.min(shellRect.width, rect.width + 24),
+            height: Math.min(shellRect.height, rect.height + 20)
+          }
+        })
+        .filter((target): target is FullscreenLyricHitTarget => target !== null)
+
+      setAmllHitTargets(nextTargets)
+    }
+
+    const scheduleMeasure = (): void => {
+      window.cancelAnimationFrame(frameId)
+      frameId = window.requestAnimationFrame(measureLyricRows)
+    }
+
+    scheduleMeasure()
+    ;[80, 240, 720].forEach((delay) => {
+      timeoutIds.push(window.setTimeout(scheduleMeasure, delay))
+    })
+    const mutationObserver = new MutationObserver(scheduleMeasure)
+    mutationObserver.observe(shell, { childList: true, subtree: true })
+    window.addEventListener('resize', scheduleMeasure)
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      mutationObserver.disconnect()
+      window.removeEventListener('resize', scheduleMeasure)
+    }
+  }, [amllLines, currentLineIndex, track?.id])
+
+  return (
+    <div className={`amll-lyrics-surface ${variant === 'fullscreen' ? 'fullscreen-amll-shell' : 'side-amll-shell'} ${variant}`} ref={amllShellRef}>
+      <LyricPlayer
+        key={`${variant}-${track?.id ?? 'empty'}`}
+        className={`fullscreen-amll-player amll-lyrics-player ${variant}`}
+        data-lyric-count={amllLines.length}
+        lyricLines={amllLines}
+        currentTime={Math.max(0, Math.round(playbackTime * 1000))}
+        playing={isPlaying}
+        alignAnchor="center"
+        alignPosition={0.18}
+        enableBlur
+        enableScale
+        enableSpring
+        wordFadeWidth={0.5}
+        optimizeOptions={amllOptimizeOptions}
+        bottomLine={amllBottomLine}
+      />
+      <div className="fullscreen-amll-hit-layer" aria-hidden={!amllHitTargets.length}>
+        {amllHitTargets.map((target) => (
+          <button
+            key={`${target.index}-${target.startTime}`}
+            className="fullscreen-amll-hit-row"
+            type="button"
+            aria-label={`跳转到 ${target.text}`}
+            data-seek-time={target.startTime / 1000}
+            style={{
+              top: target.top,
+              left: target.left,
+              width: target.width,
+              height: target.height
+            }}
+            onPointerDown={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              onSeek(target.startTime / 1000)
+            }}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+          >
+            {target.text}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+})
+
 const LyricsLineList = React.memo(function LyricsLineList({
   lines,
   currentLineIndex,
@@ -2144,7 +2446,11 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
       </div>
 
       {lines.length ? (
-        <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="side" />
+        hasTimedLyrics ? (
+          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="side" />
+        ) : (
+          <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="side" />
+        )
       ) : (
         <LyricsEmptyState />
       )}
@@ -2161,77 +2467,26 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
 }: LyricsSurfaceProps): React.ReactElement {
   const lines = React.useMemo(() => parseLyrics(track), [track])
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
-  const amllLines = React.useMemo(() => amllLyricLinesFromParsed(lines, track?.duration ?? 0), [lines, track?.duration])
-  const amllShellRef = React.useRef<HTMLDivElement | null>(null)
-  const [amllHitTargets, setAmllHitTargets] = React.useState<FullscreenLyricHitTarget[]>([])
-  const amllOptimizeOptions = React.useMemo(() => ({ resetLineTimestamps: false }), [])
-  const amllBottomLine = React.useMemo(
-    () => <span className="fullscreen-amll-bottom">{track ? `${track.artist} · ${track.album}` : ''}</span>,
-    [track]
-  )
+  const hasTimedLyrics = lines.some((line) => line.time !== null)
   const artwork = trackArtwork(track, albums)
-  React.useLayoutEffect(() => {
-    const shell = amllShellRef.current
-    if (!shell) return
-    let frameId = 0
-    const timeoutIds: number[] = []
+  const [pixelStretchBackground, setPixelStretchBackground] = React.useState<string | null>(null)
 
-    const measureLyricRows = (): void => {
-      const shellRect = shell.getBoundingClientRect()
-      const lineElements = Array.from(shell.querySelectorAll<HTMLElement>('[class*="_lyricLine"]'))
-        .filter((element) => {
-          const classNames = Array.from(element.classList)
-          return (
-            classNames.some((className) => className.includes('_lyricLine')) &&
-            !classNames.some((className) => className.includes('_lyricLineWrapper') || className.includes('_bottomLine'))
-          )
-        })
-        .slice(0, amllLines.length)
-
-      const nextTargets = lineElements
-        .map((element, index): FullscreenLyricHitTarget | null => {
-          const line = amllLines[index]
-          if (!line) return null
-          const rect = element.getBoundingClientRect()
-          if (rect.width <= 0 || rect.height <= 0) return null
-          return {
-            index,
-            text: line.words.map((word) => word.word).join(''),
-            startTime: line.startTime,
-            top: Math.max(0, rect.top - shellRect.top - 10),
-            left: Math.max(0, rect.left - shellRect.left - 12),
-            width: Math.min(shellRect.width, rect.width + 24),
-            height: Math.min(shellRect.height, rect.height + 20)
-          }
-        })
-        .filter((target): target is FullscreenLyricHitTarget => target !== null)
-
-      setAmllHitTargets(nextTargets)
-    }
-
-    const scheduleMeasure = (): void => {
-      window.cancelAnimationFrame(frameId)
-      frameId = window.requestAnimationFrame(measureLyricRows)
-    }
-
-    scheduleMeasure()
-    ;[80, 240, 720].forEach((delay) => {
-      timeoutIds.push(window.setTimeout(scheduleMeasure, delay))
+  React.useEffect(() => {
+    let cancelled = false
+    setPixelStretchBackground(null)
+    if (!artwork) return
+    createCoverPixelStretchBackground(artwork).then((dataUrl) => {
+      if (!cancelled) setPixelStretchBackground(dataUrl)
     })
-    const mutationObserver = new MutationObserver(scheduleMeasure)
-    mutationObserver.observe(shell, { childList: true, subtree: true })
-    window.addEventListener('resize', scheduleMeasure)
-
     return () => {
-      window.cancelAnimationFrame(frameId)
-      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId))
-      mutationObserver.disconnect()
-      window.removeEventListener('resize', scheduleMeasure)
+      cancelled = true
     }
-  }, [amllLines, currentLineIndex, track?.id])
+  }, [artwork])
 
   return (
     <section className="fullscreen-lyrics-page no-drag">
+      <div className="fullscreen-lyrics-mesh" aria-hidden="true" />
+      {pixelStretchBackground ? <img className="fullscreen-lyrics-stretch-bg" src={pixelStretchBackground} alt="" decoding="async" /> : null}
       <img className="fullscreen-lyrics-bg" src={artwork} alt="" decoding="async" />
       <div className="fullscreen-lyrics-art">
         <img src={artwork} alt="" decoding="async" />
@@ -2242,53 +2497,8 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
         <small>{track ? `${track.artist} · ${track.album}` : '选择一首歌曲后显示歌词'}</small>
       </div>
       <div className="fullscreen-lyrics-lines">
-        {amllLines.length ? (
-          <div className="fullscreen-amll-shell" ref={amllShellRef}>
-            <LyricPlayer
-              key={track?.id ?? 'empty'}
-              className="fullscreen-amll-player"
-              data-lyric-count={amllLines.length}
-              lyricLines={amllLines}
-              currentTime={Math.max(0, Math.round(playbackTime * 1000))}
-              playing={isPlaying}
-              alignAnchor="center"
-              alignPosition={0.48}
-              enableBlur
-              enableScale
-              enableSpring
-              wordFadeWidth={0.5}
-              optimizeOptions={amllOptimizeOptions}
-              bottomLine={amllBottomLine}
-            />
-            <div className="fullscreen-amll-hit-layer" aria-hidden={!amllHitTargets.length}>
-              {amllHitTargets.map((target) => (
-                <button
-                  key={`${target.index}-${target.startTime}`}
-                  className="fullscreen-amll-hit-row"
-                  type="button"
-                  aria-label={`跳转到 ${target.text}`}
-                  data-seek-time={target.startTime / 1000}
-                  style={{
-                    top: target.top,
-                    left: target.left,
-                    width: target.width,
-                    height: target.height
-                  }}
-                  onPointerDown={(event) => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    onSeek(target.startTime / 1000)
-                  }}
-                  onClick={(event) => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                  }}
-                >
-                  {target.text}
-                </button>
-              ))}
-            </div>
-          </div>
+        {hasTimedLyrics ? (
+          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="fullscreen" />
         ) : lines.length ? (
           <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="fullscreen" />
         ) : (
@@ -2305,6 +2515,448 @@ const LyricsEmptyState = React.memo(function LyricsEmptyState(): React.ReactElem
       <MessageSquareQuote size={38} />
       <strong>还没有歌词</strong>
       <span>导入歌曲后会自动尝试补全歌词；补全成功后会显示在这里。</span>
+    </div>
+  )
+})
+
+const NowPlayingPage = React.memo(function NowPlayingPage({
+  track,
+  albums,
+  isPlaying,
+  volume,
+  visualizerMode,
+  artBackgroundEnabled,
+  artworkFrameMaskEnabled,
+  artworkFrameIndex,
+  onArtworkFrameAdvance
+}: {
+  track: Track | null | undefined
+  albums: Map<string, HomeAlbumCard>
+  isPlaying: boolean
+  volume: number
+  visualizerMode: 'off' | 'led' | 'spectrum'
+  artBackgroundEnabled: boolean
+  artworkFrameMaskEnabled: boolean
+  artworkFrameIndex: number
+  onArtworkFrameAdvance: () => void
+}): React.ReactElement {
+  const artwork = trackArtwork(track, albums)
+  return (
+    <section className={`now-playing-page ${isPlaying ? 'is-playing' : 'is-paused'} no-drag`}>
+      {artBackgroundEnabled ? <BKArtBackground track={track} isPlaying={isPlaying} /> : <UnifiedMeshBackground />}
+      <div className="now-playing-artwork-stage">
+        <button
+          className={`now-playing-cover ${artworkFrameMaskEnabled ? 'masked' : ''}`}
+          type="button"
+          aria-label="切换艺术化封面边缘"
+          onClick={onArtworkFrameAdvance}
+        >
+          <img
+            className="now-playing-cover-image"
+            src={artwork}
+            alt=""
+            decoding="async"
+            style={
+              artworkFrameMaskEnabled
+                ? {
+                    WebkitMaskImage: `url(${artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]})`,
+                    maskImage: `url(${artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]})`
+                  }
+                : undefined
+            }
+          />
+        </button>
+        {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} /> : null}
+        {visualizerMode === 'spectrum' ? <NowPlayingSpectrum isPlaying={isPlaying} /> : null}
+      </div>
+      <div className="now-playing-track-copy">
+        <strong>{track?.title ?? '未选择歌曲'}</strong>
+        <span>{track ? `${track.artist} · ${track.album}` : '选择一首歌曲后显示窗口播放'}</span>
+      </div>
+    </section>
+  )
+})
+
+const UnifiedMeshBackground = React.memo(function UnifiedMeshBackground(): React.ReactElement {
+  return <div className="now-playing-unified-mesh" aria-hidden="true" />
+})
+
+const BKArtBackground = React.memo(function BKArtBackground({
+  track,
+  isPlaying
+}: {
+  track: Track | null | undefined
+  isPlaying: boolean
+}): React.ReactElement {
+  const seed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
+  const shapes = React.useMemo(() => makeBKShapePlan(seed), [seed])
+  return (
+    <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'}`} aria-hidden="true">
+      <div className="bk-image-phase phase-a" style={{ backgroundImage: `url(${bkBackgroundAssets[seed % bkBackgroundAssets.length]})` }} />
+      <div className="bk-image-phase phase-b" style={{ backgroundImage: `url(${bkBackgroundAssets[(seed + 1) % bkBackgroundAssets.length]})` }} />
+      <div className="bk-tone-layer" />
+      <div className="bk-shape-root">
+        {shapes.map((shape) => (
+          <img
+            key={shape.id}
+            className={`bk-shape ${shape.edgePinned ? 'edge-pinned' : ''}`}
+            src={bkShapeAssets[shape.assetIndex]}
+            alt=""
+            decoding="async"
+            style={
+              {
+                '--shape-x': `${shape.x}%`,
+                '--shape-y': `${shape.y}%`,
+                '--shape-size': `${shape.size}px`,
+                '--shape-rotation': `${shape.rotation}deg`,
+                '--shape-drift-x': `${shape.driftX}px`,
+                '--shape-drift-y': `${shape.driftY}px`,
+                '--shape-duration': `${shape.duration}s`,
+                '--shape-delay': `${shape.delay}s`,
+                '--shape-tint': shape.tint
+              } as React.CSSProperties
+            }
+          />
+        ))}
+      </div>
+    </div>
+  )
+})
+
+type BKShapePlan = {
+  id: string
+  assetIndex: number
+  x: number
+  y: number
+  size: number
+  rotation: number
+  driftX: number
+  driftY: number
+  duration: number
+  delay: number
+  tint: string
+  edgePinned: boolean
+}
+
+function hashString(value: string): number {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function mulberry32(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state += 0x6d2b79f5
+    let next = state
+    next = Math.imul(next ^ (next >>> 15), next | 1)
+    next ^= next + Math.imul(next ^ (next >>> 7), next | 61)
+    return ((next ^ (next >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function makeBKShapePlan(seed: number): BKShapePlan[] {
+  const random = mulberry32(seed ^ 0xa54f66d1)
+  const count = 10 + Math.floor(random() * 7)
+  const tints = [
+    'color-mix(in srgb, var(--cover-accent) 70%, rgba(255,255,255,0.92))',
+    'color-mix(in srgb, var(--cover-accent-text) 58%, rgba(255,255,255,0.84))',
+    'rgba(255, 255, 255, 0.72)',
+    'color-mix(in srgb, var(--ambient-shape-2) 72%, rgba(255,255,255,0.82))'
+  ]
+  return Array.from({ length: count }, (_, index) => {
+    const edge = random()
+    const x = edge < 0.25 ? 7 + random() * 12 : edge < 0.5 ? 81 + random() * 12 : 16 + random() * 68
+    const y = edge >= 0.5 && edge < 0.75 ? 8 + random() * 14 : edge >= 0.75 ? 78 + random() * 14 : 12 + random() * 76
+    const specialScale = index === 9 ? 3 : index === 10 ? 2 : 1
+    return {
+      id: `shape-${index}`,
+      assetIndex: index % bkShapeAssets.length,
+      x,
+      y,
+      size: Math.round((96 + random() * 210) * specialScale),
+      rotation: Math.round(random() * 360),
+      driftX: index === 9 ? 0 : Math.round(-12 + random() * 24),
+      driftY: index === 9 ? 0 : Math.round(-16 + random() * 32),
+      duration: 9 + random() * 9,
+      delay: -random() * 7,
+      tint: tints[index % tints.length],
+      edgePinned: index === 9
+    }
+  })
+}
+
+const NowPlayingVolumeLed = React.memo(function NowPlayingVolumeLed({
+  volume,
+  isPlaying
+}: {
+  volume: number
+  isPlaying: boolean
+}): React.ReactElement {
+  const ledCount = 11
+  const center = Math.floor(ledCount / 2)
+  const litRadius = Math.round(clampNumber(volume, 0, 1) * center)
+  return (
+    <div className={`now-playing-led-pill glass-panel ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
+      {Array.from({ length: ledCount }, (_, index) => {
+        const distance = Math.abs(index - center)
+        const brightness = distance <= litRadius ? 1 - distance / (center + 1) : 0
+        return <span key={index} className="now-playing-led-dot" style={{ '--led-brightness': brightness } as React.CSSProperties} />
+      })}
+    </div>
+  )
+})
+
+const NowPlayingSpectrum = React.memo(function NowPlayingSpectrum({ isPlaying }: { isPlaying: boolean }): React.ReactElement {
+  return (
+    <div className={`now-playing-spectrum-pill glass-panel ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
+      {Array.from({ length: 9 }, (_, index) => <span key={index} style={{ '--bar-index': index } as React.CSSProperties} />)}
+    </div>
+  )
+})
+
+const settingsCategories: Array<{ key: SettingsCategoryKey; title: string; detail: string }> = [
+  { key: 'appearance', title: '外观', detail: '主题、玻璃与窗口' },
+  { key: 'nowPlaying', title: '窗口播放', detail: '皮肤、歌词、LED' },
+  { key: 'fullscreen', title: '全屏播放', detail: '待翻译' },
+  { key: 'externalPlayback', title: '外部播放', detail: '待翻译' },
+  { key: 'data', title: '数据', detail: '待翻译' },
+  { key: 'about', title: '关于', detail: '待翻译' }
+]
+
+const SettingsPanel = React.memo(function SettingsPanel({
+  selectedCategory,
+  onSelectCategory,
+  onClose,
+  selectedNowPlayingTab,
+  onSelectNowPlayingTab,
+  artBackgroundEnabled,
+  onArtBackgroundEnabledChange,
+  visualizerMode,
+  onVisualizerModeChange,
+  artworkFrameMaskEnabled,
+  onArtworkFrameMaskEnabledChange
+}: {
+  selectedCategory: SettingsCategoryKey
+  onSelectCategory: (category: SettingsCategoryKey) => void
+  onClose: () => void
+  selectedNowPlayingTab: NowPlayingSettingsTab
+  onSelectNowPlayingTab: (tab: NowPlayingSettingsTab) => void
+  artBackgroundEnabled: boolean
+  onArtBackgroundEnabledChange: (enabled: boolean) => void
+  visualizerMode: 'off' | 'led' | 'spectrum'
+  onVisualizerModeChange: (mode: 'off' | 'led' | 'spectrum') => void
+  artworkFrameMaskEnabled: boolean
+  onArtworkFrameMaskEnabledChange: (enabled: boolean) => void
+}): React.ReactElement {
+  return (
+    <div className="settings-overlay no-drag">
+      <div className="settings-window glass-panel" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
+        <aside className="settings-sidebar">
+          {settingsCategories.map((category) => (
+            <button
+              key={category.key}
+              className={category.key === selectedCategory ? 'active' : ''}
+              type="button"
+              onClick={() => onSelectCategory(category.key)}
+            >
+              <strong>{category.title}</strong>
+              <span>{category.detail}</span>
+            </button>
+          ))}
+        </aside>
+        <section className="settings-detail">
+          <button className="settings-close" type="button" aria-label="关闭设置" onClick={onClose}>
+            <X size={17} />
+          </button>
+          {selectedCategory === 'nowPlaying' ? (
+            <NowPlayingSettingsContent
+              selectedTab={selectedNowPlayingTab}
+              onSelectTab={onSelectNowPlayingTab}
+              artBackgroundEnabled={artBackgroundEnabled}
+              onArtBackgroundEnabledChange={onArtBackgroundEnabledChange}
+              visualizerMode={visualizerMode}
+              onVisualizerModeChange={onVisualizerModeChange}
+              artworkFrameMaskEnabled={artworkFrameMaskEnabled}
+              onArtworkFrameMaskEnabledChange={onArtworkFrameMaskEnabledChange}
+            />
+          ) : (
+            <div className="settings-empty">
+              <strong>{settingsCategories.find((category) => category.key === selectedCategory)?.title}</strong>
+              <span>这个大板块之后再按 Swift 继续翻译。</span>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  )
+})
+
+const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent({
+  selectedTab,
+  onSelectTab,
+  artBackgroundEnabled,
+  onArtBackgroundEnabledChange,
+  visualizerMode,
+  onVisualizerModeChange,
+  artworkFrameMaskEnabled,
+  onArtworkFrameMaskEnabledChange
+}: {
+  selectedTab: NowPlayingSettingsTab
+  onSelectTab: (tab: NowPlayingSettingsTab) => void
+  artBackgroundEnabled: boolean
+  onArtBackgroundEnabledChange: (enabled: boolean) => void
+  visualizerMode: 'off' | 'led' | 'spectrum'
+  onVisualizerModeChange: (mode: 'off' | 'led' | 'spectrum') => void
+  artworkFrameMaskEnabled: boolean
+  onArtworkFrameMaskEnabledChange: (enabled: boolean) => void
+}): React.ReactElement {
+  return (
+    <div className="settings-now-playing">
+      <header className="settings-header-label">
+        <Settings size={18} />
+        <strong>窗口播放</strong>
+      </header>
+      <div className="settings-tabs">
+        {[
+          ['general', '常规'],
+          ['lyrics', '歌词'],
+          ['led', 'LED']
+        ].map(([key, title]) => (
+          <button key={key} className={selectedTab === key ? 'active' : ''} type="button" onClick={() => onSelectTab(key as NowPlayingSettingsTab)}>
+            {title}
+          </button>
+        ))}
+      </div>
+      {selectedTab === 'general' ? (
+        <div className="settings-section-stack">
+          <SettingsSwitch title="启用艺术背景" detail="遇到性能问题时，可以关闭此选项" checked={artBackgroundEnabled} onChange={onArtBackgroundEnabledChange} />
+          <div className="settings-card-section">
+            <strong>选择皮肤</strong>
+            <div className="settings-skin-row">
+              <button className="active" type="button">
+                <span className="skin-thumb cover-led" />
+                <strong>经典封面</strong>
+              </button>
+              <button type="button">
+                <span className="skin-thumb apple-style" />
+                <strong>Apple 风格</strong>
+              </button>
+              <button type="button">
+                <span className="skin-thumb rotating" />
+                <strong>旋转封面</strong>
+              </button>
+            </div>
+          </div>
+          <div className="settings-card-section">
+            <strong>经典封面选项</strong>
+            <SettingsSwitch title="艺术化封面边缘" checked={artworkFrameMaskEnabled} onChange={onArtworkFrameMaskEnabledChange} />
+            <SettingsSwitch title="LED 电平表" checked={visualizerMode === 'led'} onChange={(checked) => onVisualizerModeChange(checked ? 'led' : 'off')} />
+            <SettingsSwitch title="频谱动画" checked={visualizerMode === 'spectrum'} onChange={(checked) => onVisualizerModeChange(checked ? 'spectrum' : 'off')} />
+          </div>
+        </div>
+      ) : selectedTab === 'lyrics' ? (
+        <div className="settings-section-stack">
+          <div className="settings-card-section">
+            <strong>外观</strong>
+            <SettingsSwitch title="减弱高亮(beta)" detail="开启后可能减少高亮移动干扰" checked={false} onChange={() => undefined} />
+          </div>
+          <div className="settings-card-section">
+            <strong>字体</strong>
+            <SettingsRange title="歌词字号" valueText="32 px" value={32} min={16} max={48} />
+            <SettingsRange title="翻译字号" valueText="18 px" value={18} min={12} max={36} />
+          </div>
+        </div>
+      ) : (
+        <div className="settings-section-stack">
+          <div className="settings-card-section">
+            <strong>实时预览</strong>
+            <NowPlayingVolumeLed volume={0.72} isPlaying />
+          </div>
+          <div className="settings-card-section">
+            <strong>视觉配置</strong>
+            <SettingsSegment title="LED 数量" values={['9', '11', '13', '15']} selected="11" />
+            <SettingsSegment title="亮度等级" values={['3', '5', '7']} selected="5" />
+          </div>
+          <div className="settings-card-section">
+            <SettingsRange title="频率" valueText="1200 Hz" value={1200} min={200} max={6000} />
+            <SettingsRange title="速度" valueText="1.00x" value={1} min={0.5} max={2} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+})
+
+const SettingsSwitch = React.memo(function SettingsSwitch({
+  title,
+  detail,
+  checked,
+  onChange
+}: {
+  title: string
+  detail?: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}): React.ReactElement {
+  return (
+    <label className="settings-switch-row">
+      <span>
+        <strong>{title}</strong>
+        {detail ? <small>{detail}</small> : null}
+      </span>
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.currentTarget.checked)} />
+      <i aria-hidden="true" />
+    </label>
+  )
+})
+
+const SettingsRange = React.memo(function SettingsRange({
+  title,
+  valueText,
+  value,
+  min,
+  max
+}: {
+  title: string
+  valueText: string
+  value: number
+  min: number
+  max: number
+}): React.ReactElement {
+  return (
+    <label className="settings-range-row">
+      <span>
+        <strong>{title}</strong>
+        <small>{valueText}</small>
+      </span>
+      <input type="range" value={value} min={min} max={max} readOnly />
+    </label>
+  )
+})
+
+const SettingsSegment = React.memo(function SettingsSegment({
+  title,
+  values,
+  selected
+}: {
+  title: string
+  values: string[]
+  selected: string
+}): React.ReactElement {
+  return (
+    <div className="settings-segment-row">
+      <strong>{title}</strong>
+      <div>
+        {values.map((value) => (
+          <button key={value} className={value === selected ? 'active' : ''} type="button">
+            {value}
+          </button>
+        ))}
+      </div>
     </div>
   )
 })
@@ -2444,7 +3096,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onToggleShuffle,
   onVolumeChange,
   onSelectTrack,
-  onToggleFullscreenLyrics,
+  onOpenNowPlaying,
   onSeek
 }: {
   track: Track
@@ -2462,7 +3114,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onToggleShuffle: () => void
   onVolumeChange: (volume: number) => void
   onSelectTrack: (id: string) => void
-  onToggleFullscreenLyrics: () => void
+  onOpenNowPlaying: () => void
   onSeek: (seconds: number) => void
 }): React.ReactElement {
   const [isQueueOpen, setIsQueueOpen] = React.useState(false)
@@ -2485,7 +3137,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
           onChange={(event) => onSeek(Number(event.currentTarget.value))}
         />
       </div>
-      <button className="mini-track" type="button" aria-label="打开或关闭完整歌词界面" onClick={onToggleFullscreenLyrics}>
+      <button className="mini-track" type="button" aria-label="打开窗口播放" onClick={onOpenNowPlaying}>
         <img src={trackArtwork(track, albums)} alt="" decoding="async" />
         <div>
           <strong>{track.title}</strong>

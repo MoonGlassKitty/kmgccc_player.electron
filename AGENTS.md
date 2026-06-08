@@ -97,4 +97,5 @@ The local DMG reports `CFBundleShortVersionString = 2.1.1`, while local `pages/v
 - Keep user-facing progress concise.
 - Before inspecting images/screenshots sent in the conversation or uploading them into context, run the local `image-preflight` skill compression workflow first to avoid context blowups.
 - Before major implementation choices, inspect the existing repo shape first.
+- When porting or matching an existing macOS/SwiftUI feature, first read and follow the relevant Swift implementation, constants, layout math, and rendering pipeline before attempting Electron/CSS approximations. Do not hard-trial visual behavior from scratch when Swift source already defines the intended logic.
 - Since effect fidelity is the point, use screenshot verification early and often.
