@@ -1321,6 +1321,10 @@ function App(): React.ReactElement {
   const [lyricsLeadInMs, setLyricsLeadInMs] = React.useState(() => storedNumber('lyricsLeadInMs', 600))
   const [lyricsNearSwitchGapMs, setLyricsNearSwitchGapMs] = React.useState(() => storedNumber('lyricsNearSwitchGapMs', 160))
   const [lyricsGlobalAdvanceMs, setLyricsGlobalAdvanceMs] = React.useState(() => storedNumber('lyricsGlobalAdvanceMs', 0))
+  const [ledCount, setLedCount] = React.useState(() => storedNumber('ledCount', 11))
+  const [ledBrightnessLevels, setLedBrightnessLevels] = React.useState(() => storedNumber('ledBrightnessLevels', 5))
+  const [ledCutoffHz, setLedCutoffHz] = React.useState(() => storedNumber('ledCutoffHz', 1200))
+  const [ledSpeed, setLedSpeed] = React.useState(() => storedNumber('ledSpeed', 1))
   const [artworkFrameIndex, setArtworkFrameIndex] = React.useState(0)
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
@@ -1469,6 +1473,22 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     persistSetting('lyricsGlobalAdvanceMs', lyricsGlobalAdvanceMs)
   }, [lyricsGlobalAdvanceMs])
+
+  React.useEffect(() => {
+    persistSetting('ledCount', ledCount)
+  }, [ledCount])
+
+  React.useEffect(() => {
+    persistSetting('ledBrightnessLevels', ledBrightnessLevels)
+  }, [ledBrightnessLevels])
+
+  React.useEffect(() => {
+    persistSetting('ledCutoffHz', ledCutoffHz)
+  }, [ledCutoffHz])
+
+  React.useEffect(() => {
+    persistSetting('ledSpeed', ledSpeed)
+  }, [ledSpeed])
 
   React.useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth)
@@ -1842,6 +1862,9 @@ function App(): React.ReactElement {
               albums={albums}
               isPlaying={isPlaying}
               volume={volume}
+              ledCount={ledCount}
+              ledBrightnessLevels={ledBrightnessLevels}
+              ledSpeed={ledSpeed}
               skinID={selectedNowPlayingSkin}
               visualizerMode={selectedVisualizerMode}
               artBackgroundEnabled={isNowPlayingArtBackgroundEnabled}
@@ -1943,6 +1966,14 @@ function App(): React.ReactElement {
             onLyricsNearSwitchGapMsChange={setLyricsNearSwitchGapMs}
             lyricsGlobalAdvanceMs={lyricsGlobalAdvanceMs}
             onLyricsGlobalAdvanceMsChange={setLyricsGlobalAdvanceMs}
+            ledCount={ledCount}
+            onLedCountChange={setLedCount}
+            ledBrightnessLevels={ledBrightnessLevels}
+            onLedBrightnessLevelsChange={setLedBrightnessLevels}
+            ledCutoffHz={ledCutoffHz}
+            onLedCutoffHzChange={setLedCutoffHz}
+            ledSpeed={ledSpeed}
+            onLedSpeedChange={setLedSpeed}
           />
         ) : null}
         {isFullscreenLyricsOpen ? (
@@ -2782,6 +2813,9 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   albums,
   isPlaying,
   volume,
+  ledCount,
+  ledBrightnessLevels,
+  ledSpeed,
   skinID,
   visualizerMode,
   artBackgroundEnabled,
@@ -2797,6 +2831,9 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   albums: Map<string, HomeAlbumCard>
   isPlaying: boolean
   volume: number
+  ledCount: number
+  ledBrightnessLevels: number
+  ledSpeed: number
   skinID: NowPlayingSkinID
   visualizerMode: VisualizerMode
   artBackgroundEnabled: boolean
@@ -2830,7 +2867,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
         ) : (
           <CassetteNowPlayingArtwork artwork={artwork} showKmgLook={cassetteKmgLookEnabled} />
         )}
-        {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} /> : null}
+        {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} ledCount={ledCount} brightnessLevels={ledBrightnessLevels} ledSpeed={ledSpeed} /> : null}
         {visualizerMode === 'spectrum' ? <NowPlayingSpectrum isPlaying={isPlaying} /> : null}
       </div>
       <div className="now-playing-track-copy">
@@ -3132,25 +3169,34 @@ function makeBKDotPlan(seed: number): BKDotPlan[] {
 
 const NowPlayingVolumeLed = React.memo(function NowPlayingVolumeLed({
   volume,
-  isPlaying
+  isPlaying,
+  ledCount = 11,
+  brightnessLevels = 5,
+  ledSpeed = 1
 }: {
   volume: number
   isPlaying: boolean
+  ledCount?: number
+  brightnessLevels?: number
+  ledSpeed?: number
 }): React.ReactElement {
-  const ledCount = 11
-  const center = Math.floor(ledCount / 2)
-  const brightnessLevels = 5
-  const totalSlots = (center + 1) * brightnessLevels
+  const safeLedCount = Math.max(3, Math.round(ledCount))
+  const safeBrightnessLevels = Math.max(2, Math.round(brightnessLevels))
+  const center = Math.floor(safeLedCount / 2)
+  const totalSlots = (center + 1) * safeBrightnessLevels
   const currentSlot = clampNumber(volume, 0, 1) * totalSlots
   return (
-    <div className={`now-playing-led-pill glass-panel ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
+    <div
+      className={`now-playing-led-pill glass-panel ${isPlaying ? 'playing' : ''}`}
+      style={{ '--filter-url': 'url(#lg-mini)', '--led-speed': clampNumber(ledSpeed, 0.5, 2) } as React.CSSProperties}
+    >
       <span className="now-playing-status-led" />
       <span className="now-playing-led-divider" />
-      {Array.from({ length: ledCount }, (_, index) => {
+      {Array.from({ length: safeLedCount }, (_, index) => {
         const distance = Math.abs(index - center)
-        const ledStartSlot = distance * brightnessLevels
-        const state = currentSlot < ledStartSlot ? 0 : currentSlot >= ledStartSlot + brightnessLevels ? brightnessLevels - 1 : Math.floor(currentSlot - ledStartSlot)
-        const brightness = state / (brightnessLevels - 1)
+        const ledStartSlot = distance * safeBrightnessLevels
+        const state = currentSlot < ledStartSlot ? 0 : currentSlot >= ledStartSlot + safeBrightnessLevels ? safeBrightnessLevels - 1 : Math.floor(currentSlot - ledStartSlot)
+        const brightness = state / (safeBrightnessLevels - 1)
         return (
           <span
             key={index}
@@ -3226,7 +3272,15 @@ const SettingsPanel = React.memo(function SettingsPanel({
   lyricsNearSwitchGapMs,
   onLyricsNearSwitchGapMsChange,
   lyricsGlobalAdvanceMs,
-  onLyricsGlobalAdvanceMsChange
+  onLyricsGlobalAdvanceMsChange,
+  ledCount,
+  onLedCountChange,
+  ledBrightnessLevels,
+  onLedBrightnessLevelsChange,
+  ledCutoffHz,
+  onLedCutoffHzChange,
+  ledSpeed,
+  onLedSpeedChange
 }: {
   selectedCategory: SettingsCategoryKey
   onSelectCategory: (category: SettingsCategoryKey) => void
@@ -3269,6 +3323,14 @@ const SettingsPanel = React.memo(function SettingsPanel({
   onLyricsNearSwitchGapMsChange: (value: number) => void
   lyricsGlobalAdvanceMs: number
   onLyricsGlobalAdvanceMsChange: (value: number) => void
+  ledCount: number
+  onLedCountChange: (value: number) => void
+  ledBrightnessLevels: number
+  onLedBrightnessLevelsChange: (value: number) => void
+  ledCutoffHz: number
+  onLedCutoffHzChange: (value: number) => void
+  ledSpeed: number
+  onLedSpeedChange: (value: number) => void
 }): React.ReactElement {
   return (
     <div className="settings-overlay no-drag">
@@ -3330,6 +3392,14 @@ const SettingsPanel = React.memo(function SettingsPanel({
               onLyricsNearSwitchGapMsChange={onLyricsNearSwitchGapMsChange}
               lyricsGlobalAdvanceMs={lyricsGlobalAdvanceMs}
               onLyricsGlobalAdvanceMsChange={onLyricsGlobalAdvanceMsChange}
+              ledCount={ledCount}
+              onLedCountChange={onLedCountChange}
+              ledBrightnessLevels={ledBrightnessLevels}
+              onLedBrightnessLevelsChange={onLedBrightnessLevelsChange}
+              ledCutoffHz={ledCutoffHz}
+              onLedCutoffHzChange={onLedCutoffHzChange}
+              ledSpeed={ledSpeed}
+              onLedSpeedChange={onLedSpeedChange}
             />
           ) : (
             <div className="settings-empty">
@@ -3381,7 +3451,15 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
   lyricsNearSwitchGapMs,
   onLyricsNearSwitchGapMsChange,
   lyricsGlobalAdvanceMs,
-  onLyricsGlobalAdvanceMsChange
+  onLyricsGlobalAdvanceMsChange,
+  ledCount,
+  onLedCountChange,
+  ledBrightnessLevels,
+  onLedBrightnessLevelsChange,
+  ledCutoffHz,
+  onLedCutoffHzChange,
+  ledSpeed,
+  onLedSpeedChange
 }: {
   selectedTab: NowPlayingSettingsTab
   onSelectTab: (tab: NowPlayingSettingsTab) => void
@@ -3421,6 +3499,14 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
   onLyricsNearSwitchGapMsChange: (value: number) => void
   lyricsGlobalAdvanceMs: number
   onLyricsGlobalAdvanceMsChange: (value: number) => void
+  ledCount: number
+  onLedCountChange: (value: number) => void
+  ledBrightnessLevels: number
+  onLedBrightnessLevelsChange: (value: number) => void
+  ledCutoffHz: number
+  onLedCutoffHzChange: (value: number) => void
+  ledSpeed: number
+  onLedSpeedChange: (value: number) => void
 }): React.ReactElement {
   const selectedSkinOption = nowPlayingSkinOptions.find((skin) => skin.id === selectedSkin) ?? nowPlayingSkinOptions[0]
   return (
@@ -3530,16 +3616,16 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
         <div className="settings-section-stack">
           <div className="settings-card-section">
             <strong>实时预览</strong>
-            <NowPlayingVolumeLed volume={0.72} isPlaying />
+            <NowPlayingVolumeLed volume={0.72} isPlaying ledCount={ledCount} brightnessLevels={ledBrightnessLevels} ledSpeed={ledSpeed} />
           </div>
           <div className="settings-card-section">
             <strong>视觉配置</strong>
-            <SettingsSegment title="LED 数量" values={['9', '11', '13', '15']} selected="11" />
-            <SettingsSegment title="亮度等级" values={['3', '5', '7']} selected="5" />
+            <SettingsSegment title="LED 数量" values={['9', '11', '13', '15']} selected={String(Math.round(ledCount))} onSelect={(value) => onLedCountChange(Number(value))} />
+            <SettingsSegment title="亮度等级" values={['3', '5', '7']} selected={String(Math.round(ledBrightnessLevels))} onSelect={(value) => onLedBrightnessLevelsChange(Number(value))} />
           </div>
           <div className="settings-card-section">
-            <SettingsRange title="频率" valueText="1200 Hz" value={1200} min={200} max={6000} />
-            <SettingsRange title="速度" valueText="1.00x" value={1} min={0.5} max={2} />
+            <SettingsRange title="频率" valueText={`${Math.round(ledCutoffHz)} Hz`} value={ledCutoffHz} min={200} max={6000} step={100} onChange={onLedCutoffHzChange} />
+            <SettingsRange title="速度" valueText={`${ledSpeed.toFixed(2)}x`} value={ledSpeed} min={0.5} max={2} step={0.05} onChange={onLedSpeedChange} />
           </div>
         </div>
       )}

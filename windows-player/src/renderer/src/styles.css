@@ -500,6 +500,7 @@ input {
 
 .now-playing-led-pill.playing .now-playing-status-led {
   animation: statusLedBreath 2.88s steps(5, end) infinite;
+  animation-duration: calc(2.88s / var(--led-speed, 1));
 }
 
 .now-playing-led-divider {
