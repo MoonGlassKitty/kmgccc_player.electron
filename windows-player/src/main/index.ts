@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol } from 'electron'
 import { execFileSync } from 'node:child_process'
-import { createDecipheriv } from 'node:crypto'
-import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { createDecipheriv, createHash } from 'node:crypto'
+import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -23,35 +23,6 @@ protocol.registerSchemesAsPrivileged([
 
 const altArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e9/c4/38/e9c43893-e743-269a-6a47-c11120717177/artwork.jpg/600x600bb.jpg'
-
-const liuhenAudioPath = join(homedir(), 'Music/网易云音乐/MoonGlassKitty - 潮落.mp3')
-
-const liuhenSyncedLyrics = [
-  '[00:00.00]留痕',
-  '[00:12.00]窗边的光 慢慢落进耳机',
-  '[00:25.00]旧旋律在玻璃里折回去',
-  '[00:39.00]每一次点击 都让时间有了回声',
-  '[00:54.00]我把这一行 留在播放的轨迹',
-  '[01:09.00]当歌词亮起 你能看见它靠近',
-  '[01:25.00]再把故事交给下一次呼吸',
-  '[01:43.00]留痕的人 会在歌里醒来'
-].join('\n')
-
-const demoTracks = [
-  {
-    id: 'liuhen',
-    title: '留痕',
-    artist: 'MoonGlassKitty',
-    artistId: 'artist-moonglasskitty',
-    album: '留痕',
-    albumId: 'album-liuhen',
-    duration: 122,
-    sourcePath: liuhenAudioPath,
-    sourceUrl: mediaUrlForPath(liuhenAudioPath),
-    artworkUrl: altArtwork,
-    syncedLyrics: liuhenSyncedLyrics
-  }
-]
 
 type WallpaperTint = {
   source: 'macos' | 'windows' | 'linux' | 'fallback'
@@ -82,8 +53,16 @@ type LocalAudioImport = {
 }
 
 type PersistedLibrary = {
-  version: 1
+  version: 2
   tracks: LocalAudioImport[]
+  playlists: PersistedPlaylist[]
+}
+
+type PersistedPlaylist = {
+  id: string
+  name: string
+  artworkUrl?: string
+  trackIds: string[]
 }
 
 type NcmMetadata = {
@@ -145,6 +124,10 @@ function mediaUrlForPath(audioPath: string): string {
   return `kmgccc-media://audio/${encodedPath}`
 }
 
+function stableIdForPath(audioPath: string): string {
+  return createHash('sha256').update(audioPath).digest('hex').slice(0, 24)
+}
+
 function mimeTypeForAudioPath(audioPath: string): string {
   switch (extname(audioPath).toLowerCase()) {
     case '.flac':
@@ -173,14 +156,28 @@ function isPersistableTrack(value: unknown): value is LocalAudioImport {
   return Boolean(track.id && track.title && track.artist && track.album && track.sourcePath && track.sourceUrl)
 }
 
-function loadPersistedTracks(): LocalAudioImport[] {
+function isPersistedPlaylist(value: unknown): value is PersistedPlaylist {
+  if (!value || typeof value !== 'object') return false
+  const playlist = value as Partial<PersistedPlaylist>
+  return Boolean(playlist.id && playlist.name && Array.isArray(playlist.trackIds))
+}
+
+function loadPersistedLibrary(): PersistedLibrary {
   try {
     const raw = readFileSync(libraryStorePath(), 'utf8')
     const parsed = JSON.parse(raw) as Partial<PersistedLibrary>
-    return Array.isArray(parsed.tracks) ? parsed.tracks.filter(isPersistableTrack) : []
+    return {
+      version: 2,
+      tracks: Array.isArray(parsed.tracks) ? parsed.tracks.filter(isPersistableTrack) : [],
+      playlists: Array.isArray(parsed.playlists) ? parsed.playlists.filter(isPersistedPlaylist) : []
+    }
   } catch {
-    return []
+    return { version: 2, tracks: [], playlists: [] }
   }
+}
+
+function loadPersistedTracks(): LocalAudioImport[] {
+  return loadPersistedLibrary().tracks
 }
 
 function persistenceKeyForTrack(track: LocalAudioImport): string {
@@ -205,14 +202,28 @@ function mergeTrackList(tracks: LocalAudioImport[]): LocalAudioImport[] {
   return merged
 }
 
-function savePersistedTracks(tracks: LocalAudioImport[]): void {
+function savePersistedLibrary(library: Pick<PersistedLibrary, 'tracks' | 'playlists'>): void {
   const storePath = libraryStorePath()
   mkdirSync(dirname(storePath), { recursive: true })
+  const tracks = mergeTrackList(library.tracks)
+  const trackIds = new Set(tracks.map((track) => track.id))
   const payload: PersistedLibrary = {
-    version: 1,
-    tracks: mergeTrackList(tracks)
+    version: 2,
+    tracks,
+    playlists: library.playlists
+      .filter(isPersistedPlaylist)
+      .map((playlist) => ({
+        ...playlist,
+        trackIds: playlist.trackIds.filter((id, index, ids) => trackIds.has(id) && ids.indexOf(id) === index)
+      }))
+      .filter((playlist) => playlist.id !== 'playlist-library')
   }
   writeFileSync(storePath, JSON.stringify(payload, null, 2), 'utf8')
+}
+
+function savePersistedTracks(tracks: LocalAudioImport[]): void {
+  const library = loadPersistedLibrary()
+  savePersistedLibrary({ tracks, playlists: library.playlists })
 }
 
 function upsertPersistedTrack(track: LocalAudioImport): void {
@@ -224,7 +235,7 @@ function upsertPersistedTracks(tracks: LocalAudioImport[]): void {
 }
 
 function tracksForHomeSnapshot(): LocalAudioImport[] {
-  return mergeTrackList([...(demoTracks as LocalAudioImport[]), ...loadPersistedTracks()])
+  return mergeTrackList(loadPersistedTracks())
 }
 
 async function importAudioFilesFromPaths(filePaths: string[]): Promise<AudioImportBatchResult> {
@@ -282,6 +293,57 @@ function artistsForTracks(tracks: LocalAudioImport[]) {
     trackCount: artist.trackCount,
     albumCount: artist.albumIds.size
   }))
+}
+
+function playlistsForTracks(tracks: LocalAudioImport[], persistedPlaylists: PersistedPlaylist[]) {
+  const trackIds = new Set(tracks.map((track) => track.id))
+  const libraryPlaylist = tracks.length
+    ? [{
+      id: 'playlist-library',
+      name: '资料库',
+      artworkUrl: tracks[0]?.artworkUrl,
+      trackCount: tracks.length,
+      trackIds: tracks.map((track) => track.id)
+    }]
+    : []
+  const userPlaylists = persistedPlaylists
+    .filter((playlist) => playlist.id !== 'playlist-library')
+    .map((playlist) => {
+      const validTrackIds = playlist.trackIds.filter((id) => trackIds.has(id))
+      const firstTrack = tracks.find((track) => track.id === validTrackIds[0])
+      return {
+        ...playlist,
+        artworkUrl: playlist.artworkUrl || firstTrack?.artworkUrl,
+        trackCount: validTrackIds.length,
+        trackIds: validTrackIds
+      }
+    })
+  return [...libraryPlaylist, ...userPlaylists]
+}
+
+function updateTracksForEditedTrack(updatedTrack: LocalAudioImport): LocalAudioImport[] {
+  const ids = idsForMetadata(updatedTrack.artist, updatedTrack.album)
+  const normalizedTrack = {
+    ...updatedTrack,
+    artistId: ids.artistId,
+    albumId: ids.albumId,
+    sourceUrl: mediaUrlForPath(updatedTrack.sourcePath)
+  }
+  return mergeTrackList(loadPersistedTracks().map((track) => (track.id === normalizedTrack.id ? normalizedTrack : track)))
+}
+
+function deleteTracksByPredicate(predicate: (track: LocalAudioImport) => boolean): void {
+  const library = loadPersistedLibrary()
+  const nextTracks = library.tracks.filter((track) => !predicate(track))
+  savePersistedLibrary({ tracks: nextTracks, playlists: library.playlists })
+}
+
+function createPlaylist(name: string): PersistedPlaylist {
+  const library = loadPersistedLibrary()
+  const id = `playlist-${normalizedSlug(name, 'playlist')}-${Date.now().toString(36)}`
+  const playlist = { id, name, trackIds: [] }
+  savePersistedLibrary({ tracks: library.tracks, playlists: [playlist, ...library.playlists] })
+  return playlist
 }
 
 function dataUrlForImage(data: Uint8Array, mimeType = 'image/jpeg'): string {
@@ -354,7 +416,7 @@ function safeNcmOutputName(sourcePath: string, metadata: NcmMetadata | null, for
   const filenameMetadata = parseTitleArtistFromFilename(sourcePath)
   const title = metadata?.musicName?.trim() || filenameMetadata.title
   const artist = metadata?.artist?.map((entry) => entry[0]).filter(Boolean).join(', ') || filenameMetadata.artist
-  const stableId = Buffer.from(sourcePath, 'utf8').toString('base64url').slice(0, 18)
+  const stableId = stableIdForPath(sourcePath).slice(0, 18)
   return `${normalizedSlug(`${artist}-${title}`, 'netease-track')}-${stableId}.${format}`
 }
 
@@ -499,7 +561,7 @@ async function localAudioImportFromPath(audioPath: string): Promise<LocalAudioIm
   }
 
   const filenameMetadata = parseTitleArtistFromFilename(audioPath)
-  const stableId = Buffer.from(audioPath, 'utf8').toString('base64url').slice(0, 24)
+  const stableId = stableIdForPath(audioPath)
   let title = filenameMetadata.title
   let artist = filenameMetadata.artist
   let album = '未知专辑'
@@ -808,8 +870,9 @@ function getWallpaperTint(): WallpaperTint {
 }
 
 function getHomeSnapshot() {
-  const tracks = tracksForHomeSnapshot()
-  const heroTrack = tracks[0] ?? demoTracks[0]
+  const library = loadPersistedLibrary()
+  const tracks = mergeTrackList(library.tracks)
+  const heroTrack = tracks[0] ?? null
   const rankingTracks = tracks.slice(0, 5)
 
   return {
@@ -817,13 +880,13 @@ function getHomeSnapshot() {
     tracks,
     artists: artistsForTracks(tracks),
     albums: albumsForTracks(tracks),
-    playlists: [],
+    playlists: playlistsForTracks(tracks, library.playlists),
     stats: {
       totalTrackCount: tracks.length,
       weeklyPlayCount: tracks.length,
       weeklyListeningSeconds: tracks.reduce((total, track) => total + Math.max(0, track.duration || 0), 0),
-      favoriteArtistName: heroTrack.artist,
-      favoriteArtistPlayCount: tracks.filter((track) => track.artistId === heroTrack.artistId).length,
+      favoriteArtistName: heroTrack?.artist,
+      favoriteArtistPlayCount: heroTrack ? tracks.filter((track) => track.artistId === heroTrack.artistId).length : 0,
       ranking: rankingTracks.map((track, index) => ({
         trackId: track.id,
         title: track.title,
@@ -938,8 +1001,94 @@ ipcMain.handle('library:import-audio-files', async (event): Promise<AudioImportB
   if (result.canceled || result.filePaths.length === 0) return null
   return importAudioFilesFromPaths(result.filePaths)
 })
+ipcMain.handle('library:import-audio-files-from-paths', async (_event, filePaths: string[]): Promise<AudioImportBatchResult> => {
+  return importAudioFilesFromPaths(filePaths.filter((filePath) => typeof filePath === 'string' && filePath.length > 0))
+})
 ipcMain.handle('library:sync-track-info', async (_event, track: LocalAudioImport): Promise<TrackMetadataSyncResult> => {
   const result = await syncTrackInfo(track)
   upsertPersistedTrack(result.track)
   return result
+})
+ipcMain.handle('library:clear', () => {
+  rmSync(libraryStorePath(), { force: true })
+  return getHomeSnapshot()
+})
+ipcMain.handle('library:update-track', (_event, track: LocalAudioImport) => {
+  const library = loadPersistedLibrary()
+  savePersistedLibrary({ tracks: updateTracksForEditedTrack(track), playlists: library.playlists })
+  return getHomeSnapshot()
+})
+ipcMain.handle('library:delete-track', (_event, trackId: string) => {
+  deleteTracksByPredicate((track) => track.id === trackId)
+  return getHomeSnapshot()
+})
+ipcMain.handle('library:delete-album', (_event, albumId: string) => {
+  deleteTracksByPredicate((track) => track.albumId === albumId)
+  return getHomeSnapshot()
+})
+ipcMain.handle('library:delete-artist', (_event, artistId: string) => {
+  deleteTracksByPredicate((track) => track.artistId === artistId)
+  return getHomeSnapshot()
+})
+ipcMain.handle('library:update-album', (_event, albumId: string, title: string, artist: string) => {
+  const library = loadPersistedLibrary()
+  const tracks = library.tracks.map((track) => {
+    if (track.albumId !== albumId) return track
+    const nextArtist = artist.trim() || track.artist
+    const nextAlbum = title.trim() || track.album
+    const ids = idsForMetadata(nextArtist, nextAlbum)
+    return { ...track, artist: nextArtist, artistId: ids.artistId, album: nextAlbum, albumId: ids.albumId }
+  })
+  savePersistedLibrary({ tracks, playlists: library.playlists })
+  return getHomeSnapshot()
+})
+ipcMain.handle('library:update-artist', (_event, artistId: string, name: string) => {
+  const library = loadPersistedLibrary()
+  const tracks = library.tracks.map((track) => {
+    if (track.artistId !== artistId) return track
+    const nextArtist = name.trim() || track.artist
+    const ids = idsForMetadata(nextArtist, track.album)
+    return { ...track, artist: nextArtist, artistId: ids.artistId, albumId: ids.albumId }
+  })
+  savePersistedLibrary({ tracks, playlists: library.playlists })
+  return getHomeSnapshot()
+})
+ipcMain.handle('library:create-playlist', (_event, name: string) => {
+  createPlaylist(name.trim() || '新建播放列表')
+  return getHomeSnapshot()
+})
+ipcMain.handle('library:update-playlist', (_event, playlistId: string, name: string) => {
+  const library = loadPersistedLibrary()
+  savePersistedLibrary({
+    tracks: library.tracks,
+    playlists: library.playlists.map((playlist) => (playlist.id === playlistId ? { ...playlist, name: name.trim() || playlist.name } : playlist))
+  })
+  return getHomeSnapshot()
+})
+ipcMain.handle('library:delete-playlist', (_event, playlistId: string) => {
+  const library = loadPersistedLibrary()
+  savePersistedLibrary({ tracks: library.tracks, playlists: library.playlists.filter((playlist) => playlist.id !== playlistId) })
+  return getHomeSnapshot()
+})
+ipcMain.handle('library:add-track-to-playlist', (_event, playlistId: string, trackId: string) => {
+  const library = loadPersistedLibrary()
+  savePersistedLibrary({
+    tracks: library.tracks,
+    playlists: library.playlists.map((playlist) =>
+      playlist.id === playlistId
+        ? { ...playlist, trackIds: [trackId, ...playlist.trackIds.filter((id) => id !== trackId)] }
+        : playlist
+    )
+  })
+  return getHomeSnapshot()
+})
+ipcMain.handle('library:remove-track-from-playlist', (_event, playlistId: string, trackId: string) => {
+  const library = loadPersistedLibrary()
+  savePersistedLibrary({
+    tracks: library.tracks,
+    playlists: library.playlists.map((playlist) =>
+      playlist.id === playlistId ? { ...playlist, trackIds: playlist.trackIds.filter((id) => id !== trackId) } : playlist
+    )
+  })
+  return getHomeSnapshot()
 })

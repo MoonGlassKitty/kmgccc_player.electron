@@ -215,66 +215,20 @@ function createCoverPixelStretchBackground(artworkUrl: string): Promise<string |
   })
 }
 
-const liuhenAudioPath = '/Users/moonglasskitty/Music/网易云音乐/MoonGlassKitty - 潮落.mp3'
-const liuhenAudioUrl = mediaUrlForLocalPath(liuhenAudioPath)
-
-const liuhenSyncedLyrics = [
-  '[00:00.00]留痕',
-  '[00:12.00]窗边的光 慢慢落进耳机',
-  '[00:25.00]旧旋律在玻璃里折回去',
-  '[00:39.00]每一次点击 都让时间有了回声',
-  '[00:54.00]我把这一行 留在播放的轨迹',
-  '[01:09.00]当歌词亮起 你能看见它靠近',
-  '[01:25.00]再把故事交给下一次呼吸',
-  '[01:43.00]留痕的人 会在歌里醒来'
-].join('\n')
-
 const fallbackHomeSnapshot: HomeSnapshot = {
-  heroTrack: {
-    id: 'liuhen',
-    title: '留痕',
-    artist: 'MoonGlassKitty',
-    artistId: 'artist-moonglasskitty',
-    album: '留痕',
-    albumId: 'album-liuhen',
-    duration: 122,
-    artworkUrl: altArtwork,
-    sourcePath: liuhenAudioPath,
-    sourceUrl: liuhenAudioUrl,
-    syncedLyrics: liuhenSyncedLyrics
-  },
-  tracks: [
-    {
-      id: 'liuhen',
-      title: '留痕',
-      artist: 'MoonGlassKitty',
-      artistId: 'artist-moonglasskitty',
-      album: '留痕',
-      albumId: 'album-liuhen',
-      duration: 122,
-      artworkUrl: altArtwork,
-      sourcePath: liuhenAudioPath,
-      sourceUrl: liuhenAudioUrl,
-      syncedLyrics: liuhenSyncedLyrics
-    }
-  ],
-  artists: [
-    { id: 'artist-moonglasskitty', name: 'MoonGlassKitty', artworkUrl: altArtwork, trackCount: 1, albumCount: 1 }
-  ],
-  albums: [
-    { id: 'album-liuhen', title: '留痕', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', artworkUrl: altArtwork, trackCount: 1 }
-  ],
+  heroTrack: null,
+  tracks: [],
+  artists: [],
+  albums: [],
   playlists: [],
   stats: {
-    totalTrackCount: 1,
-    weeklyPlayCount: 1,
-    weeklyListeningSeconds: 122,
-    favoriteArtistName: 'MoonGlassKitty',
-    favoriteArtistPlayCount: 1,
-    ranking: [
-      { trackId: 'liuhen', title: '留痕', artist: 'MoonGlassKitty', artworkUrl: altArtwork, playCount: 1, score: 0.92 }
-    ],
-    dailyListeningMap: { '2026-06-08': 1 }
+    totalTrackCount: 0,
+    weeklyPlayCount: 0,
+    weeklyListeningSeconds: 0,
+    favoriteArtistName: undefined,
+    favoriteArtistPlayCount: 0,
+    ranking: [],
+    dailyListeningMap: {}
   }
 }
 
@@ -330,6 +284,16 @@ type NowPlayingSettingsTab = 'general' | 'lyrics' | 'led'
 type NowPlayingSkinID = 'coverLed' | 'appleStyle' | 'rotatingCover' | 'kmgccc.cassette'
 type VisualizerMode = 'off' | 'led' | 'spectrum'
 type AppleMeshSpeed = 'slow' | 'standard' | 'fast'
+type ContextMenuItem = {
+  label: string
+  danger?: boolean
+  onSelect: () => void
+}
+type ContextMenuState = {
+  x: number
+  y: number
+  items: ContextMenuItem[]
+}
 
 const bkShapeAssets = [shape1, shape2, shape3, shape4, shape5, shape6, shape7, shape8, shape9, shape10, shape11]
 const bkBackgroundAssets = [bkBackground1, bkBackground2]
@@ -1242,6 +1206,11 @@ function detailSubtitle(route: DetailRoute, snapshot: HomeSnapshot, tracks: Home
   return `${tracks.length} 首歌曲`
 }
 
+function snapshotWithoutMissingQueueIds(snapshot: HomeSnapshot, queueIds: string[]): string[] {
+  const validIds = new Set(snapshot.tracks.map((track) => track.id))
+  return queueIds.filter((id) => validIds.has(id))
+}
+
 const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
   isActive
 }: {
@@ -1522,19 +1491,28 @@ function App(): React.ReactElement {
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
   const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
+  const [playbackQueueIds, setPlaybackQueueIds] = React.useState<string[]>(() => fallbackHomeSnapshot.tracks.map((track) => track.id))
   const [isPlaying, setIsPlaying] = React.useState(false)
   const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(false)
   const [volume, setVolume] = React.useState(0.72)
   const [playbackTime, setPlaybackTime] = React.useState(0)
   const [playbackDuration, setPlaybackDuration] = React.useState(0)
   const [importSyncState, setImportSyncState] = React.useState<ImportSyncState | null>(null)
+  const [contextMenu, setContextMenu] = React.useState<ContextMenuState | null>(null)
   const audioRef = React.useRef<HTMLAudioElement>(null)
   const lastPlaybackTimeRef = React.useRef(0)
+  const loadedAudioTrackRef = React.useRef<string>('')
   const albums = React.useMemo(() => albumById(homeSnapshot), [homeSnapshot])
   const currentTrack = React.useMemo(
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
     [currentId, homeSnapshot]
   )
+  const playbackQueue = React.useMemo(() => {
+    const queueTracks = playbackQueueIds
+      .map((id) => homeSnapshot.tracks.find((track) => track.id === id))
+      .filter((track): track is HomeTrack => Boolean(track))
+    return queueTracks.length ? queueTracks : homeSnapshot.tracks
+  }, [homeSnapshot.tracks, playbackQueueIds])
   const fallbackCoverThemeStyle = React.useMemo(() => coverThemeFor(currentTrack, albums), [albums, currentTrack])
   const currentArtworkUrl = React.useMemo(() => currentTrack ? trackArtwork(currentTrack, albums) : '', [albums, currentTrack])
   const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
@@ -1561,6 +1539,26 @@ function App(): React.ReactElement {
     return clampNumber(Math.min(sidebarWidth, availableSidebarWidth), 180, sidebarWidth)
   }, [isLyricsSidebarOpen, isSidebarCollapsed, lyricsWidth, sidebarWidth, viewportWidth])
   const isSidebarVisuallyCollapsed = isSidebarCollapsed || adaptiveSidebarWidth <= 118
+  const openContextMenu = React.useCallback((event: React.MouseEvent, items: ContextMenuItem[]) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setContextMenu({
+      x: Math.min(event.clientX, window.innerWidth - 230),
+      y: Math.min(event.clientY, window.innerHeight - 260),
+      items
+    })
+  }, [])
+
+  React.useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    window.addEventListener('click', close)
+    window.addEventListener('blur', close)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('blur', close)
+    }
+  }, [contextMenu])
 
   React.useEffect(() => {
     let cancelled = false
@@ -1717,6 +1715,19 @@ function App(): React.ReactElement {
     return () => window.removeEventListener('resize', updateViewportWidth)
   }, [currentTrack?.sourceUrl])
 
+  const applyHomeSnapshot = React.useCallback((snapshot: HomeSnapshot, preferredTrackId?: string) => {
+    setHomeSnapshot(snapshot)
+    setPlaybackQueueIds((ids) => {
+      const nextIds = snapshotWithoutMissingQueueIds(snapshot, ids)
+      return nextIds.length ? nextIds : snapshot.tracks.map((track) => track.id)
+    })
+    setCurrentId((value) => {
+      const nextId = preferredTrackId || value
+      if (nextId && snapshot.tracks.some((track) => track.id === nextId)) return nextId
+      return snapshot.heroTrack?.id || snapshot.tracks[0]?.id || ''
+    })
+  }, [])
+
   React.useEffect(() => {
     let cancelled = false
 
@@ -1724,17 +1735,16 @@ function App(): React.ReactElement {
       ?.getHomeSnapshot()
       .then((snapshot) => {
         if (cancelled) return
-        setHomeSnapshot(snapshot)
-        setCurrentId((value) => value || snapshot.heroTrack?.id || snapshot.tracks[0]?.id || '')
+        applyHomeSnapshot(snapshot)
       })
       .catch(() => {
-        setHomeSnapshot(fallbackHomeSnapshot)
+        applyHomeSnapshot(fallbackHomeSnapshot)
       })
 
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [applyHomeSnapshot])
 
   const seekTo = React.useCallback((seconds: number) => {
     if (!Number.isFinite(seconds)) return
@@ -1754,25 +1764,25 @@ function App(): React.ReactElement {
     setIsPlaying((value) => !value)
   }, [])
   const playTrackByIndex = React.useCallback((index: number) => {
-    const tracks = homeSnapshot.tracks
+    const tracks = playbackQueue
     if (!tracks.length) return
     const nextIndex = ((index % tracks.length) + tracks.length) % tracks.length
     setCurrentId(tracks[nextIndex].id)
     setPlaybackTime(0)
     setPlaybackDuration(0)
     setIsPlaying(true)
-  }, [homeSnapshot.tracks])
+  }, [playbackQueue])
   const playPreviousTrack = React.useCallback(() => {
-    const currentIndex = homeSnapshot.tracks.findIndex((track) => track.id === currentId)
+    const currentIndex = playbackQueue.findIndex((track) => track.id === currentId)
     if (currentIndex < 0) return
     if (playbackTime > 3) {
       seekTo(0)
       return
     }
     playTrackByIndex(currentIndex - 1)
-  }, [currentId, homeSnapshot.tracks, playTrackByIndex, playbackTime, seekTo])
+  }, [currentId, playbackQueue, playTrackByIndex, playbackTime, seekTo])
   const playNextTrack = React.useCallback(() => {
-    const tracks = homeSnapshot.tracks
+    const tracks = playbackQueue
     if (!tracks.length) return
     const currentIndex = tracks.findIndex((track) => track.id === currentId)
     if (isShuffleEnabled && tracks.length > 1) {
@@ -1782,7 +1792,7 @@ function App(): React.ReactElement {
       return
     }
     playTrackByIndex(currentIndex >= 0 ? currentIndex + 1 : 0)
-  }, [currentId, homeSnapshot.tracks, isShuffleEnabled, playTrackByIndex])
+  }, [currentId, playbackQueue, isShuffleEnabled, playTrackByIndex])
   const toggleShuffle = React.useCallback(() => {
     setIsShuffleEnabled((value) => !value)
   }, [])
@@ -1846,14 +1856,18 @@ function App(): React.ReactElement {
       return
     }
 
-    importedTracks.forEach((track) => {
-      setHomeSnapshot((snapshot) => snapshotWithImportedTrack(snapshot, track))
-    })
+    const importedSnapshot = await window.kmgccc?.getHomeSnapshot()
+    if (importedSnapshot) {
+      applyHomeSnapshot(importedSnapshot, importedTracks[0].id)
+      setPlaybackQueueIds(importedSnapshot.tracks.map((track) => track.id))
+    } else {
+      setHomeSnapshot((snapshot) => importedTracks.reduce(snapshotWithImportedTrack, snapshot))
+    }
     setCurrentId(importedTracks[0].id)
     setRoute({ name: 'allTracks' })
     setPlaybackTime(0)
     setPlaybackDuration(0)
-    setIsPlaying(true)
+    setIsPlaying(false)
 
     let completedCount = 0
     try {
@@ -1875,6 +1889,8 @@ function App(): React.ReactElement {
         setHomeSnapshot((snapshot) => snapshotWithSyncedTrack(snapshot, result))
         if (index === 0) setCurrentId(result.track.id)
       }
+      const syncedSnapshot = await window.kmgccc?.getHomeSnapshot()
+      if (syncedSnapshot) applyHomeSnapshot(syncedSnapshot, importedTracks[0].id)
       setImportSyncState({
         title: importedTracks.length === 1 ? importedTracks[0].title : `已导入 ${importedTracks.length} 首歌曲`,
         artist: importedTracks.length === 1 ? importedTracks[0].artist : '',
@@ -1896,7 +1912,7 @@ function App(): React.ReactElement {
         totalCount: importedTracks.length
       })
     }
-  }, [])
+  }, [applyHomeSnapshot])
   const toggleSidebar = React.useCallback(() => {
     setIsSidebarCollapsed((value) => {
       const next = !value
@@ -1907,13 +1923,107 @@ function App(): React.ReactElement {
     })
   }, [sidebarWidth])
   const selectTrack = React.useCallback((id: string) => {
+    setPlaybackQueueIds((ids) => ids.length ? ids : homeSnapshot.tracks.map((track) => track.id))
     setCurrentId(id)
     setIsPlaying(true)
-  }, [])
-  const playHomeTrack = React.useCallback((trackId: string) => {
-    setCurrentId(trackId)
+  }, [homeSnapshot.tracks])
+  const playTracksAsQueue = React.useCallback((tracks: HomeTrack[], preferredTrackId?: string) => {
+    if (!tracks.length) return
+    const firstId = preferredTrackId && tracks.some((track) => track.id === preferredTrackId) ? preferredTrackId : tracks[0].id
+    setPlaybackQueueIds(tracks.map((track) => track.id))
+    setCurrentId(firstId)
+    setPlaybackTime(0)
+    setPlaybackDuration(0)
     setIsPlaying(true)
   }, [])
+  const playRouteTracks = React.useCallback((targetRoute: DetailRoute, preferredTrackId?: string) => {
+    playTracksAsQueue(tracksForRoute(targetRoute, homeSnapshot), preferredTrackId)
+  }, [homeSnapshot, playTracksAsQueue])
+  const playHomeTrack = React.useCallback((trackId: string) => {
+    setPlaybackQueueIds(homeSnapshot.tracks.map((track) => track.id))
+    setCurrentId(trackId)
+    setIsPlaying(true)
+  }, [homeSnapshot.tracks])
+  const refreshLibrarySnapshot = React.useCallback(async (preferredTrackId?: string) => {
+    const snapshot = await window.kmgccc?.getHomeSnapshot()
+    if (snapshot) applyHomeSnapshot(snapshot, preferredTrackId)
+  }, [applyHomeSnapshot])
+  const editTrack = React.useCallback(async (track: HomeTrack) => {
+    if (!track.sourcePath || !track.sourceUrl) return
+    const title = window.prompt('编辑歌曲标题', track.title)
+    if (title === null) return
+    const artist = window.prompt('编辑艺人', track.artist)
+    if (artist === null) return
+    const album = window.prompt('编辑专辑', track.album)
+    if (album === null) return
+    const snapshot = await window.kmgccc?.updateTrack({ ...track, title: title.trim() || track.title, artist: artist.trim() || track.artist, album: album.trim() || track.album } as LocalAudioImport)
+    if (snapshot) applyHomeSnapshot(snapshot, track.id)
+  }, [applyHomeSnapshot])
+  const deleteTrack = React.useCallback(async (track: HomeTrack) => {
+    if (!window.confirm(`从资料库删除“${track.title}”？`)) return
+    const snapshot = await window.kmgccc?.deleteTrack(track.id)
+    if (snapshot) applyHomeSnapshot(snapshot)
+  }, [applyHomeSnapshot])
+  const editAlbum = React.useCallback(async (album: HomeAlbumCard) => {
+    const title = window.prompt('编辑专辑名称', album.title)
+    if (title === null) return
+    const artist = window.prompt('编辑专辑艺人', album.artist)
+    if (artist === null) return
+    const snapshot = await window.kmgccc?.updateAlbum(album.id, title, artist)
+    if (snapshot) applyHomeSnapshot(snapshot)
+  }, [applyHomeSnapshot])
+  const deleteAlbum = React.useCallback(async (album: HomeAlbumCard) => {
+    if (!window.confirm(`删除专辑“${album.title}”及其中 ${album.trackCount} 首歌曲？`)) return
+    const snapshot = await window.kmgccc?.deleteAlbum(album.id)
+    if (snapshot) applyHomeSnapshot(snapshot)
+  }, [applyHomeSnapshot])
+  const editArtist = React.useCallback(async (artist: HomeArtistCard) => {
+    const name = window.prompt('编辑艺人名称', artist.name)
+    if (name === null) return
+    const snapshot = await window.kmgccc?.updateArtist(artist.id, name)
+    if (snapshot) applyHomeSnapshot(snapshot)
+  }, [applyHomeSnapshot])
+  const deleteArtist = React.useCallback(async (artist: HomeArtistCard) => {
+    if (!window.confirm(`删除艺人“${artist.name}”及其中 ${artist.trackCount} 首歌曲？`)) return
+    const snapshot = await window.kmgccc?.deleteArtist(artist.id)
+    if (snapshot) applyHomeSnapshot(snapshot)
+  }, [applyHomeSnapshot])
+  const createPlaylist = React.useCallback(async () => {
+    const name = window.prompt('新建播放列表', '新建播放列表')
+    if (name === null) return
+    const snapshot = await window.kmgccc?.createPlaylist(name)
+    if (snapshot) applyHomeSnapshot(snapshot)
+  }, [applyHomeSnapshot])
+  const editPlaylist = React.useCallback(async (playlist: HomePlaylistCard) => {
+    if (playlist.id === 'playlist-library') return
+    const name = window.prompt('编辑播放列表名称', playlist.name)
+    if (name === null) return
+    const snapshot = await window.kmgccc?.updatePlaylist(playlist.id, name)
+    if (snapshot) applyHomeSnapshot(snapshot)
+  }, [applyHomeSnapshot])
+  const deletePlaylist = React.useCallback(async (playlist: HomePlaylistCard) => {
+    if (playlist.id === 'playlist-library') return
+    if (!window.confirm(`删除播放列表“${playlist.name}”？`)) return
+    const snapshot = await window.kmgccc?.deletePlaylist(playlist.id)
+    if (snapshot) applyHomeSnapshot(snapshot)
+  }, [applyHomeSnapshot])
+  const removeTrackFromCurrentPlaylist = React.useCallback(async (track: HomeTrack) => {
+    if (route.name !== 'playlistDetail' || route.id === 'playlist-library') return
+    const snapshot = await window.kmgccc?.removeTrackFromPlaylist(route.id, track.id)
+    if (snapshot) applyHomeSnapshot(snapshot)
+  }, [applyHomeSnapshot, route])
+  const addTrackToPlaylist = React.useCallback(async (playlistId: string, track: HomeTrack) => {
+    const snapshot = await window.kmgccc?.addTrackToPlaylist(playlistId, track.id)
+    if (snapshot) applyHomeSnapshot(snapshot, track.id)
+  }, [applyHomeSnapshot])
+  const createPlaylistWithTrack = React.useCallback(async (track: HomeTrack) => {
+    const name = window.prompt('新建播放列表', '新建播放列表')
+    if (name === null) return
+    let snapshot = await window.kmgccc?.createPlaylist(name)
+    const playlist = snapshot?.playlists.find((entry) => entry.name === (name.trim() || '新建播放列表'))
+    if (playlist) snapshot = await window.kmgccc?.addTrackToPlaylist(playlist.id, track.id)
+    if (snapshot) applyHomeSnapshot(snapshot, track.id)
+  }, [applyHomeSnapshot])
   const toggleLyricsSidebar = React.useCallback(() => {
     setIsLyricsSidebarOpen((value) => !value)
   }, [])
@@ -1983,9 +2093,11 @@ function App(): React.ReactElement {
       return
     }
 
-    if (audio.src !== currentTrack.sourceUrl) {
+    const audioIdentity = `${currentTrack.id}:${currentTrack.sourceUrl}`
+    if (loadedAudioTrackRef.current !== audioIdentity) {
       audio.src = currentTrack.sourceUrl
       audio.load()
+      loadedAudioTrackRef.current = audioIdentity
       lastPlaybackTimeRef.current = 0
       setPlaybackTime(0)
     }
@@ -2063,6 +2175,15 @@ function App(): React.ReactElement {
           onResizeStart={handleSidebarResizeStart}
           onToggleFullscreenLyrics={toggleFullscreenLyrics}
           onOpenSettings={openSettings}
+          onCreatePlaylist={createPlaylist}
+          onEditPlaylist={editPlaylist}
+          onDeletePlaylist={deletePlaylist}
+          onEditArtist={editArtist}
+          onDeleteArtist={deleteArtist}
+          onEditAlbum={editAlbum}
+          onDeleteAlbum={deleteAlbum}
+          onPlayRoute={playRouteTracks}
+          onOpenContextMenu={openContextMenu}
         />
         <WindowControls />
         <div className="titlebar-drag-region chrome-drag" aria-hidden="true" />
@@ -2104,6 +2225,19 @@ function App(): React.ReactElement {
               currentId={currentId}
               onNavigate={setRoute}
               onSelect={selectTrack}
+              onPlayRoute={playRouteTracks}
+              onEditTrack={editTrack}
+              onDeleteTrack={deleteTrack}
+              onRemoveTrackFromPlaylist={removeTrackFromCurrentPlaylist}
+              onAddTrackToPlaylist={addTrackToPlaylist}
+              onCreatePlaylistWithTrack={createPlaylistWithTrack}
+              onEditArtist={editArtist}
+              onDeleteArtist={deleteArtist}
+              onEditAlbum={editAlbum}
+              onDeleteAlbum={deleteAlbum}
+              onEditPlaylist={editPlaylist}
+              onDeletePlaylist={deletePlaylist}
+              onOpenContextMenu={openContextMenu}
             />
           )}
 
@@ -2112,7 +2246,7 @@ function App(): React.ReactElement {
               {isFullscreenLyricsOpen ? <div className="mini-player-hover-zone no-drag" aria-hidden="true" /> : null}
               <MiniPlayer
                 track={currentTrack}
-                tracks={homeSnapshot.tracks}
+                tracks={playbackQueue}
                 albums={albums}
                 currentId={currentId}
                 isPlaying={isPlaying}
@@ -2213,10 +2347,35 @@ function App(): React.ReactElement {
         {isFullscreenLyricsOpen ? (
           <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={effectiveLyricPlaybackTime} isPlaying={isPlaying} onSeek={seekTo} />
         ) : null}
+        {contextMenu ? <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} /> : null}
       </div>
     </div>
   )
 }
+
+const ContextMenu = React.memo(function ContextMenu({ state, onClose }: { state: ContextMenuState; onClose: () => void }): React.ReactElement {
+  return (
+    <div className="context-menu no-drag" style={{ left: state.x, top: state.y }}>
+      {state.items.map((item, index) => item.label === '-'
+        ? <span className="context-menu-separator" key={`separator-${index}`} />
+        : (
+          <button
+            className={item.danger ? 'danger' : ''}
+            key={`${item.label}-${index}`}
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onClose()
+              item.onSelect()
+            }}
+          >
+            {item.label}
+          </button>
+        )
+      )}
+    </div>
+  )
+})
 
 function SidebarToggleIcon({ size = 24 }: { size?: number }): React.ReactElement {
   return (
@@ -2236,7 +2395,16 @@ const Sidebar = React.memo(function Sidebar({
   onToggle,
   onResizeStart,
   onToggleFullscreenLyrics,
-  onOpenSettings
+  onOpenSettings,
+  onCreatePlaylist,
+  onEditPlaylist,
+  onDeletePlaylist,
+  onEditArtist,
+  onDeleteArtist,
+  onEditAlbum,
+  onDeleteAlbum,
+  onPlayRoute,
+  onOpenContextMenu
 }: {
   snapshot: HomeSnapshot
   route: AppRoute
@@ -2246,8 +2414,16 @@ const Sidebar = React.memo(function Sidebar({
   onResizeStart: (event: React.PointerEvent) => void
   onToggleFullscreenLyrics: () => void
   onOpenSettings: () => void
+  onCreatePlaylist: () => void
+  onEditPlaylist: (playlist: HomePlaylistCard) => void
+  onDeletePlaylist: (playlist: HomePlaylistCard) => void
+  onEditArtist: (artist: HomeArtistCard) => void
+  onDeleteArtist: (artist: HomeArtistCard) => void
+  onEditAlbum: (album: HomeAlbumCard) => void
+  onDeleteAlbum: (album: HomeAlbumCard) => void
+  onPlayRoute: (route: DetailRoute, preferredTrackId?: string) => void
+  onOpenContextMenu: (event: React.MouseEvent, items: ContextMenuItem[]) => void
 }): React.ReactElement {
-  const primaryPlaylist = snapshot.playlists[0]
   return (
     <aside className="sidebar glass-panel chrome-drag">
       <div className="sidebar-resize-handle no-drag" role="separator" aria-orientation="vertical" aria-label="调整侧边栏宽度" onPointerDown={onResizeStart} />
@@ -2272,24 +2448,36 @@ const Sidebar = React.memo(function Sidebar({
         <section className="sidebar-section no-drag">
           <div className="sidebar-label">
             <span>播放列表</span>
-            <button type="button" aria-label="新建播放列表">
+            <button type="button" aria-label="新建播放列表" onClick={onCreatePlaylist}>
               <Plus size={17} />
             </button>
           </div>
-          <button
-            className={`playlist-row ${route.name === 'playlistDetail' && route.id === primaryPlaylist?.id ? 'active' : ''}`}
-            type="button"
-            onClick={() =>
-              primaryPlaylist
-                ? onNavigate({ name: 'playlistDetail', id: primaryPlaylist.id, title: primaryPlaylist.name })
-                : undefined
-            }
-          >
-            <span className="playlist-icon">
-              <Music2 size={18} />
-            </span>
-            <span>{primaryPlaylist?.name ?? '暂无播放列表'}</span>
-          </button>
+          {snapshot.playlists.length ? snapshot.playlists.map((playlist) => (
+            <button
+              className={`playlist-row ${route.name === 'playlistDetail' && route.id === playlist.id ? 'active' : ''}`}
+              key={playlist.id}
+              type="button"
+              onClick={() => onNavigate({ name: 'playlistDetail', id: playlist.id, title: playlist.name })}
+              onContextMenu={(event) => onOpenContextMenu(event, [
+                { label: '播放', onSelect: () => onPlayRoute({ name: 'playlistDetail', id: playlist.id, title: playlist.name }) },
+                ...(playlist.id === 'playlist-library' ? [] : [
+                  { label: '编辑播放列表', onSelect: () => onEditPlaylist(playlist) },
+                  { label: '-', onSelect: () => {} },
+                  { label: '删除播放列表', danger: true, onSelect: () => onDeletePlaylist(playlist) }
+                ])
+              ])}
+            >
+              <span className="playlist-icon">
+                <Music2 size={18} />
+              </span>
+              <span>{playlist.name}</span>
+            </button>
+          )) : (
+            <button className="playlist-row muted" type="button" onClick={onCreatePlaylist}>
+              <span className="playlist-icon"><Music2 size={18} /></span>
+              <span>新建播放列表</span>
+            </button>
+          )}
         </section>
 
         <section className="sidebar-section compact no-drag">
@@ -2297,10 +2485,42 @@ const Sidebar = React.memo(function Sidebar({
             <UserRound className="sidebar-label-icon" size={19} />
             <span>艺人</span>
           </button>
+          {snapshot.artists.slice(0, 8).map((artist) => (
+            <button
+              className={`playlist-row compact-item ${route.name === 'artistDetail' && route.id === artist.id ? 'active' : ''}`}
+              key={artist.id}
+              type="button"
+              onClick={() => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
+              onContextMenu={(event) => onOpenContextMenu(event, [
+                { label: '播放艺人', onSelect: () => onPlayRoute({ name: 'artistDetail', id: artist.id, title: artist.name }) },
+                { label: '编辑艺人', onSelect: () => onEditArtist(artist) },
+                { label: '-', onSelect: () => {} },
+                { label: '删除艺人', danger: true, onSelect: () => onDeleteArtist(artist) }
+              ])}
+            >
+              <span>{artist.name}</span>
+            </button>
+          ))}
           <button className="sidebar-label as-button" type="button" onClick={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
             <Disc3 className="sidebar-label-icon" size={19} />
             <span>专辑</span>
           </button>
+          {snapshot.albums.slice(0, 8).map((album) => (
+            <button
+              className={`playlist-row compact-item ${route.name === 'albumDetail' && route.id === album.id ? 'active' : ''}`}
+              key={album.id}
+              type="button"
+              onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
+              onContextMenu={(event) => onOpenContextMenu(event, [
+                { label: '播放专辑', onSelect: () => onPlayRoute({ name: 'albumDetail', id: album.id, title: album.title }) },
+                { label: '编辑专辑', onSelect: () => onEditAlbum(album) },
+                { label: '-', onSelect: () => {} },
+                { label: '删除专辑', danger: true, onSelect: () => onDeleteAlbum(album) }
+              ])}
+            >
+              <span>{album.title}</span>
+            </button>
+          ))}
         </section>
       </div>
 
@@ -4413,7 +4633,20 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
   albums,
   currentId,
   onNavigate,
-  onSelect
+  onSelect,
+  onPlayRoute,
+  onEditTrack,
+  onDeleteTrack,
+  onRemoveTrackFromPlaylist,
+  onAddTrackToPlaylist,
+  onCreatePlaylistWithTrack,
+  onEditArtist,
+  onDeleteArtist,
+  onEditAlbum,
+  onDeleteAlbum,
+  onEditPlaylist,
+  onDeletePlaylist,
+  onOpenContextMenu
 }: {
   route: DetailRoute
   snapshot: HomeSnapshot
@@ -4421,6 +4654,19 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
   currentId: string
   onNavigate: (route: AppRoute) => void
   onSelect: (id: string) => void
+  onPlayRoute: (route: DetailRoute, preferredTrackId?: string) => void
+  onEditTrack: (track: HomeTrack) => void
+  onDeleteTrack: (track: HomeTrack) => void
+  onRemoveTrackFromPlaylist: (track: HomeTrack) => void
+  onAddTrackToPlaylist: (playlistId: string, track: HomeTrack) => void
+  onCreatePlaylistWithTrack: (track: HomeTrack) => void
+  onEditArtist: (artist: HomeArtistCard) => void
+  onDeleteArtist: (artist: HomeArtistCard) => void
+  onEditAlbum: (album: HomeAlbumCard) => void
+  onDeleteAlbum: (album: HomeAlbumCard) => void
+  onEditPlaylist: (playlist: HomePlaylistCard) => void
+  onDeletePlaylist: (playlist: HomePlaylistCard) => void
+  onOpenContextMenu: (event: React.MouseEvent, items: ContextMenuItem[]) => void
 }): React.ReactElement {
   const pageScroll = useElasticScroll<HTMLElement>()
   const tracks = React.useMemo(() => tracksForRoute(route, snapshot), [route, snapshot])
@@ -4443,7 +4689,30 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
           <div className="artist-copy">
             <h1>{route.name === 'allTracks' ? '所有歌曲' : route.title}</h1>
             <p className="artist-meta">{detailSubtitle(route, snapshot, tracks)}</p>
-            <p className="artist-description">这里已经走统一 route 和 ID 过滤接口；导入功能接入后只需要更新 HomeSnapshot 数据。</p>
+            <div className="detail-actions">
+              <button className="play-cta" type="button" disabled={!tracks.length} onClick={() => onPlayRoute(route)}>
+                <Play size={16} fill="currentColor" />
+                播放
+              </button>
+              {route.name === 'artistDetail' && route.id !== 'all-artists' ? (
+                <button className="edit-button" type="button" onClick={() => {
+                  const artist = snapshot.artists.find((entry) => entry.id === route.id)
+                  if (artist) onEditArtist(artist)
+                }}>编辑艺人</button>
+              ) : null}
+              {route.name === 'albumDetail' && route.id !== 'all-albums' ? (
+                <button className="edit-button" type="button" onClick={() => {
+                  const album = snapshot.albums.find((entry) => entry.id === route.id)
+                  if (album) onEditAlbum(album)
+                }}>编辑专辑</button>
+              ) : null}
+              {route.name === 'playlistDetail' && route.id !== 'playlist-library' ? (
+                <button className="edit-button" type="button" onClick={() => {
+                  const playlist = snapshot.playlists.find((entry) => entry.id === route.id)
+                  if (playlist) onEditPlaylist(playlist)
+                }}>编辑歌单</button>
+              ) : null}
+            </div>
           </div>
         </header>
 
@@ -4451,15 +4720,43 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
           <CollectionGrid
             artists={snapshot.artists}
             onArtist={(artist) => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
+            onPlayArtist={(artist) => onPlayRoute({ name: 'artistDetail', id: artist.id, title: artist.name })}
+            onEditArtist={onEditArtist}
+            onDeleteArtist={onDeleteArtist}
+            onOpenContextMenu={onOpenContextMenu}
           />
         ) : null}
         {isAlbumIndex ? (
           <CollectionGrid
             albums={snapshot.albums}
             onAlbum={(album) => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
+            onPlayAlbum={(album) => onPlayRoute({ name: 'albumDetail', id: album.id, title: album.title })}
+            onEditAlbum={onEditAlbum}
+            onDeleteAlbum={onDeleteAlbum}
+            onOpenContextMenu={onOpenContextMenu}
           />
         ) : null}
-        {!isArtistIndex && !isAlbumIndex ? <TrackRows tracks={tracks} albums={albums} currentId={currentId} onSelect={onSelect} /> : null}
+        {!isArtistIndex && !isAlbumIndex ? (
+          <TrackRows
+            tracks={tracks}
+            albums={albums}
+            currentId={currentId}
+            onSelect={(id) => {
+              onPlayRoute(route, id)
+              onSelect(id)
+            }}
+            onPlay={(track) => onPlayRoute(route, track.id)}
+            onEdit={onEditTrack}
+            onDelete={onDeleteTrack}
+            onRemoveFromPlaylist={route.name === 'playlistDetail' && route.id !== 'playlist-library' ? onRemoveTrackFromPlaylist : undefined}
+            playlists={snapshot.playlists.filter((playlist) => playlist.id !== 'playlist-library' && (route.name !== 'playlistDetail' || playlist.id !== route.id))}
+            onAddToPlaylist={onAddTrackToPlaylist}
+            onCreatePlaylistWithTrack={onCreatePlaylistWithTrack}
+            onViewArtist={(track) => onNavigate({ name: 'artistDetail', id: track.artistId, title: track.artist })}
+            onViewAlbum={(track) => onNavigate({ name: 'albumDetail', id: track.albumId, title: track.album })}
+            onOpenContextMenu={onOpenContextMenu}
+          />
+        ) : null}
       </div>
     </section>
   )
@@ -4469,23 +4766,59 @@ const CollectionGrid = React.memo(function CollectionGrid({
   artists,
   albums,
   onArtist,
-  onAlbum
+  onAlbum,
+  onPlayArtist,
+  onEditArtist,
+  onDeleteArtist,
+  onPlayAlbum,
+  onEditAlbum,
+  onDeleteAlbum,
+  onOpenContextMenu
 }: {
   artists?: HomeArtistCard[]
   albums?: HomeAlbumCard[]
   onArtist?: (artist: HomeArtistCard) => void
   onAlbum?: (album: HomeAlbumCard) => void
+  onPlayArtist?: (artist: HomeArtistCard) => void
+  onEditArtist?: (artist: HomeArtistCard) => void
+  onDeleteArtist?: (artist: HomeArtistCard) => void
+  onPlayAlbum?: (album: HomeAlbumCard) => void
+  onEditAlbum?: (album: HomeAlbumCard) => void
+  onDeleteAlbum?: (album: HomeAlbumCard) => void
+  onOpenContextMenu: (event: React.MouseEvent, items: ContextMenuItem[]) => void
 }): React.ReactElement {
   return (
     <div className="collection-grid">
       {artists?.map((artist) => (
-        <button className="home-person-card home-liquid-card glass-panel" key={artist.id} type="button" onClick={() => onArtist?.(artist)}>
+        <button
+          className="home-person-card home-liquid-card glass-panel"
+          key={artist.id}
+          type="button"
+          onClick={() => onArtist?.(artist)}
+          onContextMenu={(event) => onOpenContextMenu(event, [
+            { label: '播放艺人', onSelect: () => onPlayArtist?.(artist) },
+            { label: '编辑艺人', onSelect: () => onEditArtist?.(artist) },
+            { label: '-', onSelect: () => {} },
+            { label: '删除艺人', danger: true, onSelect: () => onDeleteArtist?.(artist) }
+          ])}
+        >
           {artist.artworkUrl ? <img src={artist.artworkUrl} alt="" loading="lazy" decoding="async" /> : <span className="artist-avatar">{artist.name}</span>}
           <strong>{artist.name}</strong>
         </button>
       ))}
       {albums?.map((album) => (
-        <button className="home-album-card home-liquid-card glass-panel" key={album.id} type="button" onClick={() => onAlbum?.(album)}>
+        <button
+          className="home-album-card home-liquid-card glass-panel"
+          key={album.id}
+          type="button"
+          onClick={() => onAlbum?.(album)}
+          onContextMenu={(event) => onOpenContextMenu(event, [
+            { label: '播放专辑', onSelect: () => onPlayAlbum?.(album) },
+            { label: '编辑专辑', onSelect: () => onEditAlbum?.(album) },
+            { label: '-', onSelect: () => {} },
+            { label: '删除专辑', danger: true, onSelect: () => onDeleteAlbum?.(album) }
+          ])}
+        >
           <img src={albumArtworkFor(album)} alt="" loading="lazy" decoding="async" />
           <strong>{album.title}</strong>
           <span>{album.artist}</span>
@@ -4499,12 +4832,32 @@ const TrackRows = React.memo(function TrackRows({
   tracks,
   albums,
   currentId,
-  onSelect
+  onSelect,
+  onPlay,
+  onEdit,
+  onDelete,
+  onRemoveFromPlaylist,
+  playlists,
+  onAddToPlaylist,
+  onCreatePlaylistWithTrack,
+  onViewArtist,
+  onViewAlbum,
+  onOpenContextMenu
 }: {
   tracks: Track[]
   albums: Map<string, HomeAlbumCard>
   currentId: string
   onSelect: (id: string) => void
+  onPlay: (track: Track) => void
+  onEdit: (track: Track) => void
+  onDelete: (track: Track) => void
+  onRemoveFromPlaylist?: (track: Track) => void
+  playlists: HomePlaylistCard[]
+  onAddToPlaylist: (playlistId: string, track: Track) => void
+  onCreatePlaylistWithTrack: (track: Track) => void
+  onViewArtist: (track: Track) => void
+  onViewAlbum: (track: Track) => void
+  onOpenContextMenu: (event: React.MouseEvent, items: ContextMenuItem[]) => void
 }): React.ReactElement {
   return (
     <div className="track-list">
@@ -4514,6 +4867,22 @@ const TrackRows = React.memo(function TrackRows({
           key={track.id}
           type="button"
           onClick={() => onSelect(track.id)}
+          onContextMenu={(event) => onOpenContextMenu(event, [
+            { label: '播放', onSelect: () => onPlay(track) },
+            { label: '-', onSelect: () => {} },
+            ...playlists.map((playlist) => ({
+              label: `添加到：${playlist.name}`,
+              onSelect: () => onAddToPlaylist(playlist.id, track)
+            })),
+            { label: '新建播放列表并添加', onSelect: () => onCreatePlaylistWithTrack(track) },
+            ...(onRemoveFromPlaylist ? [{ label: '从当前播放列表移除', onSelect: () => onRemoveFromPlaylist(track) }] : []),
+            { label: '-', onSelect: () => {} },
+            { label: '编辑歌曲信息', onSelect: () => onEdit(track) },
+            { label: '查看艺人', onSelect: () => onViewArtist(track) },
+            { label: '查看专辑', onSelect: () => onViewAlbum(track) },
+            { label: '-', onSelect: () => {} },
+            { label: '从资料库删除', danger: true, onSelect: () => onDelete(track) }
+          ])}
         >
           <img className="track-art" src={trackArtwork(track, albums)} alt="" loading="lazy" decoding="async" />
           <span className="track-title">{track.title}</span>

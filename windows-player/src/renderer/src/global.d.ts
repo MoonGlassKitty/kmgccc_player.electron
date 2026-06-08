@@ -111,7 +111,20 @@ declare global {
       getHomeSnapshot: () => Promise<HomeSnapshot>
       importAudioFile: () => Promise<LocalAudioImport | null>
       importAudioFiles: () => Promise<{ tracks: LocalAudioImport[] } | null>
+      importAudioFilesFromPaths: (filePaths: string[]) => Promise<{ tracks: LocalAudioImport[] }>
       syncTrackInfo: (track: LocalAudioImport) => Promise<TrackMetadataSyncResult>
+      clearLibrary: () => Promise<HomeSnapshot>
+      updateTrack: (track: LocalAudioImport) => Promise<HomeSnapshot>
+      deleteTrack: (trackId: string) => Promise<HomeSnapshot>
+      updateAlbum: (albumId: string, title: string, artist: string) => Promise<HomeSnapshot>
+      deleteAlbum: (albumId: string) => Promise<HomeSnapshot>
+      updateArtist: (artistId: string, name: string) => Promise<HomeSnapshot>
+      deleteArtist: (artistId: string) => Promise<HomeSnapshot>
+      createPlaylist: (name: string) => Promise<HomeSnapshot>
+      updatePlaylist: (playlistId: string, name: string) => Promise<HomeSnapshot>
+      deletePlaylist: (playlistId: string) => Promise<HomeSnapshot>
+      addTrackToPlaylist: (playlistId: string, trackId: string) => Promise<HomeSnapshot>
+      removeTrackFromPlaylist: (playlistId: string, trackId: string) => Promise<HomeSnapshot>
       getWallpaperTint: () => Promise<WallpaperTint>
     }
   }

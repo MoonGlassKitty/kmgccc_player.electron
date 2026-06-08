@@ -1731,6 +1731,49 @@ input {
     0 4px 14px rgba(12, 33, 46, 0.055);
 }
 
+.context-menu {
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  min-width: 218px;
+  max-width: 280px;
+  padding: 7px;
+  border-radius: 10px;
+  background: rgba(248, 248, 248, 0.98);
+  color: rgba(18, 28, 36, 0.86);
+  box-shadow:
+    0 18px 46px rgba(16, 28, 36, 0.18),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.context-menu button {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-menu button:hover {
+  background: rgba(20, 100, 180, 0.12);
+}
+
+.context-menu button.danger {
+  color: #c22f2f;
+}
+
+.context-menu-separator {
+  height: 1px;
+  margin: 6px 4px;
+  background: rgba(12, 24, 32, 0.10);
+}
+
 @keyframes import-spin {
   to {
     transform: rotate(360deg);
