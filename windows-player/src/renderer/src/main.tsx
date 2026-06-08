@@ -4199,11 +4199,39 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
     'var(--bk-shape-tint-3)',
     'color-mix(in srgb, var(--bk-shape-tint-1) 66%, var(--bk-shape-tint-2))'
   ]
+  const placed: Array<{ x: number; y: number; size: number }> = []
+  const randomPosition = (index: number): { x: number; y: number } => {
+    const edge = (index + Math.floor(random() * 2)) % 4
+    if (edge === 0) return { x: 6 + random() * 15, y: 12 + random() * 76 }
+    if (edge === 1) return { x: 79 + random() * 15, y: 12 + random() * 76 }
+    if (edge === 2) return { x: 16 + random() * 68, y: 7 + random() * 15 }
+    return { x: 16 + random() * 68, y: 78 + random() * 15 }
+  }
+  const pickPosition = (index: number, size: number): { x: number; y: number } => {
+    let best = randomPosition(index)
+    let bestScore = -Infinity
+    const attempts = 28
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const candidate = randomPosition(index + attempt)
+      const nearestDistance = placed.reduce((nearest, item) => {
+        const distance = Math.hypot(candidate.x - item.x, candidate.y - item.y)
+        const sizePenalty = clampNumber((size + item.size) / 34, 10, 30)
+        return Math.min(nearest, distance - sizePenalty)
+      }, 100)
+      const centerBias = -Math.abs(candidate.x - 50) * 0.015 - Math.abs(candidate.y - 50) * 0.012
+      const score = nearestDistance + centerBias + random() * 1.8
+      if (score > bestScore) {
+        best = candidate
+        bestScore = score
+      }
+    }
+    return best
+  }
   return Array.from({ length: count }, (_, index) => {
-    const edge = random()
-    const x = edge < 0.25 ? 7 + random() * 12 : edge < 0.5 ? 81 + random() * 12 : 16 + random() * 68
-    const y = edge >= 0.5 && edge < 0.75 ? 8 + random() * 14 : edge >= 0.75 ? 78 + random() * 14 : 12 + random() * 76
     const specialScale = index === 9 ? 3 : index === 10 ? 2 : 1
+    const size = Math.round((96 + random() * 210) * specialScale)
+    const { x, y } = pickPosition(index, size)
+    placed.push({ x, y, size })
     const baseDuration = durationBands[index % durationBands.length]
     const duration = (baseDuration + random() * baseDuration * 0.32) * (specialScale > 1 ? 1.18 : 1)
     return {
@@ -4211,7 +4239,7 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
       assetIndex: index % bkShapeAssets.length,
       x,
       y,
-      size: Math.round((96 + random() * 210) * specialScale),
+      size,
       rotation: Math.round(random() * 360),
       driftX: index === 9 ? 0 : Math.round(-12 + random() * 24),
       driftY: index === 9 ? 0 : Math.round(-16 + random() * 32),
