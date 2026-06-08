@@ -3657,9 +3657,9 @@ input {
 
 .mini-progress-rail {
   position: absolute;
-  right: 20px;
+  right: 1px;
   bottom: -42px;
-  left: 20px;
+  left: 1px;
   z-index: 2;
   height: 42px;
   pointer-events: auto;
