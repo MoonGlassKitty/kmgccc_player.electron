@@ -170,7 +170,9 @@ input {
   mask-position: 0% 0;
   -webkit-mask-mode: alpha;
   mask-mode: alpha;
-  animation: bkPaintReveal 3s steps(17, end) both;
+  animation:
+    bkPaintReveal 3s steps(17, end) both,
+    bkPaintLayerGate 3s linear both;
 }
 
 .bk-art-background.frozen .bk-art-surface.entering {
@@ -1112,6 +1114,11 @@ input {
     -webkit-mask-position: 100% 0;
     mask-position: 100% 0;
   }
+}
+
+@keyframes bkPaintLayerGate {
+  0%, 1% { opacity: 0; }
+  1.01%, 100% { opacity: 1; }
 }
 
 @keyframes bkPhaseB {

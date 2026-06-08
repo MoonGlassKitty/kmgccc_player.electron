@@ -3681,15 +3681,9 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const [isDotExiting, setIsDotExiting] = React.useState(false)
   const [isRevealing, setIsRevealing] = React.useState(false)
   const currentSurfaceRef = React.useRef(currentSurface)
+  currentSurfaceRef.current = currentSurface
+  const lastTrackSeedRef = React.useRef(trackSeed)
   const didMountRef = React.useRef(false)
-
-  React.useEffect(() => {
-    currentSurfaceRef.current = currentSurface
-  }, [currentSurface])
-
-  React.useEffect(() => {
-    setCurrentSurface((surface) => ({ ...surface, themeStyle }))
-  }, [themeStyle])
 
   React.useEffect(() => {
     const image = new Image()
@@ -3698,9 +3692,10 @@ const BKArtBackground = React.memo(function BKArtBackground({
     void image.decode?.().catch(() => undefined)
   }, [])
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true
+      lastTrackSeedRef.current = trackSeed
       setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image', themeStyleRef.current))
       setPreviousSurface(null)
       setIsRevealing(false)
@@ -3711,7 +3706,13 @@ const BKArtBackground = React.memo(function BKArtBackground({
     setPreviousSurface(currentSurfaceRef.current)
     setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image', themeStyleRef.current))
     setIsRevealing(true)
+    lastTrackSeedRef.current = trackSeed
   }, [trackSeed])
+
+  React.useLayoutEffect(() => {
+    if (lastTrackSeedRef.current !== trackSeed) return
+    setCurrentSurface((surface) => ({ ...surface, themeStyle }))
+  }, [themeStyle, trackSeed])
 
   React.useEffect(() => {
     if (!isPlaying) return

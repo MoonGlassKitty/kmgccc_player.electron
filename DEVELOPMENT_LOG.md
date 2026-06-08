@@ -13,3 +13,4 @@
 
 - BK 背景状态切换增加 paint reveal 闸门，dot-a/dot-b 必须等刷漆遮罩完成后才开始点阵运动，避免点阵在遮罩下提前跑完。
 - 切歌时 BK surface 保存独立主题快照：旧背景保持旧歌颜色，新歌颜色只随 paint mask 刷入，遮罩完成后再完整切换。
+- BK paint 进入层增加首帧 opacity gate，避免 mask sprite 第 0 帧漏出下一首主题导致切歌瞬间整体变鲜艳。
