@@ -456,8 +456,8 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
       '--ambient-shape-1': 'rgba(110, 116, 123, 0.3)',
       '--ambient-shape-2': 'rgba(154, 158, 164, 0.24)',
       '--ambient-shape-3': 'rgba(82, 87, 94, 0.18)',
-      '--bk-bg-tone-1': 'rgba(72, 82, 90, 0.62)',
-      '--bk-bg-tone-2': 'rgba(38, 48, 56, 0.72)',
+      '--bk-bg-tone-1': 'hsla(196, 58%, 80%, 0.98)',
+      '--bk-bg-tone-2': 'hsla(265, 48%, 84%, 0.92)',
       '--bk-shape-tint-1': 'rgba(156, 168, 178, 0.88)',
       '--bk-shape-tint-2': 'rgba(112, 126, 138, 0.84)',
       '--bk-shape-tint-3': 'rgba(194, 200, 205, 0.78)'
@@ -482,8 +482,8 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
     '--ambient-shape-1': ambient1,
     '--ambient-shape-2': ambient2,
     '--ambient-shape-3': ambient3,
-    '--bk-bg-tone-1': accent,
-    '--bk-bg-tone-2': border,
+    '--bk-bg-tone-1': isAltArtwork ? 'hsla(88, 52%, 78%, 0.98)' : 'hsla(198, 62%, 78%, 0.98)',
+    '--bk-bg-tone-2': isAltArtwork ? 'hsla(352, 54%, 82%, 0.92)' : 'hsla(338, 58%, 84%, 0.92)',
     '--bk-shape-tint-1': ambient1,
     '--bk-shape-tint-2': ambient2,
     '--bk-shape-tint-3': ambient3
@@ -500,6 +500,10 @@ type HslColor = {
   h: number
   s: number
   l: number
+}
+
+type RgbaColor = RgbColor & {
+  a: number
 }
 
 const lyricsFontWeightOptions = [
@@ -612,6 +616,54 @@ function rgbaString(color: RgbColor, alpha: number): string {
   return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`
 }
 
+function parseCssColor(value: string): RgbaColor | null {
+  const trimmed = value.trim()
+  const rgba = trimmed.match(/^rgba?\(([^)]+)\)$/i)
+  if (rgba) {
+    const parts = rgba[1].split(',').map((part) => part.trim())
+    if (parts.length >= 3) {
+      return {
+        r: clampNumber(Number(parts[0]), 0, 255),
+        g: clampNumber(Number(parts[1]), 0, 255),
+        b: clampNumber(Number(parts[2]), 0, 255),
+        a: parts[3] === undefined ? 1 : clampNumber(Number(parts[3]), 0, 1)
+      }
+    }
+  }
+
+  const hsla = trimmed.match(/^hsla?\(([^)]+)\)$/i)
+  if (hsla) {
+    const parts = hsla[1].split(',').map((part) => part.trim())
+    if (parts.length >= 3) {
+      const h = Number(parts[0])
+      const s = Number(parts[1].replace('%', '')) / 100
+      const l = Number(parts[2].replace('%', '')) / 100
+      const rgb = hslToRgb({ h, s, l })
+      return { ...rgb, a: parts[3] === undefined ? 1 : clampNumber(Number(parts[3]), 0, 1) }
+    }
+  }
+
+  return null
+}
+
+function mixRgb(first: RgbColor, second: RgbColor, t: number): RgbColor {
+  const p = clampNumber(t, 0, 1)
+  return {
+    r: Math.round(first.r + (second.r - first.r) * p),
+    g: Math.round(first.g + (second.g - first.g) * p),
+    b: Math.round(first.b + (second.b - first.b) * p)
+  }
+}
+
+function saturateRgb(color: RgbColor, amount: number): RgbColor {
+  const hsl = rgbToHsl(color)
+  return hslToRgb({
+    h: hsl.h,
+    s: clampNumber(hsl.s * amount, 0, 1),
+    l: hsl.l
+  })
+}
+
 function hexString(color: RgbColor): string {
   const channel = (value: number): string => value.toString(16).padStart(2, '0')
   return `#${channel(color.r)}${channel(color.g)}${channel(color.b)}`
@@ -711,8 +763,8 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
     '--ambient-shape-1': rgbaString(first, 0.54),
     '--ambient-shape-2': rgbaString(second, 0.5),
     '--ambient-shape-3': rgbaString(third, 0.48),
-    '--bk-bg-tone-1': hslCss(firstHsl.h, clampNumber(firstHsl.s * 0.28, 0.04, 0.16), 0.992, 0.96),
-    '--bk-bg-tone-2': hslCss(secondHsl.h, clampNumber(secondHsl.s * 0.26, 0.04, 0.14), 0.968, 0.9),
+    '--bk-bg-tone-1': hslCss(firstHsl.h, clampNumber(firstHsl.s * 0.82 + 0.16, 0.42, 0.72), 0.80, 0.98),
+    '--bk-bg-tone-2': hslCss(secondHsl.h, clampNumber(secondHsl.s * 0.72 + 0.14, 0.38, 0.68), 0.84, 0.92),
     '--bk-shape-tint-1': shapeTints[0],
     '--bk-shape-tint-2': shapeTints[1],
     '--bk-shape-tint-3': shapeTints[2]
@@ -3155,12 +3207,13 @@ const BKArtBackground = React.memo(function BKArtBackground({
 const BKArtSurface = React.memo(function BKArtSurface({ seed, className }: { seed: number; className: string }): React.ReactElement {
   const shapes = React.useMemo(() => makeBKShapePlan(seed), [seed])
   const dots = React.useMemo(() => makeBKDotPlan(seed), [seed])
+  const phaseA = bkBackgroundAssets[seed % bkBackgroundAssets.length]
+  const phaseB = bkBackgroundAssets[(seed + 1) % bkBackgroundAssets.length]
   return (
     <div className={`bk-art-surface ${className}`}>
       <div className="bk-image-surface">
-        <div className="bk-image-phase phase-a" style={{ backgroundImage: `url(${bkBackgroundAssets[seed % bkBackgroundAssets.length]})` }} />
-        <div className="bk-image-phase phase-b" style={{ backgroundImage: `url(${bkBackgroundAssets[(seed + 1) % bkBackgroundAssets.length]})` }} />
-        <div className="bk-tone-layer" />
+        <BKImagePhase source={phaseA} className="phase-a" />
+        <BKImagePhase source={phaseB} className="phase-b" />
       </div>
       <div className="bk-dot-surface">
         <div className="bk-dot-gradient" />
@@ -3208,6 +3261,78 @@ const BKArtSurface = React.memo(function BKArtSurface({ seed, className }: { see
       </div>
     </div>
   )
+})
+
+const tintedBKCache = new Map<string, string>()
+
+const BKImagePhase = React.memo(function BKImagePhase({ source, className }: { source: string; className: string }): React.ReactElement {
+  const ref = React.useRef<HTMLDivElement>(null)
+  const [tintedUrl, setTintedUrl] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const style = getComputedStyle(element)
+    const firstTone = parseCssColor(style.getPropertyValue('--bk-bg-tone-1'))
+    const secondTone = parseCssColor(style.getPropertyValue('--bk-bg-tone-2'))
+    if (!firstTone || !secondTone) {
+      setTintedUrl(null)
+      return
+    }
+
+    const cacheKey = `${source}|${style.getPropertyValue('--bk-bg-tone-1')}|${style.getPropertyValue('--bk-bg-tone-2')}`
+    const cached = tintedBKCache.get(cacheKey)
+    if (cached) {
+      setTintedUrl(cached)
+      return
+    }
+
+    let cancelled = false
+    loadImageElement(source)
+      .then((image) => {
+        if (cancelled) return
+        const maxSide = 1280
+        const scale = Math.min(1, maxSide / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height))
+        const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale))
+        const height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const context = canvas.getContext('2d', { willReadFrequently: true })
+        if (!context) return
+        context.drawImage(image, 0, 0, width, height)
+        const data = context.getImageData(0, 0, width, height)
+        const pixels = data.data
+        for (let index = 0; index < pixels.length; index += 4) {
+          const r = pixels[index]
+          const g = pixels[index + 1]
+          const b = pixels[index + 2]
+          const a = pixels[index + 3]
+          const luma = clampNumber(((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 - 0.5) * 1.08 + 0.5, 0, 1)
+          const mapped = mixRgb(firstTone, secondTone, luma)
+          const originalSoft = saturateRgb({ r, g, b }, 0.18)
+          const composed = mixRgb(originalSoft, mapped, 0.84)
+          const boosted = saturateRgb(composed, 1.14)
+          pixels[index] = boosted.r
+          pixels[index + 1] = boosted.g
+          pixels[index + 2] = boosted.b
+          pixels[index + 3] = a
+        }
+        context.putImageData(data, 0, 0)
+        const output = canvas.toDataURL('image/webp', 0.9)
+        tintedBKCache.set(cacheKey, output)
+        if (!cancelled) setTintedUrl(output)
+      })
+      .catch(() => {
+        if (!cancelled) setTintedUrl(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [source])
+
+  return <div ref={ref} className={`bk-image-phase ${className}`} style={{ backgroundImage: `url(${tintedUrl ?? source})` }} />
 })
 
 type BKShapePlan = {

@@ -134,9 +134,9 @@ input {
   z-index: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 26% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 76%, transparent), transparent 34%),
-    radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 62%, transparent), transparent 42%),
-    color-mix(in srgb, var(--bk-bg-tone-1) 82%, #ffffff);
+    radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 96%, transparent), transparent 38%),
+    radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 86%, transparent), transparent 46%),
+    color-mix(in srgb, var(--bk-bg-tone-1) 88%, #ffffff);
 }
 
 .bk-art-surface {
@@ -171,8 +171,8 @@ input {
 .bk-dot-surface {
   opacity: 0;
   background:
-    radial-gradient(circle at 34% 22%, color-mix(in srgb, var(--bk-bg-tone-1) 58%, transparent), transparent 34%),
-    color-mix(in srgb, var(--bk-bg-tone-2) 58%, #ffffff);
+    radial-gradient(circle at 34% 22%, color-mix(in srgb, var(--bk-bg-tone-1) 78%, transparent), transparent 36%),
+    color-mix(in srgb, var(--bk-bg-tone-2) 74%, #ffffff);
 }
 
 .bk-art-background.running .bk-art-surface.current .bk-image-surface {
@@ -188,9 +188,9 @@ input {
   inset: -3%;
   background-size: cover;
   background-position: center;
-  filter: grayscale(1) contrast(1.04) saturate(0.04) brightness(1.26);
-  opacity: 0.28;
-  mix-blend-mode: multiply;
+  filter: contrast(1.02) saturate(1.08);
+  opacity: 0.92;
+  mix-blend-mode: normal;
 }
 
 .bk-image-phase.phase-b {
@@ -205,23 +205,13 @@ input {
   animation: bkPhaseB 2s steps(1, end) infinite;
 }
 
-.bk-tone-layer {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--bk-bg-tone-1) 64%, rgba(255, 255, 255, 0.92)), transparent 58%),
-    radial-gradient(circle at 84% 74%, color-mix(in srgb, var(--bk-bg-tone-2) 52%, transparent), transparent 38%),
-    linear-gradient(0deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.22));
-  mix-blend-mode: color;
-}
-
 .bk-image-surface::after {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(255,255,255,0.08), transparent 32%, rgba(0,0,0,0.18)),
-    radial-gradient(circle at 52% 50%, transparent 0 28%, rgba(0,0,0,0.18) 72%);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.10), transparent 32%, rgba(0, 0, 0, 0.10)),
+    radial-gradient(circle at 52% 50%, transparent 0 30%, rgba(0, 0, 0, 0.10) 76%);
   pointer-events: none;
 }
 
@@ -617,8 +607,8 @@ input {
 }
 
 .settings-window {
-  width: min(1053px, calc(100vw - 16px));
-  height: min(953px, calc(100vh - 16px));
+  width: min(1200px, calc(100vw - 16px));
+  height: min(1040px, calc(100vh - 16px));
   display: grid;
   grid-template-columns: clamp(220px, 23vw, 300px) minmax(0, 1fr);
   overflow: hidden;
@@ -686,9 +676,9 @@ input {
 }
 
 .settings-close {
-  position: absolute;
-  right: 24px;
-  top: 24px;
+  position: fixed;
+  right: max(28px, calc((100vw - 1200px) / 2 + 28px));
+  top: max(28px, calc((100vh - 1040px) / 2 + 28px));
   width: 54px;
   height: 54px;
   display: grid;
@@ -696,17 +686,22 @@ input {
   border: 0;
   border-radius: 999px;
   color: #2e87af;
-  background: rgba(248, 248, 248, 0.82);
+  background: rgba(255, 255, 255, 0.34);
+  backdrop-filter: url(#lg-circle);
+  -webkit-backdrop-filter: url(#lg-circle);
   box-shadow:
-    0 18px 36px rgba(14, 31, 39, 0.08),
-    0 0 0 1px rgba(8, 30, 40, 0.06);
+    0 18px 42px rgba(14, 31, 39, 0.12),
+    0 1px 15px rgba(0, 0, 0, 0.055) inset,
+    0 -1px 12px rgba(255, 255, 255, 0.18) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.46);
   cursor: pointer;
+  z-index: 2;
 }
 
 .settings-now-playing {
   display: grid;
   gap: 22px;
-  max-width: 650px;
+  max-width: 760px;
 }
 
 .settings-header-label {
