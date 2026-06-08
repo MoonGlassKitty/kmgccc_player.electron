@@ -461,7 +461,10 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
       '--bk-bg-tone-2': 'hsla(265, 48%, 84%, 0.92)',
       '--bk-shape-tint-1': 'rgba(156, 168, 178, 0.88)',
       '--bk-shape-tint-2': 'rgba(112, 126, 138, 0.84)',
-      '--bk-shape-tint-3': 'rgba(194, 200, 205, 0.78)'
+      '--bk-shape-tint-3': 'rgba(194, 200, 205, 0.78)',
+      '--bk-dot-tint-1': 'rgba(232, 174, 150, 0.92)',
+      '--bk-dot-tint-2': 'rgba(148, 203, 250, 0.88)',
+      '--bk-dot-tint-3': 'rgba(220, 176, 245, 0.84)'
     } as React.CSSProperties
   }
 
@@ -487,7 +490,10 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
     '--bk-bg-tone-2': isAltArtwork ? 'hsla(352, 54%, 82%, 0.92)' : 'hsla(338, 58%, 84%, 0.92)',
     '--bk-shape-tint-1': ambient1,
     '--bk-shape-tint-2': ambient2,
-    '--bk-shape-tint-3': ambient3
+    '--bk-shape-tint-3': ambient3,
+    '--bk-dot-tint-1': isAltArtwork ? 'rgba(206, 156, 232, 0.92)' : 'rgba(244, 171, 112, 0.92)',
+    '--bk-dot-tint-2': isAltArtwork ? 'rgba(116, 223, 216, 0.88)' : 'rgba(138, 240, 158, 0.88)',
+    '--bk-dot-tint-3': isAltArtwork ? 'rgba(116, 168, 246, 0.84)' : 'rgba(244, 218, 102, 0.84)'
   } as React.CSSProperties
 }
 
@@ -587,6 +593,35 @@ function hslCss(h: number, s: number, l: number, alpha: number): string {
   return `hsla(${Math.round(normalizeHue(h))}, ${Math.round(clampNumber(s, 0, 1) * 100)}%, ${Math.round(clampNumber(l, 0, 1) * 100)}%, ${alpha})`
 }
 
+function hsbToRgb(h: number, s: number, b: number): RgbColor {
+  const hue = normalizeHue(h) / 60
+  const saturation = clampNumber(s, 0, 1)
+  const brightness = clampNumber(b, 0, 1)
+  const chroma = brightness * saturation
+  const x = chroma * (1 - Math.abs((hue % 2) - 1))
+  const match = brightness - chroma
+  let red = 0
+  let green = 0
+  let blue = 0
+
+  if (hue >= 0 && hue < 1) [red, green, blue] = [chroma, x, 0]
+  else if (hue < 2) [red, green, blue] = [x, chroma, 0]
+  else if (hue < 3) [red, green, blue] = [0, chroma, x]
+  else if (hue < 4) [red, green, blue] = [0, x, chroma]
+  else if (hue < 5) [red, green, blue] = [x, 0, chroma]
+  else [red, green, blue] = [chroma, 0, x]
+
+  return {
+    r: Math.round((red + match) * 255),
+    g: Math.round((green + match) * 255),
+    b: Math.round((blue + match) * 255)
+  }
+}
+
+function hsbCss(h: number, s: number, b: number, alpha: number): string {
+  return rgbaString(hsbToRgb(h, s, b), alpha)
+}
+
 function harmonizedShapeTints(colors: RgbColor[]): [string, string, string] {
   const firstHsl = rgbToHsl(colors[0])
   const secondHsl = rgbToHsl(colors[1] ?? colors[0])
@@ -595,21 +630,40 @@ function harmonizedShapeTints(colors: RgbColor[]): [string, string, string] {
   const isNearGray = avgS < 0.18
   if (isNearGray) {
     return [
-      hslCss(188, 0.34, 0.72, 0.9),
-      hslCss(268, 0.28, 0.70, 0.86),
-      hslCss(156, 0.24, 0.74, 0.8)
+      hsbCss(8, 0.42, 0.96, 0.92),
+      hsbCss(205, 0.36, 0.98, 0.88),
+      hsbCss(292, 0.32, 0.96, 0.84)
     ]
   }
 
   const primaryHue = firstHsl.h
   const accentHue = Math.abs(normalizeHue(secondHsl.h - primaryHue)) > 26 ? secondHsl.h : normalizeHue(primaryHue + 58)
-  const inverseHue = normalizeHue(primaryHue + 180)
-  const baseLightness = clampNumber(firstHsl.l * 0.45 + 0.43, 0.52, 0.72)
-  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s) * 0.72 + 0.18, 0.42, 0.78)
+  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.58 + 0.36, 0.58, 0.9)
   return [
-    hslCss(primaryHue + 6, baseSaturation, baseLightness + 0.04, 0.9),
-    hslCss(accentHue - 4, clampNumber(baseSaturation + 0.1, 0, 0.82), baseLightness + 0.02, 0.86),
-    hslCss(inverseHue + 7, clampNumber(baseSaturation * 0.72, 0.34, 0.68), baseLightness + 0.08, 0.8)
+    hsbCss(primaryHue + 4, baseSaturation, 0.96, 0.92),
+    hsbCss(accentHue - 3, clampNumber(baseSaturation + 0.06, 0, 0.94), 0.98, 0.88),
+    hsbCss(thirdHsl.h + 6, clampNumber(baseSaturation * 0.88, 0.52, 0.86), 0.95, 0.84)
+  ]
+}
+
+function harmonizedDotTints(colors: RgbColor[]): [string, string, string] {
+  const firstHsl = rgbToHsl(colors[0])
+  const secondHsl = rgbToHsl(colors[1] ?? colors[0])
+  const thirdHsl = rgbToHsl(colors[2] ?? colors[1] ?? colors[0])
+  const avgS = (firstHsl.s + secondHsl.s + thirdHsl.s) / 3
+  if (avgS < 0.18) {
+    return [
+      hsbCss(8, 0.42, 0.96, 0.92),
+      hsbCss(205, 0.36, 0.98, 0.88),
+      hsbCss(292, 0.32, 0.96, 0.84)
+    ]
+  }
+
+  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.52 + 0.34, 0.56, 0.86)
+  return [
+    hsbCss(firstHsl.h + 180, baseSaturation, 0.98, 0.92),
+    hsbCss(secondHsl.h + 184, clampNumber(baseSaturation + 0.04, 0, 0.9), 0.98, 0.88),
+    hsbCss(thirdHsl.h + 176, clampNumber(baseSaturation * 0.9, 0.5, 0.82), 0.96, 0.84)
   ]
 }
 
@@ -752,8 +806,12 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
   const third = colors[2] ?? colors[1] ?? colors[0]
   if (!first || !second || !third) return fallback
   const shapeTints = harmonizedShapeTints([first, second, third])
+  const dotTints = harmonizedDotTints([first, second, third])
   const firstHsl = rgbToHsl(first)
   const secondHsl = rgbToHsl(second)
+  const thirdHsl = rgbToHsl(third)
+  const backgroundSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s) * 0.36 + 0.26, 0.34, 0.58)
+  const overlaySaturation = clampNumber(Math.max(secondHsl.s, thirdHsl.s, firstHsl.s) * 0.44 + 0.30, 0.42, 0.68)
 
   return {
     ...fallback,
@@ -761,14 +819,18 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
     '--cover-accent-border': rgbaString(first, 0.28),
     '--cover-accent-text': hexString(boostThemeColor(first)),
     '--cover-accent-shadow': rgbaString(first, 0.1),
-    '--ambient-shape-1': rgbaString(first, 0.54),
-    '--ambient-shape-2': rgbaString(second, 0.5),
-    '--ambient-shape-3': rgbaString(third, 0.48),
-    '--bk-bg-tone-1': hslCss(firstHsl.h, clampNumber(firstHsl.s * 0.82 + 0.16, 0.42, 0.72), 0.80, 0.98),
-    '--bk-bg-tone-2': hslCss(secondHsl.h, clampNumber(secondHsl.s * 0.72 + 0.14, 0.38, 0.68), 0.84, 0.92),
+    '--ambient-shape-1': shapeTints[0],
+    '--ambient-shape-2': shapeTints[1],
+    '--ambient-shape-3': shapeTints[2],
+    '--bk-bg-tone-1': hsbCss(firstHsl.h, backgroundSaturation, 0.99, 0.98),
+    '--bk-bg-tone-2': hsbCss(secondHsl.h + 4, overlaySaturation, 0.98, 0.94),
+    '--bk-bg-tone-3': hsbCss(thirdHsl.h - 5, clampNumber(overlaySaturation + 0.06, 0, 0.72), 0.96, 0.9),
     '--bk-shape-tint-1': shapeTints[0],
     '--bk-shape-tint-2': shapeTints[1],
-    '--bk-shape-tint-3': shapeTints[2]
+    '--bk-shape-tint-3': shapeTints[2],
+    '--bk-dot-tint-1': dotTints[0],
+    '--bk-dot-tint-2': dotTints[1],
+    '--bk-dot-tint-3': dotTints[2]
   } as React.CSSProperties
 }
 
@@ -3607,9 +3669,9 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
 function makeBKDotPlan(seed: number): BKDotPlan[] {
   const random = mulberry32(seed ^ 0x7a6c2e43)
   const tints = [
-    'var(--bk-shape-tint-1)',
-    'var(--bk-shape-tint-2)',
-    'var(--bk-shape-tint-3)'
+    'var(--bk-dot-tint-1, var(--bk-shape-tint-1))',
+    'var(--bk-dot-tint-2, var(--bk-shape-tint-2))',
+    'var(--bk-dot-tint-3, var(--bk-shape-tint-3))'
   ]
   const randomOffscreenPoint = (marginMul: number): { x: number; y: number } => {
     const radius = 30
