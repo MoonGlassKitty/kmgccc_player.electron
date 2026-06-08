@@ -2277,6 +2277,7 @@ function App(): React.ReactElement {
             <NowPlayingPage
               track={currentTrack}
               albums={albums}
+              bkThemeStyle={coverThemeStyle}
               isPlaying={isPlaying}
               volume={volume}
               ledCount={ledCount}
@@ -3462,6 +3463,7 @@ const LyricsEmptyState = React.memo(function LyricsEmptyState(): React.ReactElem
 const NowPlayingPage = React.memo(function NowPlayingPage({
   track,
   albums,
+  bkThemeStyle,
   isPlaying,
   volume,
   ledCount,
@@ -3480,6 +3482,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
 }: {
   track: Track | null | undefined
   albums: Map<string, HomeAlbumCard>
+  bkThemeStyle: React.CSSProperties
   isPlaying: boolean
   volume: number
   ledCount: number
@@ -3504,7 +3507,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
       {skinID === 'appleStyle' ? (
         <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
       ) : showBKBackground ? (
-        <BKArtBackground track={track} isPlaying={isPlaying} />
+        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} />
       ) : (
         <UnifiedMeshBackground />
       )}
@@ -3661,19 +3664,32 @@ const CassetteNowPlayingArtwork = React.memo(function CassetteNowPlayingArtwork(
 
 const BKArtBackground = React.memo(function BKArtBackground({
   track,
-  isPlaying
+  isPlaying,
+  themeStyle
 }: {
   track: Track | null | undefined
   isPlaying: boolean
+  themeStyle: React.CSSProperties
 }): React.ReactElement {
   const trackSeed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
   const transitionSeedRef = React.useRef(0)
-  const initialSurface = React.useMemo(() => makeBKSurfaceState(trackSeed, 0, null), [trackSeed])
+  const themeStyleRef = React.useRef(themeStyle)
+  themeStyleRef.current = themeStyle
+  const initialSurface = React.useMemo(() => makeBKSurfaceState(trackSeed, 0, null, themeStyle), [themeStyle, trackSeed])
   const [currentSurface, setCurrentSurface] = React.useState(initialSurface)
   const [previousSurface, setPreviousSurface] = React.useState<BKSurfaceState | null>(null)
   const [isDotExiting, setIsDotExiting] = React.useState(false)
   const [isRevealing, setIsRevealing] = React.useState(false)
+  const currentSurfaceRef = React.useRef(currentSurface)
   const didMountRef = React.useRef(false)
+
+  React.useEffect(() => {
+    currentSurfaceRef.current = currentSurface
+  }, [currentSurface])
+
+  React.useEffect(() => {
+    setCurrentSurface((surface) => ({ ...surface, themeStyle }))
+  }, [themeStyle])
 
   React.useEffect(() => {
     const image = new Image()
@@ -3685,15 +3701,15 @@ const BKArtBackground = React.memo(function BKArtBackground({
   React.useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true
-      setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image'))
+      setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image', themeStyleRef.current))
       setPreviousSurface(null)
       setIsRevealing(false)
       return
     }
     transitionSeedRef.current = 0
     setIsDotExiting(false)
-    setPreviousSurface((surface) => surface ?? currentSurface)
-    setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image'))
+    setPreviousSurface(currentSurfaceRef.current)
+    setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image', themeStyleRef.current))
     setIsRevealing(true)
   }, [trackSeed])
 
@@ -3705,7 +3721,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
     const timer = window.setTimeout(() => {
       transitionSeedRef.current += 1
       setPreviousSurface(currentSurface)
-      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current)))
+      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current), themeStyleRef.current))
       setIsRevealing(true)
     }, delay)
     return () => window.clearTimeout(timer)
@@ -3716,7 +3732,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
     const timer = window.setTimeout(() => {
       transitionSeedRef.current += 1
       setPreviousSurface(currentSurface)
-      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current)))
+      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current), themeStyleRef.current))
       setIsDotExiting(false)
       setIsRevealing(true)
     }, 900)
@@ -3730,15 +3746,15 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const handleDotComplete = React.useCallback(() => {
     transitionSeedRef.current += 1
     setPreviousSurface(currentSurface)
-    setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current)))
+    setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current), themeStyleRef.current))
     setIsDotExiting(false)
     setIsRevealing(true)
   }, [currentSurface, trackSeed])
 
   return (
     <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
-      {previousSurface ? <BKArtSurface surface={previousSurface} className={`previous ${isBKDotStyle(previousSurface.style) && currentSurface.style === 'image' ? 'dot-exited' : ''}`} isRunning={false} /> : null}
-      <BKArtSurface surface={currentSurface} className={previousSurface !== null ? 'current entering' : `current ${isDotExiting ? 'dot-exiting' : ''}`} isRunning={isPlaying && !isDotExiting && !isRevealing} onRevealEnd={previousSurface ? handleRevealEnd : undefined} onDotComplete={isBKDotStyle(currentSurface.style) && !isDotExiting ? handleDotComplete : undefined} />
+      {previousSurface ? <BKArtSurface key={`previous-${bkSurfaceKey(previousSurface)}`} surface={previousSurface} className={`previous ${isBKDotStyle(previousSurface.style) && currentSurface.style === 'image' ? 'dot-exited' : ''}`} isRunning={false} /> : null}
+      <BKArtSurface key={`current-${bkSurfaceKey(currentSurface)}`} surface={currentSurface} className={previousSurface !== null ? 'current entering' : `current ${isDotExiting ? 'dot-exiting' : ''}`} isRunning={isPlaying && !isDotExiting && !isRevealing} onRevealEnd={previousSurface ? handleRevealEnd : undefined} onDotComplete={isBKDotStyle(currentSurface.style) && !isDotExiting ? handleDotComplete : undefined} />
     </div>
   )
 })
@@ -3750,16 +3766,22 @@ type BKSurfaceState = {
   shapeSeed: number
   style: BKSurfaceStyle
   phaseOffset: number
+  themeStyle: React.CSSProperties
 }
 
-function makeBKSurfaceState(trackSeed: number, transitionIndex: number, forcedStyle: BKSurfaceStyle | null): BKSurfaceState {
+function bkSurfaceKey(surface: BKSurfaceState): string {
+  return `${surface.style}-${surface.seed}-${surface.shapeSeed}-${surface.phaseOffset}`
+}
+
+function makeBKSurfaceState(trackSeed: number, transitionIndex: number, forcedStyle: BKSurfaceStyle | null, themeStyle: React.CSSProperties): BKSurfaceState {
   const seed = (trackSeed ^ Math.imul(transitionIndex + 1, 0x9e3779b9)) >>> 0
   const style = forcedStyle ?? 'image'
   return {
     seed,
     shapeSeed: trackSeed,
     style,
-    phaseOffset: transitionIndex % bkBackgroundAssets.length
+    phaseOffset: transitionIndex % bkBackgroundAssets.length,
+    themeStyle
   }
 }
 
@@ -3792,7 +3814,7 @@ const BKArtSurface = React.memo(function BKArtSurface({
   return (
     <div
       className={`bk-art-surface ${className} style-${surface.style}`}
-      style={{ '--bk-paint-mask-sprite': `url(${bkPaintMaskSprite})` } as React.CSSProperties}
+      style={{ ...surface.themeStyle, '--bk-paint-mask-sprite': `url(${bkPaintMaskSprite})` } as React.CSSProperties}
       onAnimationEnd={(event) => {
         if (event.animationName === 'bkPaintReveal') onRevealEnd?.()
       }}
