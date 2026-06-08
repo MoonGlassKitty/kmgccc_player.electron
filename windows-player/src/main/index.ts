@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol } from 'electron'
 import { execFileSync } from 'node:child_process'
 import { createDecipheriv } from 'node:crypto'
-import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -122,6 +122,8 @@ type TrackMetadataSyncResult = {
 
 type AudioImportBatchResult = {
   tracks: LocalAudioImport[]
+  failedCount: number
+  totalCount: number
 }
 
 type ItunesSearchResult = {
@@ -151,7 +153,11 @@ function mimeTypeForAudioPath(audioPath: string): string {
       return 'audio/flac'
     case '.m4a':
     case '.mp4':
+    case '.alac':
       return 'audio/mp4'
+    case '.aif':
+    case '.aiff':
+      return 'audio/aiff'
     case '.ogg':
     case '.oga':
       return 'audio/ogg'
@@ -227,13 +233,85 @@ function tracksForHomeSnapshot(): LocalAudioImport[] {
   return mergeTrackList([...(demoTracks as LocalAudioImport[]), ...loadPersistedTracks()])
 }
 
-async function importAudioFilesFromPaths(filePaths: string[]): Promise<AudioImportBatchResult> {
-  const tracks: LocalAudioImport[] = []
-  for (const filePath of filePaths) {
-    tracks.push(await localAudioImportFromPath(filePath))
+const supportedAudioExtensions = new Set(['.mp3', '.m4a', '.aac', '.alac', '.wav', '.aif', '.aiff', '.flac', '.ogg', '.oga', '.opus', '.ncm'])
+
+function isSupportedAudioFile(filePath: string): boolean {
+  return supportedAudioExtensions.has(extname(filePath).toLowerCase())
+}
+
+function findAudioFilesInDirectory(directoryPath: string): string[] {
+  const audioFiles: string[] = []
+  let entries: string[]
+  try {
+    entries = readdirSync(directoryPath)
+  } catch {
+    return audioFiles
   }
-  upsertPersistedTracks(tracks)
-  return { tracks }
+
+  for (const entry of entries) {
+    if (entry.startsWith('.')) continue
+    const entryPath = join(directoryPath, entry)
+    let stats
+    try {
+      stats = statSync(entryPath)
+    } catch {
+      continue
+    }
+    if (stats.isDirectory()) {
+      audioFiles.push(...findAudioFilesInDirectory(entryPath))
+    } else if (stats.isFile() && isSupportedAudioFile(entryPath)) {
+      audioFiles.push(entryPath)
+    }
+  }
+
+  return audioFiles
+}
+
+function expandImportSelection(filePaths: string[]): string[] {
+  const expanded: string[] = []
+  const seen = new Set<string>()
+
+  for (const selectedPath of filePaths) {
+    let stats
+    try {
+      stats = statSync(selectedPath)
+    } catch {
+      continue
+    }
+    const candidates = stats.isDirectory()
+      ? findAudioFilesInDirectory(selectedPath)
+      : stats.isFile() && isSupportedAudioFile(selectedPath)
+        ? [selectedPath]
+        : []
+
+    for (const candidate of candidates) {
+      if (seen.has(candidate)) continue
+      seen.add(candidate)
+      expanded.push(candidate)
+    }
+  }
+
+  return expanded
+}
+
+async function importAudioFilesFromPaths(filePaths: string[]): Promise<AudioImportBatchResult> {
+  const filesToImport = expandImportSelection(filePaths)
+  const tracks: LocalAudioImport[] = []
+  let failedCount = 0
+
+  for (const filePath of filesToImport) {
+    try {
+      tracks.push(await localAudioImportFromPath(filePath))
+    } catch (error) {
+      failedCount += 1
+      console.warn('[Import] failed to import audio file', filePath, error)
+    }
+  }
+
+  if (tracks.length > 0) {
+    upsertPersistedTracks(tracks)
+  }
+  return { tracks, failedCount, totalCount: filesToImport.length }
 }
 
 function albumsForTracks(tracks: LocalAudioImport[]) {
@@ -911,7 +989,7 @@ ipcMain.handle('library:import-audio-file', async (event): Promise<LocalAudioImp
     title: '导入单曲',
     properties: ['openFile'],
     filters: [
-      { name: '音频文件', extensions: ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg', 'opus', 'ncm'] },
+      { name: '音频文件', extensions: ['mp3', 'm4a', 'aac', 'alac', 'wav', 'aif', 'aiff', 'flac', 'ogg', 'opus', 'ncm'] },
       { name: '网易云音乐 NCM', extensions: ['ncm'] },
       { name: '所有文件', extensions: ['*'] }
     ]
@@ -927,9 +1005,9 @@ ipcMain.handle('library:import-audio-files', async (event): Promise<AudioImportB
   const owner = BrowserWindow.fromWebContents(event.sender)
   const options: Electron.OpenDialogOptions = {
     title: '批量导入歌曲',
-    properties: ['openFile', 'multiSelections'],
+    properties: ['openFile', 'openDirectory', 'multiSelections'],
     filters: [
-      { name: '音频文件', extensions: ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg', 'opus', 'ncm'] },
+      { name: '音频文件', extensions: ['mp3', 'm4a', 'aac', 'alac', 'wav', 'aif', 'aiff', 'flac', 'ogg', 'opus', 'ncm'] },
       { name: '网易云音乐 NCM', extensions: ['ncm'] },
       { name: '所有文件', extensions: ['*'] }
     ]
