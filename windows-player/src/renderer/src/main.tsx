@@ -3697,15 +3697,15 @@ const BKArtBackground = React.memo(function BKArtBackground({
   React.useEffect(() => {
     if (!isPlaying) return
     if (isDotExiting) return
-    const delay = currentSurface.style === 'dot' ? 20000 : 15000
+    const delay = isBKDotStyle(currentSurface.style) ? 20000 : 15000
     const timer = window.setTimeout(() => {
-      if (currentSurface.style === 'dot') {
+      if (isBKDotStyle(currentSurface.style)) {
         setIsDotExiting(true)
         return
       }
       transitionSeedRef.current += 1
       setPreviousSurface(currentSurface)
-      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, 'dot'))
+      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current)))
     }, delay)
     return () => window.clearTimeout(timer)
   }, [currentSurface, isDotExiting, isPlaying, trackSeed])
@@ -3715,7 +3715,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
     const timer = window.setTimeout(() => {
       transitionSeedRef.current += 1
       setPreviousSurface(currentSurface)
-      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, 'image'))
+      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current)))
       setIsDotExiting(false)
     }, 900)
     return () => window.clearTimeout(timer)
@@ -3727,13 +3727,13 @@ const BKArtBackground = React.memo(function BKArtBackground({
 
   return (
     <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
-      {previousSurface ? <BKArtSurface surface={previousSurface} className={`previous ${previousSurface.style === 'dot' && currentSurface.style === 'image' ? 'dot-exited' : ''}`} isRunning={isPlaying} /> : null}
+      {previousSurface ? <BKArtSurface surface={previousSurface} className={`previous ${isBKDotStyle(previousSurface.style) && currentSurface.style === 'image' ? 'dot-exited' : ''}`} isRunning={isPlaying} /> : null}
       <BKArtSurface surface={currentSurface} className={previousSurface !== null ? 'current entering' : `current ${isDotExiting ? 'dot-exiting' : ''}`} isRunning={isPlaying && !isDotExiting} onRevealEnd={previousSurface ? handleRevealEnd : undefined} />
     </div>
   )
 })
 
-type BKSurfaceStyle = 'image' | 'dot'
+type BKSurfaceStyle = 'image' | 'dot-a' | 'dot-b'
 
 type BKSurfaceState = {
   seed: number
@@ -3751,6 +3751,15 @@ function makeBKSurfaceState(trackSeed: number, transitionIndex: number, forcedSt
     style,
     phaseOffset: transitionIndex % bkBackgroundAssets.length
   }
+}
+
+function isBKDotStyle(style: BKSurfaceStyle): boolean {
+  return style === 'dot-a' || style === 'dot-b'
+}
+
+function nextBKSurfaceStyle(currentStyle: BKSurfaceStyle, transitionIndex: number): BKSurfaceStyle {
+  if (isBKDotStyle(currentStyle)) return 'image'
+  return transitionIndex % 4 === 1 ? 'dot-a' : 'dot-b'
 }
 
 const BKArtSurface = React.memo(function BKArtSurface({
@@ -3779,33 +3788,37 @@ const BKArtSurface = React.memo(function BKArtSurface({
         <BKImagePhase source={phaseA} className="phase-a" />
         <BKImagePhase source={phaseB} className="phase-b" />
       </div>
-      <div className="bk-dot-surface">
-        <div className="bk-dot-gradient" />
-        <BKDotSurface seed={surface.seed} isRunning={isRunning} />
-      </div>
-      <div className="bk-shape-root">
-        {shapes.map((shape) => (
-          <span
-            key={shape.id}
-            className={`bk-shape ${shape.edgePinned ? 'edge-pinned' : ''}`}
-            style={
-              {
-                '--shape-x': `${shape.x}%`,
-                '--shape-y': `${shape.y}%`,
-                '--shape-size': `${shape.size}px`,
-                '--shape-rotation': `${shape.rotation}deg`,
-                '--shape-drift-x': `${shape.driftX}px`,
-                '--shape-drift-y': `${shape.driftY}px`,
-                '--shape-duration': `${shape.duration}s`,
-                '--shape-delay': `${shape.delay}s`,
-                '--shape-tint': shape.tint,
-                WebkitMaskImage: `url(${bkShapeAssets[shape.assetIndex]})`,
-                maskImage: `url(${bkShapeAssets[shape.assetIndex]})`
-              } as React.CSSProperties
-            }
-          />
-        ))}
-      </div>
+      {isBKDotStyle(surface.style) ? (
+        <>
+          <div className="bk-dot-surface">
+            <div className="bk-dot-gradient" />
+            <BKDotSurface seed={surface.seed} direction={surface.style === 'dot-b' ? 'reverse' : 'forward'} isRunning={isRunning} />
+          </div>
+          <div className="bk-shape-root">
+            {shapes.map((shape) => (
+              <span
+                key={shape.id}
+                className={`bk-shape ${shape.edgePinned ? 'edge-pinned' : ''}`}
+                style={
+                  {
+                    '--shape-x': `${shape.x}%`,
+                    '--shape-y': `${shape.y}%`,
+                    '--shape-size': `${shape.size}px`,
+                    '--shape-rotation': `${shape.rotation}deg`,
+                    '--shape-drift-x': `${shape.driftX}px`,
+                    '--shape-drift-y': `${shape.driftY}px`,
+                    '--shape-duration': `${shape.duration}s`,
+                    '--shape-delay': `${shape.delay}s`,
+                    '--shape-tint': shape.tint,
+                    WebkitMaskImage: `url(${bkShapeAssets[shape.assetIndex]})`,
+                    maskImage: `url(${bkShapeAssets[shape.assetIndex]})`
+                  } as React.CSSProperties
+                }
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
     </div>
   )
 })
@@ -3840,8 +3853,10 @@ function dotScaleAt(t: number): number {
   return 1
 }
 
-function makeBKDotRuntimeSlot(seed: number, index: number, initialIdleDelay?: number, overlapT?: number): BKDotRuntimeSlot {
-  const plan = makeBKDotPlan(seed ^ Math.imul(index + 1, 0xdeadbeef))[0]
+type BKDotDirection = 'forward' | 'reverse'
+
+function makeBKDotRuntimeSlot(seed: number, index: number, direction: BKDotDirection, initialIdleDelay?: number, overlapT?: number): BKDotRuntimeSlot {
+  const plan = makeBKDotPlan(seed ^ Math.imul(index + 1, 0xdeadbeef), direction)[0]
   return {
     ...plan,
     id: `dot-window-${index}-${seed}`,
@@ -3854,14 +3869,14 @@ function makeBKDotRuntimeSlot(seed: number, index: number, initialIdleDelay?: nu
   }
 }
 
-const BKDotSurface = React.memo(function BKDotSurface({ seed, isRunning }: { seed: number; isRunning: boolean }): React.ReactElement {
+const BKDotSurface = React.memo(function BKDotSurface({ seed, direction, isRunning }: { seed: number; direction: BKDotDirection; isRunning: boolean }): React.ReactElement {
   const slotCounterRef = React.useRef(1)
-  const [slots, setSlots] = React.useState<BKDotRuntimeSlot[]>(() => [makeBKDotRuntimeSlot(seed, 0, 0, 0.88)])
+  const [slots, setSlots] = React.useState<BKDotRuntimeSlot[]>(() => [makeBKDotRuntimeSlot(seed, 0, direction, 0, 0.88)])
 
   React.useEffect(() => {
     slotCounterRef.current = 1
-    setSlots([makeBKDotRuntimeSlot(seed, 0, 0, 0.88)])
-  }, [seed])
+    setSlots([makeBKDotRuntimeSlot(seed, 0, direction, 0, 0.88)])
+  }, [direction, seed])
 
   React.useEffect(() => {
     if (!isRunning) return
@@ -3892,19 +3907,19 @@ const BKDotSurface = React.memo(function BKDotSurface({ seed, isRunning }: { see
         if (shouldSpawnNext) {
           const nextIndex = slotCounterRef.current
           slotCounterRef.current += 1
-          nextSlots.push(makeBKDotRuntimeSlot(spawnSeed, nextIndex))
+          nextSlots.push(makeBKDotRuntimeSlot(spawnSeed, nextIndex, direction))
         }
 
         if (!nextSlots.length) {
           const nextIndex = slotCounterRef.current
           slotCounterRef.current += 1
-          nextSlots.push(makeBKDotRuntimeSlot(seed, nextIndex, 0))
+          nextSlots.push(makeBKDotRuntimeSlot(seed, nextIndex, direction, 0))
         }
         return nextSlots
       })
     }, 1000 / 15)
     return () => window.clearInterval(interval)
-  }, [isRunning, seed])
+  }, [direction, isRunning, seed])
 
   return (
     <>
@@ -4106,7 +4121,7 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
   })
 }
 
-function makeBKDotPlan(seed: number): BKDotPlan[] {
+function makeBKDotPlan(seed: number, direction: BKDotDirection): BKDotPlan[] {
   const random = mulberry32(seed ^ 0x7a6c2e43)
   const tints = [
     'var(--bk-dot-tint-1, var(--bk-shape-tint-1))',
@@ -4137,6 +4152,10 @@ function makeBKDotPlan(seed: number): BKDotPlan[] {
     const end = { x: center.x + dx, y: center.y + dy }
     const cp1 = { x: start.x + (end.x - start.x) / 3, y: start.y + (end.y - start.y) / 3 }
     const cp2 = { x: start.x + (end.x - start.x) * 2 / 3, y: start.y + (end.y - start.y) * 2 / 3 }
+    const directedStart = direction === 'reverse' ? end : start
+    const directedEnd = direction === 'reverse' ? start : end
+    const directedCp1 = direction === 'reverse' ? cp2 : cp1
+    const directedCp2 = direction === 'reverse' ? cp1 : cp2
     const duration = 12 + random() * 5
     const leadIn = index === 0 ? 0.88 : 0.55 + random() * 0.2
     const idleDelay = 0.1 + random() * 0.35
@@ -4144,14 +4163,14 @@ function makeBKDotPlan(seed: number): BKDotPlan[] {
     cumulativeDelay = delay + duration * leadIn
     return {
       id: `dot-window-${index}`,
-      startX: start.x,
-      startY: start.y,
-      cp1X: cp1.x,
-      cp1Y: cp1.y,
-      cp2X: cp2.x,
-      cp2Y: cp2.y,
-      endX: end.x,
-      endY: end.y,
+      startX: directedStart.x,
+      startY: directedStart.y,
+      cp1X: directedCp1.x,
+      cp1Y: directedCp1.y,
+      cp2X: directedCp2.x,
+      cp2Y: directedCp2.y,
+      endX: directedEnd.x,
+      endY: directedEnd.y,
       radius: 26 + random() * 8,
       bigDot: 5 + random() * 1.2,
       smallDot: 3 + random(),

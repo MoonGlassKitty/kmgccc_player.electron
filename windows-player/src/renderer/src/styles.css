@@ -212,7 +212,8 @@ input {
   display: none;
 }
 
-.bk-art-surface.style-dot .bk-image-surface {
+.bk-art-surface.style-dot-a .bk-image-surface,
+.bk-art-surface.style-dot-b .bk-image-surface {
   display: none;
 }
 
