@@ -3672,6 +3672,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const [currentSurface, setCurrentSurface] = React.useState(initialSurface)
   const [previousSurface, setPreviousSurface] = React.useState<BKSurfaceState | null>(null)
   const [isDotExiting, setIsDotExiting] = React.useState(false)
+  const [isRevealing, setIsRevealing] = React.useState(false)
   const didMountRef = React.useRef(false)
 
   React.useEffect(() => {
@@ -3686,12 +3687,14 @@ const BKArtBackground = React.memo(function BKArtBackground({
       didMountRef.current = true
       setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image'))
       setPreviousSurface(null)
+      setIsRevealing(false)
       return
     }
     transitionSeedRef.current = 0
     setIsDotExiting(false)
     setPreviousSurface((surface) => surface ?? currentSurface)
     setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image'))
+    setIsRevealing(true)
   }, [trackSeed])
 
   React.useEffect(() => {
@@ -3703,6 +3706,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
       transitionSeedRef.current += 1
       setPreviousSurface(currentSurface)
       setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current)))
+      setIsRevealing(true)
     }, delay)
     return () => window.clearTimeout(timer)
   }, [currentSurface, isDotExiting, isPlaying, trackSeed])
@@ -3714,24 +3718,27 @@ const BKArtBackground = React.memo(function BKArtBackground({
       setPreviousSurface(currentSurface)
       setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current)))
       setIsDotExiting(false)
+      setIsRevealing(true)
     }, 900)
     return () => window.clearTimeout(timer)
   }, [currentSurface, isDotExiting, trackSeed])
 
   const handleRevealEnd = React.useCallback(() => {
     setPreviousSurface(null)
+    setIsRevealing(false)
   }, [])
   const handleDotComplete = React.useCallback(() => {
     transitionSeedRef.current += 1
     setPreviousSurface(currentSurface)
     setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current)))
     setIsDotExiting(false)
+    setIsRevealing(true)
   }, [currentSurface, trackSeed])
 
   return (
     <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
       {previousSurface ? <BKArtSurface surface={previousSurface} className={`previous ${isBKDotStyle(previousSurface.style) && currentSurface.style === 'image' ? 'dot-exited' : ''}`} isRunning={false} /> : null}
-      <BKArtSurface surface={currentSurface} className={previousSurface !== null ? 'current entering' : `current ${isDotExiting ? 'dot-exiting' : ''}`} isRunning={isPlaying && !isDotExiting} onRevealEnd={previousSurface ? handleRevealEnd : undefined} onDotComplete={isBKDotStyle(currentSurface.style) && !isDotExiting ? handleDotComplete : undefined} />
+      <BKArtSurface surface={currentSurface} className={previousSurface !== null ? 'current entering' : `current ${isDotExiting ? 'dot-exiting' : ''}`} isRunning={isPlaying && !isDotExiting && !isRevealing} onRevealEnd={previousSurface ? handleRevealEnd : undefined} onDotComplete={isBKDotStyle(currentSurface.style) && !isDotExiting ? handleDotComplete : undefined} />
     </div>
   )
 })
