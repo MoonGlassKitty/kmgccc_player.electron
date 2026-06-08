@@ -3565,49 +3565,14 @@ input {
 }
 
 .mini-progress-rail {
-  --mini-progress: 0;
   position: absolute;
   right: 20px;
-  bottom: calc(100% - 10px);
+  bottom: calc(100% - 18px);
   left: 20px;
   z-index: 2;
-  height: 12px;
+  height: 28px;
   pointer-events: auto;
   contain: layout style;
-}
-
-.mini-progress-base,
-.mini-progress-fill {
-  position: absolute;
-  left: 0;
-  pointer-events: none;
-}
-
-.mini-progress-base {
-  top: 5px;
-  right: 0;
-  height: 2px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.mini-progress-fill {
-  top: 5px;
-  width: calc(var(--mini-progress) * 1%);
-  height: 2px;
-  border-radius: 999px;
-  background: rgba(43, 143, 184, 0.72);
-  transition: width 180ms linear;
-}
-
-.mini-progress-rail input {
-  position: absolute;
-  inset: -3px 0 -3px;
-  width: 100%;
-  height: 18px;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
 }
 
 .mini-track {
@@ -3832,13 +3797,6 @@ input {
   min-width: 0;
 }
 
-.volume-bar {
-  height: 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(31, 64, 82, 0.1);
-}
-
 .volume-track {
   position: relative;
   display: grid;
@@ -3849,69 +3807,86 @@ input {
   min-width: 0;
 }
 
-.volume-bar {
+.liquid-slider {
+  --liquid-slider-track-height: 14px;
+  --liquid-slider-thumb-width: 90px;
+  --liquid-slider-thumb-height: 60px;
+  --liquid-slider-thumb-radius: 30px;
   position: relative;
-  min-width: 0;
-  height: 2px;
-  background:
-    linear-gradient(
-      90deg,
-      rgba(43, 143, 184, 0.72) 0 var(--volume-progress, 72%),
-      rgba(0, 0, 0, 0.2) var(--volume-progress, 72%)
-    );
-}
-
-.volume-bar span {
   display: block;
-  width: var(--volume-progress, 72%);
+  width: 100%;
+  height: var(--liquid-slider-thumb-height);
+  min-width: 0;
+  color: #0377f7;
+  cursor: pointer;
+}
+
+.liquid-slider-track {
+  position: absolute;
+  top: calc((var(--liquid-slider-thumb-height) - var(--liquid-slider-track-height)) / 2);
+  right: 0;
+  left: 0;
+  height: var(--liquid-slider-track-height);
+  overflow: hidden;
+  border-radius: calc(var(--liquid-slider-track-height) / 2);
+  background-color: rgba(137, 137, 143, 0.4);
+}
+
+.liquid-slider-fill {
+  display: block;
+  width: var(--liquid-slider-progress);
   height: 100%;
-  background: transparent;
+  border-radius: 6px;
+  background-color: #0377f7;
 }
 
-.volume-bar i {
+.liquid-slider-thumb {
   position: absolute;
-  top: 50%;
-  left: var(--volume-progress, 72%);
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #2b8fb8;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  transform: translate(-50%, -50%);
+  top: 0;
+  left: calc(var(--liquid-slider-progress-ratio) * (100% - var(--liquid-slider-thumb-width)));
+  width: var(--liquid-slider-thumb-width);
+  height: var(--liquid-slider-thumb-height);
+  border-radius: var(--liquid-slider-thumb-radius);
+  background-color: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.1);
+  backdrop-filter: url(#lg-slider-thumb);
+  -webkit-backdrop-filter: url(#lg-slider-thumb);
+  pointer-events: none;
 }
 
-.volume-track input {
+.liquid-slider-input {
   position: absolute;
-  inset: -9px 0 -9px 26px;
-  width: calc(100% - 26px);
-  height: 22px;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
   margin: 0;
   cursor: pointer;
   opacity: 0;
 }
 
-.glass-range-input {
-  --glass-slider-progress: var(--range-progress, 0%);
-  appearance: none;
-  -webkit-appearance: none;
-  height: 2px;
-  min-height: 2px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.2);
-  outline: none;
-  color: var(--accent);
+.settings-liquid-slider {
+  --liquid-slider-track-height: 8px;
+  --liquid-slider-thumb-width: 54px;
+  --liquid-slider-thumb-height: 36px;
+  --liquid-slider-thumb-radius: 18px;
+  grid-column: 1 / -1;
+  min-width: 180px;
+  margin-top: 4px;
 }
 
-.settings-range-row .glass-range-input {
-  height: 2px;
-  margin: 12px 0 10px;
+.mini-progress-slider {
+  --liquid-slider-track-height: 7px;
+  --liquid-slider-thumb-width: 42px;
+  --liquid-slider-thumb-height: 28px;
+  --liquid-slider-thumb-radius: 14px;
 }
 
-.mini-progress-rail .glass-range-input,
-.volume-track .glass-range-input {
-  z-index: 2;
+.volume-liquid-slider {
+  --liquid-slider-track-height: 5px;
+  --liquid-slider-thumb-width: 30px;
+  --liquid-slider-thumb-height: 20px;
+  --liquid-slider-thumb-radius: 10px;
 }
 
 .lyrics-pane {

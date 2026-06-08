@@ -4731,6 +4731,55 @@ const SettingsSection = React.memo(function SettingsSection({
   )
 })
 
+const LiquidGlassSlider = React.memo(function LiquidGlassSlider({
+  ariaLabel,
+  className = '',
+  value,
+  min,
+  max,
+  step,
+  onChange
+}: {
+  ariaLabel: string
+  className?: string
+  value: number
+  min: number
+  max: number
+  step: number | string
+  onChange: (value: number) => void
+}): React.ReactElement {
+  const progress = max > min ? ((value - min) / (max - min)) * 100 : 0
+  const clampedProgress = Math.min(100, Math.max(0, progress))
+
+  return (
+    <span
+      className={`liquid-slider ${className}`}
+      style={
+        {
+          '--liquid-slider-progress': `${clampedProgress}%`,
+          '--liquid-slider-progress-ratio': clampedProgress / 100
+        } as React.CSSProperties
+      }
+    >
+      <span className="liquid-slider-track" aria-hidden="true">
+        <span className="liquid-slider-fill" />
+      </span>
+      <span className="liquid-slider-thumb" aria-hidden="true" />
+      <input
+        aria-label={ariaLabel}
+        className="liquid-slider-input"
+        max={max}
+        min={min}
+        step={step}
+        type="range"
+        value={value}
+        onInput={(event) => onChange(Number(event.currentTarget.value))}
+        onChange={(event) => onChange(Number(event.currentTarget.value))}
+      />
+    </span>
+  )
+})
+
 const SettingsRange = React.memo(function SettingsRange({
   title,
   detail,
@@ -4750,16 +4799,14 @@ const SettingsRange = React.memo(function SettingsRange({
   step?: number
   onChange?: (value: number) => void
 }): React.ReactElement {
-  const progress = max > min ? ((value - min) / (max - min)) * 100 : 0
-
   return (
-    <label className="settings-range-row" style={{ '--range-progress': `${Math.min(100, Math.max(0, progress))}%` } as React.CSSProperties}>
+    <label className="settings-range-row">
       <span>
         <strong>{title}</strong>
         {detail ? <small>{detail}</small> : null}
       </span>
       <em>{valueText}</em>
-      <input className="glass-range-input" type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange?.(Number(event.currentTarget.value))} />
+      <LiquidGlassSlider ariaLabel={title} className="settings-liquid-slider" value={value} min={min} max={max} step={step} onChange={(nextValue) => onChange?.(nextValue)} />
     </label>
   )
 })
@@ -5140,24 +5187,20 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onSeek: (seconds: number) => void
 }): React.ReactElement {
   const [isQueueOpen, setIsQueueOpen] = React.useState(false)
-  const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
-  const volumeProgress = Math.round(volume * 100)
   const queueTracks = tracks.length ? tracks : [track]
+  const safePlaybackDuration = Math.max(1, playbackDuration)
 
   return (
     <div className="mini-player glass-panel no-drag" style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
-      <div className="mini-progress-rail" style={{ '--mini-progress': progress } as React.CSSProperties}>
-        <span className="mini-progress-base" aria-hidden="true" />
-        <span className="mini-progress-fill" aria-hidden="true" />
-        <input
-          aria-label="播放进度"
-          max={Math.max(1, playbackDuration)}
-          min="0"
+      <div className="mini-progress-rail">
+        <LiquidGlassSlider
+          ariaLabel="播放进度"
+          className="mini-progress-slider"
+          max={safePlaybackDuration}
+          min={0}
           step="0.1"
-          type="range"
-          className="glass-range-input"
-          value={Math.min(playbackTime, Math.max(1, playbackDuration))}
-          onChange={(event) => onSeek(Number(event.currentTarget.value))}
+          value={Math.min(playbackTime, safePlaybackDuration)}
+          onChange={onSeek}
         />
       </div>
       <button className="mini-track" type="button" aria-label="打开窗口播放" onClick={onOpenNowPlaying}>
@@ -5213,22 +5256,16 @@ const MiniPlayer = React.memo(function MiniPlayer({
         <Shuffle size={18} />
       </button>
       <div className="mini-timeline">
-        <label className="volume-track" style={{ '--volume-progress': `${volumeProgress}%` } as React.CSSProperties}>
+        <label className="volume-track">
           {volume <= 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          <div className="volume-bar">
-            <span />
-            <i />
-          </div>
-          <input
-            aria-label="音量"
-            max="1"
-            min="0"
+          <LiquidGlassSlider
+            ariaLabel="音量"
+            className="volume-liquid-slider"
+            max={1}
+            min={0}
             step="0.01"
-            type="range"
-            className="glass-range-input"
             value={volume}
-            onInput={(event) => onVolumeChange(Number(event.currentTarget.value))}
-            onChange={(event) => onVolumeChange(Number(event.currentTarget.value))}
+            onChange={onVolumeChange}
           />
         </label>
       </div>

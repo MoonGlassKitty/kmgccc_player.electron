@@ -482,6 +482,21 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
         specularWidth={20}
         dpr={SMALL_GLASS_FILTER_DPR}
       />
+      <LiquidGlassFilter
+        id="lg-slider-thumb"
+        width={90}
+        height={60}
+        radius={30}
+        blur={0}
+        bezelWidth={16}
+        glassThickness={80}
+        refractiveIndex={1.45}
+        scaleRatio={0.6}
+        specularOpacity={0.4}
+        specularSaturation={7}
+        specularWidth={50}
+        dpr={SMALL_GLASS_FILTER_DPR}
+      />
     </div>
   )
 })
