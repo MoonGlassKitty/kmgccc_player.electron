@@ -5190,52 +5190,43 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onSeek: (seconds: number) => void
 }): React.ReactElement {
   const [isQueueOpen, setIsQueueOpen] = React.useState(false)
-  const miniPlayerRef = React.useRef<HTMLDivElement | null>(null)
   const progressRailRef = React.useRef<HTMLDivElement | null>(null)
-  const isProgressDraggingRef = React.useRef(false)
-  const pendingProgressSeekRef = React.useRef<number | null>(null)
+  const isProgressPressedRef = React.useRef(false)
   const queueTracks = tracks.length ? tracks : [track]
   const safePlaybackDuration = Math.max(1, playbackDuration)
   const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
-  const previewProgressFromClientX = React.useCallback((clientX: number) => {
+  const seekFromProgressClientX = React.useCallback((clientX: number) => {
     const rail = progressRailRef.current
     if (!rail) return
     const rect = rail.getBoundingClientRect()
     const ratio = rect.width > 0 ? clampNumber((clientX - rect.left) / rect.width, 0, 1) : 0
-    const nextTime = ratio * safePlaybackDuration
-    pendingProgressSeekRef.current = nextTime
-    miniPlayerRef.current?.style.setProperty('--mini-player-progress', `${ratio * 100}%`)
-  }, [safePlaybackDuration])
+    onSeek(ratio * safePlaybackDuration)
+  }, [onSeek, safePlaybackDuration])
   const handleProgressPointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault()
     event.stopPropagation()
-    isProgressDraggingRef.current = true
-    miniPlayerRef.current?.classList.add('progress-dragging')
+    isProgressPressedRef.current = true
     event.currentTarget.setPointerCapture(event.pointerId)
-    previewProgressFromClientX(event.clientX)
-  }, [previewProgressFromClientX])
-  const handleProgressPointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isProgressDraggingRef.current) return
-    event.preventDefault()
-    event.stopPropagation()
-    previewProgressFromClientX(event.clientX)
-  }, [previewProgressFromClientX])
+  }, [])
   const handleProgressPointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isProgressDraggingRef.current) return
+    if (!isProgressPressedRef.current) return
     event.preventDefault()
     event.stopPropagation()
-    isProgressDraggingRef.current = false
-    miniPlayerRef.current?.classList.remove('progress-dragging')
+    isProgressPressedRef.current = false
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
-    const pendingSeek = pendingProgressSeekRef.current
-    pendingProgressSeekRef.current = null
-    if (pendingSeek !== null) onSeek(pendingSeek)
-  }, [onSeek])
+    seekFromProgressClientX(event.clientX)
+  }, [seekFromProgressClientX])
+  const handleProgressPointerCancel = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    isProgressPressedRef.current = false
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }, [])
 
   return (
-    <div ref={miniPlayerRef} className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress': `${progress}%` } as React.CSSProperties}>
+    <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress': `${progress}%` } as React.CSSProperties}>
       <div
         className="mini-progress-rail"
         ref={progressRailRef}
@@ -5246,9 +5237,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
         aria-valuenow={Math.min(playbackTime, safePlaybackDuration)}
         tabIndex={0}
         onPointerDown={handleProgressPointerDown}
-        onPointerMove={handleProgressPointerMove}
         onPointerUp={handleProgressPointerUp}
-        onPointerCancel={handleProgressPointerUp}
+        onPointerCancel={handleProgressPointerCancel}
       >
         <span className="mini-progress-line" aria-hidden="true" />
       </div>
