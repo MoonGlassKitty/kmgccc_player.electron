@@ -3703,7 +3703,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
     }
     transitionSeedRef.current = 0
     setIsDotExiting(false)
-    setPreviousSurface(currentSurfaceRef.current)
+    setPreviousSurface(freezeBKSurfaceForTransition(currentSurfaceRef.current))
     setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image', themeStyleRef.current))
     setIsRevealing(true)
     lastTrackSeedRef.current = trackSeed
@@ -3721,7 +3721,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
     const delay = 15000
     const timer = window.setTimeout(() => {
       transitionSeedRef.current += 1
-      setPreviousSurface(currentSurface)
+      setPreviousSurface(freezeBKSurfaceForTransition(currentSurface))
       setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current), themeStyleRef.current))
       setIsRevealing(true)
     }, delay)
@@ -3732,7 +3732,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
     if (!isDotExiting) return
     const timer = window.setTimeout(() => {
       transitionSeedRef.current += 1
-      setPreviousSurface(currentSurface)
+      setPreviousSurface(freezeBKSurfaceForTransition(currentSurface))
       setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current), themeStyleRef.current))
       setIsDotExiting(false)
       setIsRevealing(true)
@@ -3746,7 +3746,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   }, [])
   const handleDotComplete = React.useCallback(() => {
     transitionSeedRef.current += 1
-    setPreviousSurface(currentSurface)
+    setPreviousSurface(freezeBKSurfaceForTransition(currentSurface))
     setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current), themeStyleRef.current))
     setIsDotExiting(false)
     setIsRevealing(true)
@@ -3768,6 +3768,8 @@ type BKSurfaceState = {
   style: BKSurfaceStyle
   phaseOffset: number
   themeStyle: React.CSSProperties
+  createdAtMs: number
+  frozenImagePhase?: 'a' | 'b'
 }
 
 function bkSurfaceKey(surface: BKSurfaceState): string {
@@ -3782,7 +3784,21 @@ function makeBKSurfaceState(trackSeed: number, transitionIndex: number, forcedSt
     shapeSeed: trackSeed,
     style,
     phaseOffset: transitionIndex % bkBackgroundAssets.length,
-    themeStyle
+    themeStyle,
+    createdAtMs: performance.now()
+  }
+}
+
+function currentBKImagePhase(surface: BKSurfaceState): 'a' | 'b' {
+  const elapsed = Math.max(0, performance.now() - surface.createdAtMs)
+  return Math.floor(elapsed / 1000) % 2 === 0 ? 'a' : 'b'
+}
+
+function freezeBKSurfaceForTransition(surface: BKSurfaceState): BKSurfaceState {
+  if (surface.style !== 'image') return surface
+  return {
+    ...surface,
+    frozenImagePhase: currentBKImagePhase(surface)
   }
 }
 
@@ -3812,9 +3828,10 @@ const BKArtSurface = React.memo(function BKArtSurface({
   const shapes = React.useMemo(() => makeBKShapePlan(surface.shapeSeed), [surface.shapeSeed])
   const phaseA = bkBackgroundAssets[(surface.phaseOffset + surface.seed) % bkBackgroundAssets.length]
   const phaseB = bkBackgroundAssets[(surface.phaseOffset + surface.seed + 1) % bkBackgroundAssets.length]
+  const frozenPhaseClass = surface.frozenImagePhase ? `frozen-image-phase phase-${surface.frozenImagePhase}-visible` : ''
   return (
     <div
-      className={`bk-art-surface ${className} style-${surface.style}`}
+      className={`bk-art-surface ${className} style-${surface.style} ${frozenPhaseClass}`}
       style={{ ...surface.themeStyle, '--bk-paint-mask-sprite': `url(${bkPaintMaskSprite})` } as React.CSSProperties}
       onAnimationEnd={(event) => {
         if (event.animationName === 'bkPaintReveal') onRevealEnd?.()

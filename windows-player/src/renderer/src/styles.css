@@ -242,6 +242,27 @@ input {
   animation-play-state: paused;
 }
 
+.bk-art-surface.frozen-image-phase .phase-a,
+.bk-art-surface.frozen-image-phase .phase-b {
+  animation: none !important;
+}
+
+.bk-art-surface.frozen-image-phase.phase-a-visible .phase-a {
+  opacity: 0.45;
+}
+
+.bk-art-surface.frozen-image-phase.phase-a-visible .phase-b {
+  opacity: 0;
+}
+
+.bk-art-surface.frozen-image-phase.phase-b-visible .phase-a {
+  opacity: 0;
+}
+
+.bk-art-surface.frozen-image-phase.phase-b-visible .phase-b {
+  opacity: 0.45;
+}
+
 .bk-image-surface::after {
   content: "";
   position: absolute;
