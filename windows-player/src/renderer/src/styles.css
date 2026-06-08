@@ -690,6 +690,42 @@ input {
   background: rgba(255, 255, 255, 0.34);
 }
 
+.settings-description {
+  color: rgba(36, 46, 54, 0.54);
+  font-size: 12px;
+}
+
+.lyrics-preview-settings-card {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.lyrics-preview-settings-card > strong {
+  grid-column: 1 / -1;
+}
+
+.lyrics-settings-preview {
+  display: grid;
+  gap: 6px;
+  min-height: 110px;
+  align-content: center;
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.lyrics-settings-preview.light {
+  color: rgba(20, 30, 38, 0.88);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.lyrics-settings-preview.dark {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(15, 20, 26, 0.82);
+}
+
+.lyrics-settings-preview span {
+  opacity: 0.62;
+}
+
 .settings-switch-row,
 .settings-range-row,
 .settings-segment-row {
@@ -2702,7 +2738,7 @@ input {
 
 .fullscreen-amll-player {
   --amll-lp-color: rgba(255, 255, 255, 0.96);
-  --amll-lp-font-size: clamp(28px, 3vw, 52px);
+  --amll-lp-font-size: clamp(28px, calc(var(--lyrics-font-size, 26px) * var(--amll-quality-scale, 1) * 1.45), 56px);
   --amll-lp-hover-bg-color: rgba(255, 255, 255, 0.13);
   --amll-lp-line-width-aspect: 0.96;
   width: 100%;
@@ -2712,7 +2748,7 @@ input {
 
 .amll-lyrics-player.side {
   --amll-lp-color: rgba(9, 37, 54, 0.84);
-  --amll-lp-font-size: clamp(21px, 1.65vw, 30px);
+  --amll-lp-font-size: clamp(18px, calc(var(--lyrics-font-size, 26px) * var(--amll-quality-scale, 1)), 36px);
   --amll-lp-hover-bg-color: rgba(255, 255, 255, 0.32);
   --amll-lp-line-width-aspect: 0.98;
   text-shadow: none;

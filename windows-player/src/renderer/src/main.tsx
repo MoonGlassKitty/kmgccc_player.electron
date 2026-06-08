@@ -371,6 +371,25 @@ function storedBoolean(key: string, fallback: boolean): boolean {
   return fallback
 }
 
+function storedNumber(key: string, fallback: number): number {
+  try {
+    const value = Number(window.localStorage.getItem(key))
+    return Number.isFinite(value) ? value : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function storedString<T extends string>(key: string, fallback: T, allowed: readonly T[]): T {
+  try {
+    const value = window.localStorage.getItem(key)
+    if (allowed.includes(value as T)) return value as T
+  } catch {
+    return fallback
+  }
+  return fallback
+}
+
 function storedVisualizerMode(): 'off' | 'led' | 'spectrum' {
   return storedVisualizerModeForKey('skin.classicLED.visualizerMode', 'led')
 }
@@ -405,7 +424,7 @@ function storedAppleMeshSpeed(): AppleMeshSpeed {
   return 'standard'
 }
 
-function persistSetting(key: string, value: string | boolean): void {
+function persistSetting(key: string, value: string | boolean | number): void {
   try {
     window.localStorage.setItem(key, String(value))
   } catch {
@@ -1295,6 +1314,13 @@ function App(): React.ReactElement {
   const [isAppleDynamicBackgroundEnabled, setIsAppleDynamicBackgroundEnabled] = React.useState(() => storedBoolean('skin.appleStyle.dynamicBackgroundEnabled', true))
   const [appleMeshSpeed, setAppleMeshSpeed] = React.useState<AppleMeshSpeed>(() => storedAppleMeshSpeed())
   const [isCassetteKmgLookEnabled, setIsCassetteKmgLookEnabled] = React.useState(() => storedBoolean('skin.kmgcccCassette.showKmgLook', false))
+  const [lyricsRenderQuality, setLyricsRenderQuality] = React.useState<'performance' | 'balanced' | 'quality'>(() => storedString('amllLyricsRenderQuality', 'balanced', ['performance', 'balanced', 'quality']))
+  const [isDiscreteWordHighlightEnabled, setIsDiscreteWordHighlightEnabled] = React.useState(() => storedBoolean('amllDiscreteWordHighlightEnabled', false))
+  const [lyricsFontSize, setLyricsFontSize] = React.useState(() => storedNumber('lyricsFontSize', 26))
+  const [lyricsTranslationFontSize, setLyricsTranslationFontSize] = React.useState(() => storedNumber('lyricsTranslationFontSize', 16))
+  const [lyricsLeadInMs, setLyricsLeadInMs] = React.useState(() => storedNumber('lyricsLeadInMs', 600))
+  const [lyricsNearSwitchGapMs, setLyricsNearSwitchGapMs] = React.useState(() => storedNumber('lyricsNearSwitchGapMs', 160))
+  const [lyricsGlobalAdvanceMs, setLyricsGlobalAdvanceMs] = React.useState(() => storedNumber('lyricsGlobalAdvanceMs', 0))
   const [artworkFrameIndex, setArtworkFrameIndex] = React.useState(0)
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
@@ -1316,6 +1342,12 @@ function App(): React.ReactElement {
   const fallbackCoverThemeStyle = React.useMemo(() => coverThemeFor(currentTrack, albums), [albums, currentTrack])
   const currentArtworkUrl = React.useMemo(() => currentTrack ? trackArtwork(currentTrack, albums) : '', [albums, currentTrack])
   const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
+  const desktopStyle = React.useMemo(() => ({
+    ...coverThemeStyle,
+    '--lyrics-font-size': `${lyricsFontSize}px`,
+    '--lyrics-translation-font-size': `${lyricsTranslationFontSize}px`,
+    '--amll-quality-scale': lyricsRenderQuality === 'performance' ? 0.78 : lyricsRenderQuality === 'quality' ? 1.18 : 1
+  }) as React.CSSProperties, [coverThemeStyle, lyricsFontSize, lyricsRenderQuality, lyricsTranslationFontSize])
   const selectedVisualizerMode = selectedNowPlayingSkin === 'coverLed'
     ? classicVisualizerMode
     : selectedNowPlayingSkin === 'appleStyle'
@@ -1323,6 +1355,7 @@ function App(): React.ReactElement {
       : selectedNowPlayingSkin === 'rotatingCover'
         ? rotatingVisualizerMode
         : cassetteVisualizerMode
+  const effectiveLyricPlaybackTime = Math.max(0, playbackTime + lyricsGlobalAdvanceMs / 1000)
   const lyricsWidth = isLyricsSidebarOpen ? lyricsSidebarWidth : 0
   const adaptiveSidebarWidth = React.useMemo(() => {
     if (isSidebarCollapsed) return 82
@@ -1408,6 +1441,34 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     persistSetting('skin.kmgcccCassette.showKmgLook', isCassetteKmgLookEnabled)
   }, [isCassetteKmgLookEnabled])
+
+  React.useEffect(() => {
+    persistSetting('amllLyricsRenderQuality', lyricsRenderQuality)
+  }, [lyricsRenderQuality])
+
+  React.useEffect(() => {
+    persistSetting('amllDiscreteWordHighlightEnabled', isDiscreteWordHighlightEnabled)
+  }, [isDiscreteWordHighlightEnabled])
+
+  React.useEffect(() => {
+    persistSetting('lyricsFontSize', lyricsFontSize)
+  }, [lyricsFontSize])
+
+  React.useEffect(() => {
+    persistSetting('lyricsTranslationFontSize', lyricsTranslationFontSize)
+  }, [lyricsTranslationFontSize])
+
+  React.useEffect(() => {
+    persistSetting('lyricsLeadInMs', lyricsLeadInMs)
+  }, [lyricsLeadInMs])
+
+  React.useEffect(() => {
+    persistSetting('lyricsNearSwitchGapMs', lyricsNearSwitchGapMs)
+  }, [lyricsNearSwitchGapMs])
+
+  React.useEffect(() => {
+    persistSetting('lyricsGlobalAdvanceMs', lyricsGlobalAdvanceMs)
+  }, [lyricsGlobalAdvanceMs])
 
   React.useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth)
@@ -1740,7 +1801,7 @@ function App(): React.ReactElement {
   }, [homeSnapshot.tracks.length, playNextTrack])
 
   return (
-    <div className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''}`} style={coverThemeStyle}>
+    <div className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''}`} style={desktopStyle}>
       <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
       <LiquidGlassFilters />
       <div
@@ -1814,7 +1875,7 @@ function App(): React.ReactElement {
                 isPlaying={isPlaying}
                 isShuffleEnabled={isShuffleEnabled}
                 volume={volume}
-                playbackTime={playbackTime}
+                playbackTime={effectiveLyricPlaybackTime}
                 playbackDuration={playbackDuration || currentTrack.duration}
                 onPlayPause={togglePlayback}
                 onPrevious={playPreviousTrack}
@@ -1833,7 +1894,7 @@ function App(): React.ReactElement {
           <LyricsSidePanel
             track={currentTrack}
             albums={albums}
-            playbackTime={playbackTime}
+            playbackTime={effectiveLyricPlaybackTime}
             isPlaying={isPlaying}
             onSeek={seekTo}
             onResizeStart={handleLyricsResizeStart}
@@ -1868,10 +1929,24 @@ function App(): React.ReactElement {
             onAppleMeshSpeedChange={setAppleMeshSpeed}
             cassetteKmgLookEnabled={isCassetteKmgLookEnabled}
             onCassetteKmgLookEnabledChange={setIsCassetteKmgLookEnabled}
+            lyricsRenderQuality={lyricsRenderQuality}
+            onLyricsRenderQualityChange={setLyricsRenderQuality}
+            discreteWordHighlightEnabled={isDiscreteWordHighlightEnabled}
+            onDiscreteWordHighlightEnabledChange={setIsDiscreteWordHighlightEnabled}
+            lyricsFontSize={lyricsFontSize}
+            onLyricsFontSizeChange={setLyricsFontSize}
+            lyricsTranslationFontSize={lyricsTranslationFontSize}
+            onLyricsTranslationFontSizeChange={setLyricsTranslationFontSize}
+            lyricsLeadInMs={lyricsLeadInMs}
+            onLyricsLeadInMsChange={setLyricsLeadInMs}
+            lyricsNearSwitchGapMs={lyricsNearSwitchGapMs}
+            onLyricsNearSwitchGapMsChange={setLyricsNearSwitchGapMs}
+            lyricsGlobalAdvanceMs={lyricsGlobalAdvanceMs}
+            onLyricsGlobalAdvanceMsChange={setLyricsGlobalAdvanceMs}
           />
         ) : null}
         {isFullscreenLyricsOpen ? (
-          <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={seekTo} />
+          <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={effectiveLyricPlaybackTime} isPlaying={isPlaying} onSeek={seekTo} />
         ) : null}
       </div>
     </div>
@@ -3137,7 +3212,21 @@ const SettingsPanel = React.memo(function SettingsPanel({
   appleMeshSpeed,
   onAppleMeshSpeedChange,
   cassetteKmgLookEnabled,
-  onCassetteKmgLookEnabledChange
+  onCassetteKmgLookEnabledChange,
+  lyricsRenderQuality,
+  onLyricsRenderQualityChange,
+  discreteWordHighlightEnabled,
+  onDiscreteWordHighlightEnabledChange,
+  lyricsFontSize,
+  onLyricsFontSizeChange,
+  lyricsTranslationFontSize,
+  onLyricsTranslationFontSizeChange,
+  lyricsLeadInMs,
+  onLyricsLeadInMsChange,
+  lyricsNearSwitchGapMs,
+  onLyricsNearSwitchGapMsChange,
+  lyricsGlobalAdvanceMs,
+  onLyricsGlobalAdvanceMsChange
 }: {
   selectedCategory: SettingsCategoryKey
   onSelectCategory: (category: SettingsCategoryKey) => void
@@ -3166,6 +3255,20 @@ const SettingsPanel = React.memo(function SettingsPanel({
   onAppleMeshSpeedChange: (speed: AppleMeshSpeed) => void
   cassetteKmgLookEnabled: boolean
   onCassetteKmgLookEnabledChange: (enabled: boolean) => void
+  lyricsRenderQuality: 'performance' | 'balanced' | 'quality'
+  onLyricsRenderQualityChange: (quality: 'performance' | 'balanced' | 'quality') => void
+  discreteWordHighlightEnabled: boolean
+  onDiscreteWordHighlightEnabledChange: (enabled: boolean) => void
+  lyricsFontSize: number
+  onLyricsFontSizeChange: (value: number) => void
+  lyricsTranslationFontSize: number
+  onLyricsTranslationFontSizeChange: (value: number) => void
+  lyricsLeadInMs: number
+  onLyricsLeadInMsChange: (value: number) => void
+  lyricsNearSwitchGapMs: number
+  onLyricsNearSwitchGapMsChange: (value: number) => void
+  lyricsGlobalAdvanceMs: number
+  onLyricsGlobalAdvanceMsChange: (value: number) => void
 }): React.ReactElement {
   return (
     <div className="settings-overlay no-drag">
@@ -3213,6 +3316,20 @@ const SettingsPanel = React.memo(function SettingsPanel({
               onAppleMeshSpeedChange={onAppleMeshSpeedChange}
               cassetteKmgLookEnabled={cassetteKmgLookEnabled}
               onCassetteKmgLookEnabledChange={onCassetteKmgLookEnabledChange}
+              lyricsRenderQuality={lyricsRenderQuality}
+              onLyricsRenderQualityChange={onLyricsRenderQualityChange}
+              discreteWordHighlightEnabled={discreteWordHighlightEnabled}
+              onDiscreteWordHighlightEnabledChange={onDiscreteWordHighlightEnabledChange}
+              lyricsFontSize={lyricsFontSize}
+              onLyricsFontSizeChange={onLyricsFontSizeChange}
+              lyricsTranslationFontSize={lyricsTranslationFontSize}
+              onLyricsTranslationFontSizeChange={onLyricsTranslationFontSizeChange}
+              lyricsLeadInMs={lyricsLeadInMs}
+              onLyricsLeadInMsChange={onLyricsLeadInMsChange}
+              lyricsNearSwitchGapMs={lyricsNearSwitchGapMs}
+              onLyricsNearSwitchGapMsChange={onLyricsNearSwitchGapMsChange}
+              lyricsGlobalAdvanceMs={lyricsGlobalAdvanceMs}
+              onLyricsGlobalAdvanceMsChange={onLyricsGlobalAdvanceMsChange}
             />
           ) : (
             <div className="settings-empty">
@@ -3250,7 +3367,21 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
   appleMeshSpeed,
   onAppleMeshSpeedChange,
   cassetteKmgLookEnabled,
-  onCassetteKmgLookEnabledChange
+  onCassetteKmgLookEnabledChange,
+  lyricsRenderQuality,
+  onLyricsRenderQualityChange,
+  discreteWordHighlightEnabled,
+  onDiscreteWordHighlightEnabledChange,
+  lyricsFontSize,
+  onLyricsFontSizeChange,
+  lyricsTranslationFontSize,
+  onLyricsTranslationFontSizeChange,
+  lyricsLeadInMs,
+  onLyricsLeadInMsChange,
+  lyricsNearSwitchGapMs,
+  onLyricsNearSwitchGapMsChange,
+  lyricsGlobalAdvanceMs,
+  onLyricsGlobalAdvanceMsChange
 }: {
   selectedTab: NowPlayingSettingsTab
   onSelectTab: (tab: NowPlayingSettingsTab) => void
@@ -3276,6 +3407,20 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
   onAppleMeshSpeedChange: (speed: AppleMeshSpeed) => void
   cassetteKmgLookEnabled: boolean
   onCassetteKmgLookEnabledChange: (enabled: boolean) => void
+  lyricsRenderQuality: 'performance' | 'balanced' | 'quality'
+  onLyricsRenderQualityChange: (quality: 'performance' | 'balanced' | 'quality') => void
+  discreteWordHighlightEnabled: boolean
+  onDiscreteWordHighlightEnabledChange: (enabled: boolean) => void
+  lyricsFontSize: number
+  onLyricsFontSizeChange: (value: number) => void
+  lyricsTranslationFontSize: number
+  onLyricsTranslationFontSizeChange: (value: number) => void
+  lyricsLeadInMs: number
+  onLyricsLeadInMsChange: (value: number) => void
+  lyricsNearSwitchGapMs: number
+  onLyricsNearSwitchGapMsChange: (value: number) => void
+  lyricsGlobalAdvanceMs: number
+  onLyricsGlobalAdvanceMsChange: (value: number) => void
 }): React.ReactElement {
   const selectedSkinOption = nowPlayingSkinOptions.find((skin) => skin.id === selectedSkin) ?? nowPlayingSkinOptions[0]
   return (
@@ -3348,12 +3493,37 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
         <div className="settings-section-stack">
           <div className="settings-card-section">
             <strong>外观</strong>
-            <SettingsSwitch title="减弱高亮(beta)" detail="开启后可能减少高亮移动干扰" checked={false} onChange={() => undefined} />
+            <SettingsSegment
+              title="歌词渲染质量"
+              values={['performance', 'balanced', 'quality']}
+              labels={['性能', '均衡', '质量']}
+              selected={lyricsRenderQuality}
+              onSelect={(value) => onLyricsRenderQualityChange(value as 'performance' | 'balanced' | 'quality')}
+            />
+            <SettingsSwitch title="减弱高亮(beta)" detail="开启后可能减少高亮移动干扰" checked={discreteWordHighlightEnabled} onChange={onDiscreteWordHighlightEnabledChange} />
           </div>
           <div className="settings-card-section">
             <strong>字体</strong>
-            <SettingsRange title="歌词字号" valueText="32 px" value={32} min={16} max={48} />
-            <SettingsRange title="翻译字号" valueText="18 px" value={18} min={12} max={36} />
+            <SettingsRange title="歌词字号" valueText={`${Math.round(lyricsFontSize)} px`} value={lyricsFontSize} min={16} max={48} step={1} onChange={onLyricsFontSizeChange} />
+            <SettingsRange title="翻译字号" valueText={`${Math.round(lyricsTranslationFontSize)} px`} value={lyricsTranslationFontSize} min={12} max={36} step={1} onChange={onLyricsTranslationFontSizeChange} />
+          </div>
+          <div className="settings-card-section lyrics-preview-settings-card">
+            <strong>预览</strong>
+            <div className="lyrics-settings-preview light">
+              <b style={{ fontSize: lyricsFontSize }}>窗边的光 慢慢落进耳机</b>
+              <span style={{ fontSize: lyricsTranslationFontSize }}>The light by the window slips into the headphones.</span>
+            </div>
+            <div className="lyrics-settings-preview dark">
+              <b style={{ fontSize: lyricsFontSize }}>旧旋律在玻璃里折回去</b>
+              <span style={{ fontSize: lyricsTranslationFontSize }}>The old melody folds back through glass.</span>
+            </div>
+          </div>
+          <div className="settings-card-section">
+            <strong>歌词时间</strong>
+            <small className="settings-description">参数仅供调试，正常使用无需调整</small>
+            <SettingsRange title="提前入场" valueText={`${Math.round(lyricsLeadInMs)} ms`} value={lyricsLeadInMs} min={0} max={1200} step={20} onChange={onLyricsLeadInMsChange} />
+            <SettingsRange title="近距离切换间隔" valueText={`${Math.round(lyricsNearSwitchGapMs)} ms`} value={lyricsNearSwitchGapMs} min={0} max={500} step={5} onChange={onLyricsNearSwitchGapMsChange} />
+            <SettingsRange title="歌词整体提前量" valueText={`${Math.round(lyricsGlobalAdvanceMs)} ms`} value={lyricsGlobalAdvanceMs} min={-1000} max={1000} step={10} onChange={onLyricsGlobalAdvanceMsChange} />
           </div>
         </div>
       ) : (
@@ -3405,13 +3575,17 @@ const SettingsRange = React.memo(function SettingsRange({
   valueText,
   value,
   min,
-  max
+  max,
+  step = 1,
+  onChange
 }: {
   title: string
   valueText: string
   value: number
   min: number
   max: number
+  step?: number
+  onChange?: (value: number) => void
 }): React.ReactElement {
   return (
     <label className="settings-range-row">
@@ -3419,7 +3593,7 @@ const SettingsRange = React.memo(function SettingsRange({
         <strong>{title}</strong>
         <small>{valueText}</small>
       </span>
-      <input type="range" value={value} min={min} max={max} readOnly />
+      <input type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange?.(Number(event.currentTarget.value))} />
     </label>
   )
 })
