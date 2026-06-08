@@ -1711,11 +1711,6 @@ const Toolbar = React.memo(function Toolbar({
   )
 })
 
-const HOME_ARTIST_PREVIEW_LIMIT = 8
-const HOME_ALBUM_PREVIEW_LIMIT = 8
-const HOME_PLAYLIST_PREVIEW_LIMIT = 4
-const HOME_RANKING_PREVIEW_LIMIT = 6
-
 const HomePage = React.memo(function HomePage({
   snapshot,
   albums,
@@ -1729,9 +1724,6 @@ const HomePage = React.memo(function HomePage({
 }): React.ReactElement {
   const homeScroll = useElasticScroll<HTMLElement>()
   const heroTrack = snapshot.heroTrack ?? snapshot.tracks[0] ?? null
-  const previewArtists = React.useMemo(() => snapshot.artists.slice(0, HOME_ARTIST_PREVIEW_LIMIT), [snapshot.artists])
-  const previewAlbums = React.useMemo(() => snapshot.albums.slice(0, HOME_ALBUM_PREVIEW_LIMIT), [snapshot.albums])
-  const previewPlaylists = React.useMemo(() => snapshot.playlists.slice(0, HOME_PLAYLIST_PREVIEW_LIMIT), [snapshot.playlists])
 
   return (
     <section className={`home-page ${homeScroll.isScrolling ? 'is-scrolling' : ''}`} ref={homeScroll.scrollRef} onWheel={homeScroll.onWheel} onScroll={homeScroll.onScroll}>
@@ -1745,7 +1737,7 @@ const HomePage = React.memo(function HomePage({
 
         <HomeSectionBlock title="艺人" onShowAll={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
           <div className="home-card-grid compact">
-            {previewArtists.map((artist) => (
+            {snapshot.artists.map((artist) => (
               <button
                 className="home-person-card home-liquid-card glass-panel"
                 key={artist.id}
@@ -1753,7 +1745,7 @@ const HomePage = React.memo(function HomePage({
                 onClick={() => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
               >
                 {artist.artworkUrl ? (
-                  <img src={artist.artworkUrl} alt="" loading="lazy" decoding="async" />
+                  <img src={artist.artworkUrl} alt="" decoding="async" />
                 ) : (
                   <span className="artist-avatar">{artist.name}</span>
                 )}
@@ -1765,14 +1757,14 @@ const HomePage = React.memo(function HomePage({
 
         <HomeSectionBlock title="专辑" onShowAll={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
           <div className="home-card-grid">
-            {previewAlbums.map((album) => (
+            {snapshot.albums.map((album) => (
               <button
                 className="home-album-card home-liquid-card glass-panel"
                 key={album.id}
                 type="button"
                 onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
               >
-                <img src={albumArtworkFor(album)} alt="" loading="lazy" decoding="async" />
+                <img src={albumArtworkFor(album)} alt="" decoding="async" />
                 <strong>{album.title}</strong>
                 <span>{album.artist}</span>
               </button>
@@ -1782,7 +1774,7 @@ const HomePage = React.memo(function HomePage({
 
         <HomeSectionBlock title="播放列表">
           <div className="home-playlist-grid">
-            {previewPlaylists.map((playlist) => (
+            {snapshot.playlists.map((playlist) => (
               <button
                 className="home-playlist-card home-liquid-card glass-panel"
                 key={playlist.id}
@@ -1870,8 +1862,6 @@ const HomeSectionBlock = React.memo(function HomeSectionBlock({
 })
 
 const HomeStatsSection = React.memo(function HomeStatsSection({ stats }: { stats: HomeStats }): React.ReactElement {
-  const previewRanking = React.useMemo(() => stats.ranking.slice(0, HOME_RANKING_PREVIEW_LIMIT), [stats.ranking])
-
   return (
     <section className="home-section-block home-stats-block">
       <div className="home-section-heading">
@@ -1897,10 +1887,10 @@ const HomeStatsSection = React.memo(function HomeStatsSection({ stats }: { stats
       </div>
       <div className="home-insight-grid">
         <div className="home-rank-panel home-liquid-card glass-panel">
-          {previewRanking.map((item, index) => (
+          {stats.ranking.map((item, index) => (
             <div className="home-rank-row" key={item.trackId}>
               <span>{index + 1}</span>
-              <img src={item.artworkUrl || albumArtwork} alt="" loading="lazy" decoding="async" />
+              <img src={item.artworkUrl || albumArtwork} alt="" decoding="async" />
               <strong>{item.title}</strong>
               <small>{item.artist}</small>
               <i style={{ width: `${Math.max(18, item.score * 120)}px` }} />
