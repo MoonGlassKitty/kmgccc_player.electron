@@ -31,3 +31,4 @@
 - 歌曲编辑弹窗的 TTML/LRC/TXT 导入按钮接入本地文件读取，导入内容立即进入歌词 draft 并可保存。
 - 歌曲编辑弹窗“查找元数据”接入现有 `syncTrackInfo` IPC，同步标题、艺人、专辑、封面和歌词 draft，并显示查找结果状态。
 - 专辑/艺人编辑弹窗“查找元数据”接入新的 IPC 查找流程，并修复 preload 中 updateAlbum/updateArtist 仍使用旧参数导致保存对象无法传递的问题。
+- 编辑弹窗保存按钮增加 draft 变更检测，没有改动时保持禁用，贴近 Swift sheet 的保存行为。

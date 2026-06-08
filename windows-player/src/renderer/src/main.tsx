@@ -2625,6 +2625,14 @@ const LibraryDialog = React.memo(function LibraryDialog({
   const update = React.useCallback((key: string, value: string) => {
     setValues((current) => ({ ...current, [key]: value }))
   }, [])
+  const hasChanges = React.useMemo(() => {
+    if (isDelete) return true
+    const keys = new Set([...Object.keys(initialValues), ...Object.keys(values)])
+    for (const key of keys) {
+      if ((initialValues[key] ?? '') !== (values[key] ?? '')) return true
+    }
+    return state.kind === 'createPlaylist'
+  }, [initialValues, isDelete, state.kind, values])
   const handleTrackMetadataLookup = React.useCallback(async () => {
     if (state.kind !== 'editTrack' || !window.kmgccc?.syncTrackInfo) return
     setIsMetadataLookupInFlight(true)
@@ -2812,7 +2820,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
 
         <footer>
           <button type="button" onClick={onClose}>取消</button>
-          <button className={isDelete ? 'danger' : 'primary'} type="button" onClick={() => onSubmit(values)}>
+          <button className={isDelete ? 'danger' : 'primary'} type="button" disabled={!hasChanges} onClick={() => onSubmit(values)}>
             {isDelete ? '删除' : '保存'}
           </button>
         </footer>
