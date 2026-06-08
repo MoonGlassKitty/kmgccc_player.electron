@@ -52,6 +52,34 @@ type LocalAudioImport = {
   lyricsText?: string
   syncedLyrics?: string
   metadataSource?: string
+  userDescription?: string
+  genreTags?: string[]
+  language?: string
+  labelOrCompany?: string
+  releaseDate?: string
+  qqMusicSongMid?: string
+  metadataFetchedAt?: string
+  metadataConfidence?: number
+  lyricsTimeOffsetMs?: number
+  artistDescription?: string
+  artistGenreTags?: string[]
+  artistRegion?: string
+  artistForeignName?: string
+  qqMusicSingerMid?: string
+  artistMetadataSource?: string
+  artistMetadataFetchedAt?: string
+  artistMetadataConfidence?: number
+  albumDescription?: string
+  albumReleaseYear?: number
+  albumReleaseDate?: string
+  albumType?: string
+  albumGenreTags?: string[]
+  albumLanguage?: string
+  albumLabelOrCompany?: string
+  qqMusicAlbumMid?: string
+  albumMetadataSource?: string
+  albumMetadataFetchedAt?: string
+  albumMetadataConfidence?: number
 }
 
 type PersistedLibrary = {
@@ -280,7 +308,25 @@ async function importAudioFilesFromPaths(filePaths: string[]): Promise<AudioImpo
 }
 
 function albumsForTracks(tracks: LocalAudioImport[]) {
-  const albums = new Map<string, { id: string; title: string; artist: string; artistId: string; artworkUrl?: string; trackCount: number }>()
+  const albums = new Map<string, {
+    id: string
+    title: string
+    artist: string
+    artistId: string
+    artworkUrl?: string
+    trackCount: number
+    description?: string
+    releaseYear?: number
+    releaseDate?: string
+    albumType?: string
+    genreTags?: string[]
+    language?: string
+    labelOrCompany?: string
+    qqMusicAlbumMid?: string
+    metadataSource?: string
+    metadataFetchedAt?: string
+    metadataConfidence?: number
+  }>()
   tracks.forEach((track) => {
     const existing = albums.get(track.albumId)
     if (existing) {
@@ -294,14 +340,39 @@ function albumsForTracks(tracks: LocalAudioImport[]) {
       artist: track.artist,
       artistId: track.artistId,
       artworkUrl: track.artworkUrl,
-      trackCount: 1
+      trackCount: 1,
+      description: track.albumDescription,
+      releaseYear: track.albumReleaseYear,
+      releaseDate: track.albumReleaseDate,
+      albumType: track.albumType,
+      genreTags: track.albumGenreTags,
+      language: track.albumLanguage,
+      labelOrCompany: track.albumLabelOrCompany,
+      qqMusicAlbumMid: track.qqMusicAlbumMid,
+      metadataSource: track.albumMetadataSource,
+      metadataFetchedAt: track.albumMetadataFetchedAt,
+      metadataConfidence: track.albumMetadataConfidence
     })
   })
   return Array.from(albums.values())
 }
 
 function artistsForTracks(tracks: LocalAudioImport[]) {
-  const artists = new Map<string, { id: string; name: string; artworkUrl?: string; trackCount: number; albumIds: Set<string> }>()
+  const artists = new Map<string, {
+    id: string
+    name: string
+    artworkUrl?: string
+    trackCount: number
+    albumIds: Set<string>
+    description?: string
+    genreTags?: string[]
+    region?: string
+    foreignName?: string
+    qqMusicSingerMid?: string
+    metadataSource?: string
+    metadataFetchedAt?: string
+    metadataConfidence?: number
+  }>()
   tracks.forEach((track) => {
     const existing = artists.get(track.artistId)
     if (existing) {
@@ -315,7 +386,15 @@ function artistsForTracks(tracks: LocalAudioImport[]) {
       name: track.artist,
       artworkUrl: track.artworkUrl,
       trackCount: 1,
-      albumIds: new Set([track.albumId])
+      albumIds: new Set([track.albumId]),
+      description: track.artistDescription,
+      genreTags: track.artistGenreTags,
+      region: track.artistRegion,
+      foreignName: track.artistForeignName,
+      qqMusicSingerMid: track.qqMusicSingerMid,
+      metadataSource: track.artistMetadataSource,
+      metadataFetchedAt: track.artistMetadataFetchedAt,
+      metadataConfidence: track.artistMetadataConfidence
     })
   })
   return Array.from(artists.values()).map((artist) => ({
@@ -323,7 +402,15 @@ function artistsForTracks(tracks: LocalAudioImport[]) {
     name: artist.name,
     artworkUrl: artist.artworkUrl,
     trackCount: artist.trackCount,
-    albumCount: artist.albumIds.size
+    albumCount: artist.albumIds.size,
+    description: artist.description,
+    genreTags: artist.genreTags,
+    region: artist.region,
+    foreignName: artist.foreignName,
+    qqMusicSingerMid: artist.qqMusicSingerMid,
+    metadataSource: artist.metadataSource,
+    metadataFetchedAt: artist.metadataFetchedAt,
+    metadataConfidence: artist.metadataConfidence
   }))
 }
 
@@ -1251,25 +1338,55 @@ ipcMain.handle('library:delete-artist', (_event, artistId: string) => {
   deleteTracksByPredicate((track) => track.artistId === artistId)
   return getHomeSnapshot()
 })
-ipcMain.handle('library:update-album', (_event, albumId: string, title: string, artist: string) => {
+ipcMain.handle('library:update-album', (_event, albumId: string, values: Record<string, unknown>) => {
   const library = loadPersistedLibrary()
   const tracks = library.tracks.map((track) => {
     if (track.albumId !== albumId) return track
-    const nextArtist = artist.trim() || track.artist
-    const nextAlbum = title.trim() || track.album
+    const nextArtist = typeof values.artist === 'string' && values.artist.trim() ? values.artist.trim() : track.artist
+    const nextAlbum = typeof values.title === 'string' && values.title.trim() ? values.title.trim() : track.album
     const ids = idsForMetadata(nextArtist, nextAlbum)
-    return { ...track, artist: nextArtist, artistId: ids.artistId, album: nextAlbum, albumId: ids.albumId }
+    return {
+      ...track,
+      artist: nextArtist,
+      artistId: ids.artistId,
+      album: nextAlbum,
+      albumId: ids.albumId,
+      albumDescription: typeof values.description === 'string' ? values.description : track.albumDescription,
+      albumReleaseYear: typeof values.releaseYear === 'number' && Number.isFinite(values.releaseYear) ? values.releaseYear : undefined,
+      albumReleaseDate: typeof values.releaseDate === 'string' ? values.releaseDate.trim() : track.albumReleaseDate,
+      albumType: typeof values.albumType === 'string' ? values.albumType.trim() : track.albumType,
+      albumGenreTags: Array.isArray(values.genreTags) ? values.genreTags.filter((tag): tag is string => typeof tag === 'string') : track.albumGenreTags,
+      albumLanguage: typeof values.language === 'string' ? values.language.trim() : track.albumLanguage,
+      albumLabelOrCompany: typeof values.labelOrCompany === 'string' ? values.labelOrCompany.trim() : track.albumLabelOrCompany,
+      qqMusicAlbumMid: typeof values.qqMusicAlbumMid === 'string' ? values.qqMusicAlbumMid.trim() : track.qqMusicAlbumMid,
+      albumMetadataSource: typeof values.metadataSource === 'string' ? values.metadataSource.trim() : track.albumMetadataSource,
+      albumMetadataFetchedAt: typeof values.metadataFetchedAt === 'string' ? values.metadataFetchedAt.trim() : track.albumMetadataFetchedAt,
+      albumMetadataConfidence: typeof values.metadataConfidence === 'number' && Number.isFinite(values.metadataConfidence) ? values.metadataConfidence : track.albumMetadataConfidence
+    }
   })
   savePersistedLibrary({ tracks, playlists: library.playlists })
   return getHomeSnapshot()
 })
-ipcMain.handle('library:update-artist', (_event, artistId: string, name: string) => {
+ipcMain.handle('library:update-artist', (_event, artistId: string, values: Record<string, unknown>) => {
   const library = loadPersistedLibrary()
   const tracks = library.tracks.map((track) => {
     if (track.artistId !== artistId) return track
-    const nextArtist = name.trim() || track.artist
+    const nextArtist = typeof values.name === 'string' && values.name.trim() ? values.name.trim() : track.artist
     const ids = idsForMetadata(nextArtist, track.album)
-    return { ...track, artist: nextArtist, artistId: ids.artistId, albumId: ids.albumId }
+    return {
+      ...track,
+      artist: nextArtist,
+      artistId: ids.artistId,
+      albumId: ids.albumId,
+      artistDescription: typeof values.description === 'string' ? values.description : track.artistDescription,
+      artistGenreTags: Array.isArray(values.genreTags) ? values.genreTags.filter((tag): tag is string => typeof tag === 'string') : track.artistGenreTags,
+      artistRegion: typeof values.region === 'string' ? values.region.trim() : track.artistRegion,
+      artistForeignName: typeof values.foreignName === 'string' ? values.foreignName.trim() : track.artistForeignName,
+      qqMusicSingerMid: typeof values.qqMusicSingerMid === 'string' ? values.qqMusicSingerMid.trim() : track.qqMusicSingerMid,
+      artistMetadataSource: typeof values.metadataSource === 'string' ? values.metadataSource.trim() : track.artistMetadataSource,
+      artistMetadataFetchedAt: typeof values.metadataFetchedAt === 'string' ? values.metadataFetchedAt.trim() : track.artistMetadataFetchedAt,
+      artistMetadataConfidence: typeof values.metadataConfidence === 'number' && Number.isFinite(values.metadataConfidence) ? values.metadataConfidence : track.artistMetadataConfidence
+    }
   })
   savePersistedLibrary({ tracks, playlists: library.playlists })
   return getHomeSnapshot()

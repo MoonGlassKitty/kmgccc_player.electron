@@ -8,8 +8,15 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleX,
+  Building2,
+  Calendar,
   Disc3,
+  ExternalLink,
+  Hammer,
   House,
+  ImageIcon,
+  Info,
+  Languages,
   ListMusic,
   Maximize2,
   MessageSquareQuote,
@@ -27,6 +34,10 @@ import {
   Square,
   Sparkles,
   Sun,
+  Tags,
+  TextQuote,
+  Trash2,
+  Upload,
   UserRound,
   Volume2,
   VolumeX,
@@ -81,6 +92,34 @@ type Track = {
   lyricsText?: string
   syncedLyrics?: string
   metadataSource?: string
+  userDescription?: string
+  genreTags?: string[]
+  language?: string
+  labelOrCompany?: string
+  releaseDate?: string
+  qqMusicSongMid?: string
+  metadataFetchedAt?: string
+  metadataConfidence?: number
+  lyricsTimeOffsetMs?: number
+  artistDescription?: string
+  artistGenreTags?: string[]
+  artistRegion?: string
+  artistForeignName?: string
+  qqMusicSingerMid?: string
+  artistMetadataSource?: string
+  artistMetadataFetchedAt?: string
+  artistMetadataConfidence?: number
+  albumDescription?: string
+  albumReleaseYear?: number
+  albumReleaseDate?: string
+  albumType?: string
+  albumGenreTags?: string[]
+  albumLanguage?: string
+  albumLabelOrCompany?: string
+  qqMusicAlbumMid?: string
+  albumMetadataSource?: string
+  albumMetadataFetchedAt?: string
+  albumMetadataConfidence?: number
 }
 
 type ImportSyncState = {
@@ -326,6 +365,13 @@ function formatDuration(seconds: number): string {
   const minutes = Math.floor(safeSeconds / 60)
   const remainder = safeSeconds % 60
   return `${minutes}:${remainder.toString().padStart(2, '0')}`
+}
+
+function parseCommaTags(value?: string): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean)
 }
 
 function albumById(snapshot: HomeSnapshot): Map<string, HomeAlbumCard> {
@@ -2057,16 +2103,47 @@ function App(): React.ReactElement {
         album: values.album?.trim() || dialog.track.album,
         discNumber: values.discNumber ? Number(values.discNumber) : undefined,
         trackNumber: values.trackNumber ? Number(values.trackNumber) : undefined,
-        lyricsText: values.lyricsText
+        lyricsText: values.lyricsText,
+        syncedLyrics: values.lyricsText,
+        userDescription: values.description,
+        genreTags: parseCommaTags(values.genreTags),
+        language: values.language?.trim(),
+        labelOrCompany: values.labelOrCompany?.trim(),
+        releaseDate: values.releaseDate?.trim(),
+        qqMusicSongMid: values.qqMusicSongMid?.trim(),
+        metadataSource: values.metadataSource?.trim() || dialog.track.metadataSource,
+        metadataFetchedAt: values.metadataFetchedAt?.trim() || dialog.track.metadataFetchedAt,
+        metadataConfidence: values.metadataConfidence ? Number(values.metadataConfidence) : dialog.track.metadataConfidence,
+        lyricsTimeOffsetMs: values.lyricsTimeOffsetMs ? Number(values.lyricsTimeOffsetMs) : dialog.track.lyricsTimeOffsetMs
       } as LocalAudioImport)
     } else if (dialog.kind === 'editAlbum') {
-      snapshot = await window.kmgccc?.updateAlbum(
-        dialog.album.id,
-        values.title?.trim() || dialog.album.title,
-        values.artist?.trim() || dialog.album.artist
-      )
+      snapshot = await window.kmgccc?.updateAlbum(dialog.album.id, {
+        title: values.title?.trim() || dialog.album.title,
+        artist: values.artist?.trim() || dialog.album.artist,
+        description: values.description ?? '',
+        releaseYear: values.releaseYear ? Number(values.releaseYear) : undefined,
+        releaseDate: values.releaseDate?.trim() || '',
+        albumType: values.albumType?.trim() || '',
+        genreTags: parseCommaTags(values.genreTags),
+        language: values.language?.trim() || '',
+        labelOrCompany: values.labelOrCompany?.trim() || '',
+        qqMusicAlbumMid: values.qqMusicAlbumMid?.trim() || '',
+        metadataSource: values.metadataSource?.trim() || dialog.album.metadataSource || '',
+        metadataFetchedAt: values.metadataFetchedAt?.trim() || dialog.album.metadataFetchedAt || '',
+        metadataConfidence: values.metadataConfidence ? Number(values.metadataConfidence) : dialog.album.metadataConfidence
+      })
     } else if (dialog.kind === 'editArtist') {
-      snapshot = await window.kmgccc?.updateArtist(dialog.artist.id, values.name?.trim() || dialog.artist.name)
+      snapshot = await window.kmgccc?.updateArtist(dialog.artist.id, {
+        name: values.name?.trim() || dialog.artist.name,
+        description: values.description ?? '',
+        genreTags: parseCommaTags(values.genreTags),
+        region: values.region?.trim() || '',
+        foreignName: values.foreignName?.trim() || '',
+        qqMusicSingerMid: values.qqMusicSingerMid?.trim() || '',
+        metadataSource: values.metadataSource?.trim() || dialog.artist.metadataSource || '',
+        metadataFetchedAt: values.metadataFetchedAt?.trim() || dialog.artist.metadataFetchedAt || '',
+        metadataConfidence: values.metadataConfidence ? Number(values.metadataConfidence) : dialog.artist.metadataConfidence
+      })
     } else if (dialog.kind === 'editPlaylist') {
       snapshot = await window.kmgccc?.updatePlaylist(dialog.playlist.id, values.name?.trim() || dialog.playlist.name)
     } else if (dialog.kind === 'createPlaylist') {

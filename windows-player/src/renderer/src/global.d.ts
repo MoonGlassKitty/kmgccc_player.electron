@@ -17,6 +17,34 @@ declare global {
     lyricsText?: string
     syncedLyrics?: string
     metadataSource?: string
+    userDescription?: string
+    genreTags?: string[]
+    language?: string
+    labelOrCompany?: string
+    releaseDate?: string
+    qqMusicSongMid?: string
+    metadataFetchedAt?: string
+    metadataConfidence?: number
+    lyricsTimeOffsetMs?: number
+    artistDescription?: string
+    artistGenreTags?: string[]
+    artistRegion?: string
+    artistForeignName?: string
+    qqMusicSingerMid?: string
+    artistMetadataSource?: string
+    artistMetadataFetchedAt?: string
+    artistMetadataConfidence?: number
+    albumDescription?: string
+    albumReleaseYear?: number
+    albumReleaseDate?: string
+    albumType?: string
+    albumGenreTags?: string[]
+    albumLanguage?: string
+    albumLabelOrCompany?: string
+    qqMusicAlbumMid?: string
+    albumMetadataSource?: string
+    albumMetadataFetchedAt?: string
+    albumMetadataConfidence?: number
   }
 
   type HomeArtistCard = {
@@ -25,6 +53,14 @@ declare global {
     artworkUrl?: string
     trackCount: number
     albumCount: number
+    description?: string
+    genreTags?: string[]
+    region?: string
+    foreignName?: string
+    qqMusicSingerMid?: string
+    metadataSource?: string
+    metadataFetchedAt?: string
+    metadataConfidence?: number
   }
 
   type HomeAlbumCard = {
@@ -34,6 +70,17 @@ declare global {
     artistId: string
     artworkUrl?: string
     trackCount: number
+    description?: string
+    releaseYear?: number
+    releaseDate?: string
+    albumType?: string
+    genreTags?: string[]
+    language?: string
+    labelOrCompany?: string
+    qqMusicAlbumMid?: string
+    metadataSource?: string
+    metadataFetchedAt?: string
+    metadataConfidence?: number
   }
 
   type HomePlaylistCard = {
@@ -118,9 +165,9 @@ declare global {
       clearLibrary: () => Promise<HomeSnapshot>
       updateTrack: (track: LocalAudioImport) => Promise<HomeSnapshot>
       deleteTrack: (trackId: string) => Promise<HomeSnapshot>
-      updateAlbum: (albumId: string, title: string, artist: string) => Promise<HomeSnapshot>
+      updateAlbum: (albumId: string, values: Record<string, unknown>) => Promise<HomeSnapshot>
       deleteAlbum: (albumId: string) => Promise<HomeSnapshot>
-      updateArtist: (artistId: string, name: string) => Promise<HomeSnapshot>
+      updateArtist: (artistId: string, values: Record<string, unknown>) => Promise<HomeSnapshot>
       deleteArtist: (artistId: string) => Promise<HomeSnapshot>
       createPlaylist: (name: string) => Promise<HomeSnapshot>
       updatePlaylist: (playlistId: string, name: string) => Promise<HomeSnapshot>
