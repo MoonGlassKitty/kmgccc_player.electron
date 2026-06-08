@@ -21,6 +21,12 @@
   --win-titlebar-height: 28px;
   --wallpaper-tint-primary: rgba(174, 226, 241, 0.18);
   --wallpaper-tint-secondary: rgba(194, 220, 244, 0.12);
+  --layer-app-pad: -2;
+  --layer-decor: -1;
+  --layer-home: 0;
+  --layer-sidebars: 1;
+  --layer-floating-glass: 2;
+  --layer-pointer: 3;
 }
 
 * {
@@ -175,12 +181,12 @@ input {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 0;
   pointer-events: none;
   contain: paint;
 }
 
 .app-shell::before {
+  z-index: var(--layer-app-pad);
   background:
     radial-gradient(circle at 16% 18%, var(--wallpaper-tint-primary), transparent 34%),
     radial-gradient(circle at 78% 8%, var(--wallpaper-tint-secondary), transparent 32%),
@@ -191,6 +197,7 @@ input {
 
 .app-shell::after {
   inset: -80px;
+  z-index: var(--layer-app-pad);
   display: none;
   background:
     radial-gradient(circle at 22% 78%, var(--wallpaper-tint-secondary), transparent 36%),
@@ -201,7 +208,7 @@ input {
 .home-ambient-layer {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: var(--layer-decor);
   overflow: hidden;
   pointer-events: none;
   contain: layout paint style;
@@ -240,7 +247,7 @@ input {
 }
 
 .sidebar {
-  z-index: 3;
+  z-index: var(--layer-sidebars);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -262,7 +269,7 @@ input {
 .lyrics-side-resize-handle {
   position: absolute;
   top: 0;
-  z-index: 8;
+  z-index: var(--layer-pointer);
   width: 16px;
   height: 100%;
   cursor: ew-resize;
@@ -326,7 +333,7 @@ input {
   position: absolute;
   top: 0;
   right: 0;
-  z-index: 20;
+  z-index: var(--layer-pointer);
   display: grid;
   grid-template-columns: repeat(3, 46px);
   height: 34px;
@@ -358,7 +365,7 @@ input {
   top: 0;
   right: 138px;
   left: var(--sidebar-width);
-  z-index: 7;
+  z-index: var(--layer-floating-glass);
   height: var(--win-titlebar-height);
   pointer-events: auto;
 }
@@ -788,17 +795,18 @@ input {
 
 .content-pane {
   position: relative;
-  z-index: 2;
+  z-index: var(--layer-home);
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   contain: layout paint;
+  container: content-pane / inline-size;
 }
 
 .toolbar {
   position: absolute;
   inset: var(--win-titlebar-height) 0 auto;
-  z-index: 8;
+  z-index: var(--layer-floating-glass);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1100,13 +1108,30 @@ input {
 }
 
 .home-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 210px));
+  display: flex;
   gap: 16px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 0 0 10px;
+  margin-bottom: -10px;
+  scrollbar-width: none;
+  scroll-padding-inline: 2px;
+  overscroll-behavior-x: contain;
 }
 
-.home-card-grid.compact {
-  grid-template-columns: repeat(auto-fill, minmax(150px, 190px));
+.home-card-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.home-card-grid > .home-person-card,
+.home-card-grid > .home-album-card {
+  flex: 0 0 clamp(150px, 18cqw, 210px);
+  width: clamp(150px, 18cqw, 210px);
+}
+
+.home-card-grid.compact > .home-person-card {
+  flex-basis: clamp(145px, 16cqw, 190px);
+  width: clamp(145px, 16cqw, 190px);
 }
 
 .collection-grid {
@@ -1127,7 +1152,6 @@ input {
   contain-intrinsic-size: auto 420px;
 }
 
-.home-card-grid,
 .home-playlist-grid,
 .home-stat-grid,
 .home-insight-grid {
@@ -1140,29 +1164,21 @@ input {
 .home-stat-card,
 .home-rank-panel,
 .home-calendar-panel {
-  background: rgba(245, 247, 248, 0.82);
-  box-shadow:
-    0 0 0 1px rgba(9, 35, 48, 0.045) inset,
-    0 1px 8px rgba(15, 40, 55, 0.035);
+  background: transparent;
+  box-shadow: none;
 }
 
 .home-liquid-card {
-  --filter-url: url(#lg-home-liquid);
-  --glass-alpha: 0.31;
-  --glass-border: rgba(255, 255, 255, 0.48);
-  --glass-shadow: rgba(25, 58, 80, 0.07);
+  --glass-border: transparent;
+  --glass-shadow: transparent;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   contain: layout paint style;
-  border: 1px solid var(--glass-border);
-  background-color: rgba(255, 255, 255, var(--glass-alpha));
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  backdrop-filter: var(--filter-url);
-  -webkit-backdrop-filter: var(--filter-url);
-  box-shadow:
-    0 14px 34px var(--glass-shadow),
-    0 3px 11px rgba(25, 58, 80, 0.034);
+  border: 1px solid transparent;
+  background-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
   transition:
     background-color 300ms ease,
     box-shadow 300ms ease,
@@ -1171,7 +1187,7 @@ input {
 }
 
 .home-liquid-card::before {
-  content: "";
+  content: none;
   position: absolute;
   inset: 1px;
   border-radius: inherit;
@@ -1186,7 +1202,7 @@ input {
 }
 
 .home-liquid-card::after {
-  content: "";
+  content: none;
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -1196,13 +1212,10 @@ input {
 }
 
 .home-liquid-card:hover {
-  --glass-shadow: rgba(25, 58, 80, 0.038);
-  border-color: rgba(255, 255, 255, 0.68);
-  background-color: rgba(255, 255, 255, 0.39);
-  box-shadow:
-    0 8px 20px var(--glass-shadow),
-    0 2px 7px rgba(25, 58, 80, 0.022);
-  transform: translateY(-4.5px);
+  border-color: rgba(255, 255, 255, 0.32);
+  background-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(25, 58, 80, 0.025);
+  transform: translateY(-2px);
 }
 
 .home-page.is-scrolling .home-liquid-card,
@@ -1219,13 +1232,9 @@ input {
 }
 
 .home-stats-block .home-liquid-card:hover {
-  --glass-shadow: rgba(16, 36, 52, 0.0525);
-  border-color: var(--glass-border);
-  background-color: rgba(255, 255, 255, var(--glass-alpha));
-  box-shadow:
-    0 2px 9px var(--glass-shadow),
-    0 1px 15px var(--glass-inner-shadow) inset,
-    0 -1px 12px var(--glass-inner-highlight) inset;
+  border-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.16);
+  box-shadow: none;
   transform: none;
 }
 
@@ -1365,6 +1374,7 @@ input {
   border-bottom: 0;
   border-left: 0;
   border-radius: 0;
+  z-index: var(--layer-sidebars);
   --glass-alpha: 0.38;
   --glass-border: rgba(255, 255, 255, 0.5);
   --glass-shadow: rgba(16, 36, 52, 0.052);
@@ -1922,7 +1932,7 @@ input {
   position: absolute;
   bottom: 16px;
   left: 50%;
-  z-index: 12;
+  z-index: var(--layer-floating-glass);
   display: grid;
   grid-template-columns: minmax(150px, 220px) 34px 118px 50px 148px;
   align-items: center;
@@ -2391,6 +2401,37 @@ input {
 
   .home-rank-panel {
     grid-row: 4;
+  }
+}
+
+@container content-pane (max-width: 1040px) {
+  .home-stats-block {
+    grid-template-columns: 1fr;
+  }
+
+  .home-stats-block .home-stat-grid,
+  .home-calendar-panel,
+  .home-rank-panel {
+    grid-column: 1;
+  }
+
+  .home-stats-block .home-stat-grid {
+    grid-row: 2;
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+
+  .home-calendar-panel {
+    grid-row: 3;
+  }
+
+  .home-rank-panel {
+    grid-row: 4;
+  }
+}
+
+@container content-pane (max-width: 620px) {
+  .home-stats-block .home-stat-grid {
+    grid-template-columns: 1fr;
   }
 }
 
