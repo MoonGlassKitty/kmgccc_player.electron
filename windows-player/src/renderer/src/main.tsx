@@ -3829,6 +3829,8 @@ const BKArtSurface = React.memo(function BKArtSurface({
   const phaseA = bkBackgroundAssets[(surface.phaseOffset + surface.seed) % bkBackgroundAssets.length]
   const phaseB = bkBackgroundAssets[(surface.phaseOffset + surface.seed + 1) % bkBackgroundAssets.length]
   const frozenPhaseClass = surface.frozenImagePhase ? `frozen-image-phase phase-${surface.frozenImagePhase}-visible` : ''
+  const toneOne = bkThemeCssValue(surface.themeStyle, '--bk-bg-tone-1')
+  const toneTwo = bkThemeCssValue(surface.themeStyle, '--bk-bg-tone-2')
   return (
     <div
       className={`bk-art-surface ${className} style-${surface.style} ${frozenPhaseClass}`}
@@ -3838,8 +3840,8 @@ const BKArtSurface = React.memo(function BKArtSurface({
       }}
     >
       <div className="bk-image-surface">
-        <BKImagePhase source={phaseA} className="phase-a" />
-        <BKImagePhase source={phaseB} className="phase-b" />
+        <BKImagePhase source={phaseA} className="phase-a" toneOne={toneOne} toneTwo={toneTwo} />
+        <BKImagePhase source={phaseB} className="phase-b" toneOne={toneOne} toneTwo={toneTwo} />
       </div>
       {isBKDotStyle(surface.style) ? (
         <>
@@ -3877,6 +3879,15 @@ const BKArtSurface = React.memo(function BKArtSurface({
 })
 
 const tintedBKCache = new Map<string, string>()
+
+function bkThemeCssValue(themeStyle: React.CSSProperties, key: string): string {
+  const value = (themeStyle as Record<string, unknown>)[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function bkImagePhaseCacheKey(source: string, toneOne: string, toneTwo: string): string {
+  return `${source}|${toneOne}|${toneTwo}`
+}
 
 function cubicBezierPoint(t: number, slot: BKDotPlan): { x: number; y: number } {
   const p = clampNumber(t, 0, 1)
@@ -4023,22 +4034,28 @@ const BKDotSurface = React.memo(function BKDotSurface({
   )
 })
 
-const BKImagePhase = React.memo(function BKImagePhase({ source, className }: { source: string; className: string }): React.ReactElement {
-  const ref = React.useRef<HTMLDivElement>(null)
-  const [tintedUrl, setTintedUrl] = React.useState<string | null>(null)
+const BKImagePhase = React.memo(function BKImagePhase({
+  source,
+  className,
+  toneOne,
+  toneTwo
+}: {
+  source: string
+  className: string
+  toneOne: string
+  toneTwo: string
+}): React.ReactElement {
+  const cacheKey = React.useMemo(() => bkImagePhaseCacheKey(source, toneOne, toneTwo), [source, toneOne, toneTwo])
+  const [tintedUrl, setTintedUrl] = React.useState<string | null>(() => tintedBKCache.get(cacheKey) ?? null)
 
   React.useEffect(() => {
-    const element = ref.current
-    if (!element) return
-    const style = getComputedStyle(element)
-    const firstTone = parseCssColor(style.getPropertyValue('--bk-bg-tone-1'))
-    const secondTone = parseCssColor(style.getPropertyValue('--bk-bg-tone-2'))
+    const firstTone = parseCssColor(toneOne)
+    const secondTone = parseCssColor(toneTwo)
     if (!firstTone || !secondTone) {
       setTintedUrl(null)
       return
     }
 
-    const cacheKey = `${source}|${style.getPropertyValue('--bk-bg-tone-1')}|${style.getPropertyValue('--bk-bg-tone-2')}`
     const cached = tintedBKCache.get(cacheKey)
     if (cached) {
       setTintedUrl(cached)
@@ -4088,9 +4105,9 @@ const BKImagePhase = React.memo(function BKImagePhase({ source, className }: { s
     return () => {
       cancelled = true
     }
-  }, [source])
+  }, [cacheKey, source, toneOne, toneTwo])
 
-  return <div ref={ref} className={`bk-image-phase ${className} ${tintedUrl ? 'ready' : 'loading'}`} style={{ backgroundImage: tintedUrl ? `url(${tintedUrl})` : 'none' }} />
+  return <div className={`bk-image-phase ${className} ${tintedUrl ? 'ready' : 'loading'}`} style={{ backgroundImage: tintedUrl ? `url(${tintedUrl})` : 'none' }} />
 })
 
 type BKShapePlan = {

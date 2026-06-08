@@ -15,3 +15,4 @@
 - 切歌时 BK surface 保存独立主题快照：旧背景保持旧歌颜色，新歌颜色只随 paint mask 刷入，遮罩完成后再完整切换。
 - BK paint 进入层增加首帧 opacity gate，避免 mask sprite 第 0 帧漏出下一首主题导致切歌瞬间整体变鲜艳。
 - 纯油漆/image 阶段切歌前冻结旧 surface 当前 phase，避免 previous 层重挂载后从 phase-a 重启造成背景跳变；dot 阶段保持原逻辑。
+- BK image phase 改为通过 surface 主题快照同步命中 tint cache，避免 previous image 重挂载时先渲染 loading 空背景造成纯油漆切歌跳变。
