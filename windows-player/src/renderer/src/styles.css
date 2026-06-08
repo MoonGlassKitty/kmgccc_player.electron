@@ -950,6 +950,7 @@ input {
 }
 
 .home-scroll-content {
+  container: home-content / inline-size;
   transform: translate3d(0, 0, 0);
 }
 
@@ -1147,13 +1148,18 @@ input {
 
 .home-card-grid > .home-person-card,
 .home-card-grid > .home-album-card {
-  flex: 0 0 clamp(150px, 18cqw, 210px);
-  width: clamp(150px, 18cqw, 210px);
+  flex: 0 0 210px;
+  width: 210px;
+}
+
+.home-card-grid > .home-person-card {
+  flex-basis: 190px;
+  width: 190px;
 }
 
 .home-card-grid.compact > .home-person-card {
-  flex-basis: clamp(145px, 16cqw, 190px);
-  width: clamp(145px, 16cqw, 190px);
+  flex-basis: 190px;
+  width: 190px;
 }
 
 .collection-grid {
@@ -2435,7 +2441,7 @@ input {
   }
 }
 
-@container content-pane (max-width: 1040px) {
+@container home-content (max-width: 1040px) {
   .home-stats-block {
     grid-template-columns: 1fr;
   }
@@ -2460,7 +2466,7 @@ input {
   }
 }
 
-@container content-pane (max-width: 620px) {
+@container home-content (max-width: 620px) {
   .home-stats-block .home-stat-grid {
     grid-template-columns: 1fr;
   }
