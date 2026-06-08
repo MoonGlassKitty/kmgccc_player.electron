@@ -3614,14 +3614,16 @@ input {
   bottom: 1px;
   left: 1px;
   z-index: 0;
-  width: var(--mini-player-progress, 0%);
-  max-width: calc(100% - 2px);
+  width: calc(100% - 2px);
   border-radius: 29px 12px 12px 29px;
   background: color-mix(in srgb, var(--cover-accent-text) 48%, transparent);
   opacity: 0;
+  transform: scaleX(var(--mini-player-progress-ratio, 0));
+  transform-origin: left center;
   pointer-events: none;
+  will-change: transform, opacity;
   transition:
-    width 180ms linear,
+    transform 180ms linear,
     opacity 180ms ease;
 }
 

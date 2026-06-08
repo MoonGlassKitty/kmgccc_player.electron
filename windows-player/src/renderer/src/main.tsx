@@ -2214,10 +2214,13 @@ function App(): React.ReactElement {
     const audio = audioRef.current
     if (!audio) return
     const nextTime = audio.currentTime
-    if (!audio.paused && Math.abs(nextTime - lastPlaybackTimeRef.current) < 0.18) return
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : currentTrack?.duration ?? 0
+    const ratio = duration > 0 ? clampNumber(nextTime / duration, 0, 1) : 0
+    document.querySelector<HTMLElement>('.mini-player')?.style.setProperty('--mini-player-progress-ratio', String(ratio))
+    if (!audio.paused && Math.abs(nextTime - lastPlaybackTimeRef.current) < 0.5) return
     lastPlaybackTimeRef.current = nextTime
     setPlaybackTime(nextTime)
-  }, [])
+  }, [currentTrack?.duration])
 
   const handleAudioEnded = React.useCallback(() => {
     if (homeSnapshot.tracks.length > 1) {
@@ -5403,7 +5406,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
   }, [])
 
   return (
-    <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress': `${progress}%` } as React.CSSProperties}>
+    <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)', '--mini-player-progress-ratio': progress / 100 } as React.CSSProperties}>
       <div
         className="mini-progress-rail"
         ref={progressRailRef}
