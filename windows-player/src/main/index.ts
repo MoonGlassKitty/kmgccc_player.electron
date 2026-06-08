@@ -1,10 +1,11 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol } from 'electron'
 import { execFileSync } from 'node:child_process'
 import { createDecipheriv } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, extname, join } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { basename, dirname, extname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { Readable } from 'node:stream'
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL)
 
@@ -20,38 +21,36 @@ protocol.registerSchemesAsPrivileged([
   }
 ])
 
-const albumArtwork =
-  'https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/15/a4/a4/15a4a47c-62db-07c3-d14f-e78c3c8dec85/artwork.jpg/600x600bb.jpg'
-
 const altArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e9/c4/38/e9c43893-e743-269a-6a47-c11120717177/artwork.jpg/600x600bb.jpg'
 
-const demoSyncedLyrics = [
-  '[00:00.00]歌词预览已准备',
-  '[00:06.00]导入单曲后会自动同步真实歌词',
-  '[00:12.00]当前播放行会停在视觉中心',
-  '[00:18.00]点击带时间轴的行可以跳转播放',
-  '[00:24.00]右侧侧栏和完整界面共用同一套时间轴',
-  '[00:30.00]后续可以替换为 AMLL 渲染组件'
+const liuhenAudioPath = join(homedir(), 'Music/网易云音乐/MoonGlassKitty - 潮落.mp3')
+
+const liuhenSyncedLyrics = [
+  '[00:00.00]留痕',
+  '[00:12.00]窗边的光 慢慢落进耳机',
+  '[00:25.00]旧旋律在玻璃里折回去',
+  '[00:39.00]每一次点击 都让时间有了回声',
+  '[00:54.00]我把这一行 留在播放的轨迹',
+  '[01:09.00]当歌词亮起 你能看见它靠近',
+  '[01:25.00]再把故事交给下一次呼吸',
+  '[01:43.00]留痕的人 会在歌里醒来'
 ].join('\n')
 
 const demoTracks = [
-  { id: 'renascence', title: '!renascence!', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 113 },
-  { id: 'basin', title: 'Basin', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 320 },
-  { id: 'bones', title: 'Bones', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 232 },
-  { id: 'float', title: 'Float', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 270 },
-  { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241, syncedLyrics: demoSyncedLyrics },
-  { id: 'udong', title: '乌东', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', album: '乌东', albumId: 'album-udong', duration: 163 }
-]
-
-const demoAlbums = [
-  { id: 'album-last', title: "This Won't Be The Last...", artist: 'acloudyskye', artistId: 'artist-acloudyskye', artworkUrl: albumArtwork, trackCount: 4 },
-  { id: 'album-myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', artworkUrl: altArtwork, trackCount: 1 },
-  { id: 'album-udong', title: '乌东', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', artworkUrl: altArtwork, trackCount: 1 }
-]
-
-const demoPlaylists = [
-  { id: 'playlist-import-june-5', name: '导入于 6月 5', artworkUrl: altArtwork, trackCount: demoTracks.length, trackIds: demoTracks.map((track) => track.id) }
+  {
+    id: 'liuhen',
+    title: '留痕',
+    artist: 'MoonGlassKitty',
+    artistId: 'artist-moonglasskitty',
+    album: '留痕',
+    albumId: 'album-liuhen',
+    duration: 122,
+    sourcePath: liuhenAudioPath,
+    sourceUrl: mediaUrlForPath(liuhenAudioPath),
+    artworkUrl: altArtwork,
+    syncedLyrics: liuhenSyncedLyrics
+  }
 ]
 
 type WallpaperTint = {
@@ -80,6 +79,11 @@ type LocalAudioImport = {
   lyricsText?: string
   syncedLyrics?: string
   metadataSource?: string
+}
+
+type PersistedLibrary = {
+  version: 1
+  tracks: LocalAudioImport[]
 }
 
 type NcmMetadata = {
@@ -135,6 +139,132 @@ type LrcLibResult = {
 function mediaUrlForPath(audioPath: string): string {
   const encodedPath = Buffer.from(audioPath, 'utf8').toString('base64url')
   return `kmgccc-media://audio/${encodedPath}`
+}
+
+function mimeTypeForAudioPath(audioPath: string): string {
+  switch (extname(audioPath).toLowerCase()) {
+    case '.flac':
+      return 'audio/flac'
+    case '.m4a':
+    case '.mp4':
+      return 'audio/mp4'
+    case '.ogg':
+    case '.oga':
+      return 'audio/ogg'
+    case '.wav':
+      return 'audio/wav'
+    case '.mp3':
+    default:
+      return 'audio/mpeg'
+  }
+}
+
+function libraryStorePath(): string {
+  return join(app.getPath('userData'), 'library-store.json')
+}
+
+function isPersistableTrack(value: unknown): value is LocalAudioImport {
+  if (!value || typeof value !== 'object') return false
+  const track = value as Partial<LocalAudioImport>
+  return Boolean(track.id && track.title && track.artist && track.album && track.sourcePath && track.sourceUrl)
+}
+
+function loadPersistedTracks(): LocalAudioImport[] {
+  try {
+    const raw = readFileSync(libraryStorePath(), 'utf8')
+    const parsed = JSON.parse(raw) as Partial<PersistedLibrary>
+    return Array.isArray(parsed.tracks) ? parsed.tracks.filter(isPersistableTrack) : []
+  } catch {
+    return []
+  }
+}
+
+function persistenceKeyForTrack(track: LocalAudioImport): string {
+  return track.originalSourcePath || track.sourcePath || track.sourceUrl || track.id
+}
+
+function mergeTrackList(tracks: LocalAudioImport[]): LocalAudioImport[] {
+  const merged: LocalAudioImport[] = []
+  const indexByKey = new Map<string, number>()
+
+  tracks.forEach((track) => {
+    const key = persistenceKeyForTrack(track)
+    const existingIndex = indexByKey.get(key)
+    if (existingIndex === undefined) {
+      indexByKey.set(key, merged.length)
+      merged.push(track)
+      return
+    }
+    merged[existingIndex] = track
+  })
+
+  return merged
+}
+
+function savePersistedTracks(tracks: LocalAudioImport[]): void {
+  const storePath = libraryStorePath()
+  mkdirSync(dirname(storePath), { recursive: true })
+  const payload: PersistedLibrary = {
+    version: 1,
+    tracks: mergeTrackList(tracks)
+  }
+  writeFileSync(storePath, JSON.stringify(payload, null, 2), 'utf8')
+}
+
+function upsertPersistedTrack(track: LocalAudioImport): void {
+  savePersistedTracks(mergeTrackList([...loadPersistedTracks(), track]))
+}
+
+function tracksForHomeSnapshot(): LocalAudioImport[] {
+  return mergeTrackList([...(demoTracks as LocalAudioImport[]), ...loadPersistedTracks()])
+}
+
+function albumsForTracks(tracks: LocalAudioImport[]) {
+  const albums = new Map<string, { id: string; title: string; artist: string; artistId: string; artworkUrl?: string; trackCount: number }>()
+  tracks.forEach((track) => {
+    const existing = albums.get(track.albumId)
+    if (existing) {
+      existing.trackCount += 1
+      existing.artworkUrl ||= track.artworkUrl
+      return
+    }
+    albums.set(track.albumId, {
+      id: track.albumId,
+      title: track.album,
+      artist: track.artist,
+      artistId: track.artistId,
+      artworkUrl: track.artworkUrl,
+      trackCount: 1
+    })
+  })
+  return Array.from(albums.values())
+}
+
+function artistsForTracks(tracks: LocalAudioImport[]) {
+  const artists = new Map<string, { id: string; name: string; artworkUrl?: string; trackCount: number; albumIds: Set<string> }>()
+  tracks.forEach((track) => {
+    const existing = artists.get(track.artistId)
+    if (existing) {
+      existing.trackCount += 1
+      existing.albumIds.add(track.albumId)
+      existing.artworkUrl ||= track.artworkUrl
+      return
+    }
+    artists.set(track.artistId, {
+      id: track.artistId,
+      name: track.artist,
+      artworkUrl: track.artworkUrl,
+      trackCount: 1,
+      albumIds: new Set([track.albumId])
+    })
+  })
+  return Array.from(artists.values()).map((artist) => ({
+    id: artist.id,
+    name: artist.name,
+    artworkUrl: artist.artworkUrl,
+    trackCount: artist.trackCount,
+    albumCount: artist.albumIds.size
+  }))
 }
 
 function dataUrlForImage(data: Uint8Array, mimeType = 'image/jpeg'): string {
@@ -279,7 +409,47 @@ function installLocalMediaProtocol(): void {
       return new Response('Media file not found', { status: 404 })
     }
 
-    return net.fetch(pathToFileURL(audioPath).toString())
+    const stats = statSync(audioPath)
+    const fileSize = stats.size
+    const mimeType = mimeTypeForAudioPath(audioPath)
+    const rangeHeader = request.headers.get('range')
+    if (!rangeHeader) {
+      return new Response(Readable.toWeb(createReadStream(audioPath)) as BodyInit, {
+        status: 200,
+        headers: {
+          'Accept-Ranges': 'bytes',
+          'Content-Length': String(fileSize),
+          'Content-Type': mimeType
+        }
+      })
+    }
+
+    const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/)
+    if (!match) {
+      return new Response('Invalid range', {
+        status: 416,
+        headers: {
+          'Accept-Ranges': 'bytes',
+          'Content-Range': `bytes */${fileSize}`
+        }
+      })
+    }
+
+    const requestedStart = match[1] ? Number(match[1]) : 0
+    const requestedEnd = match[2] ? Number(match[2]) : fileSize - 1
+    const start = Math.max(0, Math.min(requestedStart, fileSize - 1))
+    const end = Math.max(start, Math.min(requestedEnd, fileSize - 1))
+    const chunkSize = end - start + 1
+
+    return new Response(Readable.toWeb(createReadStream(audioPath, { start, end })) as BodyInit, {
+      status: 206,
+      headers: {
+        'Accept-Ranges': 'bytes',
+        'Content-Length': String(chunkSize),
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Content-Type': mimeType
+      }
+    })
   })
 }
 
@@ -621,29 +791,32 @@ function getWallpaperTint(): WallpaperTint {
 }
 
 function getHomeSnapshot() {
+  const tracks = tracksForHomeSnapshot()
+  const heroTrack = tracks[0] ?? demoTracks[0]
+  const rankingTracks = tracks.slice(0, 5)
+
   return {
-    heroTrack: demoTracks[4],
-    tracks: demoTracks,
-    artists: [
-      { id: 'artist-moonglasskitty', name: 'MoonGlassKitty', artworkUrl: undefined, trackCount: 1, albumCount: 1 },
-      { id: 'artist-acloudyskye', name: 'acloudyskye', artworkUrl: albumArtwork, trackCount: 5, albumCount: 2 }
-    ],
-    albums: demoAlbums,
-    playlists: demoPlaylists,
+    heroTrack,
+    tracks,
+    artists: artistsForTracks(tracks),
+    albums: albumsForTracks(tracks),
+    playlists: [],
     stats: {
-      totalTrackCount: demoTracks.length,
-      weeklyPlayCount: 5,
-      weeklyListeningSeconds: 8 * 60,
-      favoriteArtistName: 'acloudyskye',
-      favoriteArtistPlayCount: 3,
-      ranking: [
-        { trackId: 'myth', title: 'Myth', artist: 'acloudyskye', artworkUrl: altArtwork, playCount: 2, score: 0.92 },
-        { trackId: 'udong', title: '乌东', artist: 'MoonGlassKitty', artworkUrl: altArtwork, playCount: 1, score: 0.76 },
-        { trackId: 'bones', title: 'Bones', artist: 'acloudyskye', artworkUrl: albumArtwork, playCount: 1, score: 0.72 }
-      ],
+      totalTrackCount: tracks.length,
+      weeklyPlayCount: tracks.length,
+      weeklyListeningSeconds: tracks.reduce((total, track) => total + Math.max(0, track.duration || 0), 0),
+      favoriteArtistName: heroTrack.artist,
+      favoriteArtistPlayCount: tracks.filter((track) => track.artistId === heroTrack.artistId).length,
+      ranking: rankingTracks.map((track, index) => ({
+        trackId: track.id,
+        title: track.title,
+        artist: track.artist,
+        artworkUrl: track.artworkUrl,
+        playCount: Math.max(1, rankingTracks.length - index),
+        score: Math.max(0.5, 0.92 - index * 0.06)
+      })),
       dailyListeningMap: {
-        '2026-06-05': 3,
-        '2026-06-06': 2
+        '2026-06-08': tracks.length
       }
     }
   }
@@ -729,6 +902,12 @@ ipcMain.handle('library:import-audio-file', async (event): Promise<LocalAudioImp
   const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
 
   if (result.canceled || !result.filePaths[0]) return null
-  return localAudioImportFromPath(result.filePaths[0])
+  const importedTrack = await localAudioImportFromPath(result.filePaths[0])
+  upsertPersistedTrack(importedTrack)
+  return importedTrack
 })
-ipcMain.handle('library:sync-track-info', (_event, track: LocalAudioImport): Promise<TrackMetadataSyncResult> => syncTrackInfo(track))
+ipcMain.handle('library:sync-track-info', async (_event, track: LocalAudioImport): Promise<TrackMetadataSyncResult> => {
+  const result = await syncTrackInfo(track)
+  upsertPersistedTrack(result.track)
+  return result
+})

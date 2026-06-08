@@ -1,5 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { LyricPlayer } from '@applemusic-like-lyrics/react'
+import type { LyricLine } from '@applemusic-like-lyrics/core'
 import {
   ArrowDownUp,
   CheckCircle2,
@@ -30,6 +32,7 @@ import {
   X
 } from 'lucide-react'
 import { LiquidGlassFilters } from './LiquidGlassFilter'
+import '@applemusic-like-lyrics/core/style.css'
 import shape1 from './assets/bk-themes/shapes/shape1.png'
 import shape2 from './assets/bk-themes/shapes/shape2.png'
 import shape3 from './assets/bk-themes/shapes/shape3.png'
@@ -79,46 +82,76 @@ const albumArtwork =
 const altArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e9/c4/38/e9c43893-e743-269a-6a47-c11120717177/artwork.jpg/600x600bb.jpg'
 
-const demoSyncedLyrics = [
-  '[00:00.00]歌词预览已准备',
-  '[00:06.00]导入单曲后会自动同步真实歌词',
-  '[00:12.00]当前播放行会停在视觉中心',
-  '[00:18.00]点击带时间轴的行可以跳转播放',
-  '[00:24.00]右侧侧栏和完整界面共用同一套时间轴',
-  '[00:30.00]后续可以替换为 AMLL 渲染组件'
+function mediaUrlForLocalPath(audioPath: string): string {
+  const bytes = new TextEncoder().encode(audioPath)
+  let binary = ''
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte)
+  })
+  const encodedPath = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  return `kmgccc-media://audio/${encodedPath}`
+}
+
+const liuhenAudioPath = '/Users/moonglasskitty/Music/网易云音乐/MoonGlassKitty - 潮落.mp3'
+const liuhenAudioUrl = mediaUrlForLocalPath(liuhenAudioPath)
+
+const liuhenSyncedLyrics = [
+  '[00:00.00]留痕',
+  '[00:12.00]窗边的光 慢慢落进耳机',
+  '[00:25.00]旧旋律在玻璃里折回去',
+  '[00:39.00]每一次点击 都让时间有了回声',
+  '[00:54.00]我把这一行 留在播放的轨迹',
+  '[01:09.00]当歌词亮起 你能看见它靠近',
+  '[01:25.00]再把故事交给下一次呼吸',
+  '[01:43.00]留痕的人 会在歌里醒来'
 ].join('\n')
 
 const fallbackHomeSnapshot: HomeSnapshot = {
-  heroTrack: { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241, syncedLyrics: demoSyncedLyrics },
+  heroTrack: {
+    id: 'liuhen',
+    title: '留痕',
+    artist: 'MoonGlassKitty',
+    artistId: 'artist-moonglasskitty',
+    album: '留痕',
+    albumId: 'album-liuhen',
+    duration: 122,
+    artworkUrl: altArtwork,
+    sourcePath: liuhenAudioPath,
+    sourceUrl: liuhenAudioUrl,
+    syncedLyrics: liuhenSyncedLyrics
+  },
   tracks: [
-    { id: 'renascence', title: '!renascence!', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 113 },
-    { id: 'basin', title: 'Basin', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 320 },
-    { id: 'bones', title: 'Bones', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 232 },
-    { id: 'float', title: 'Float', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: "This Won't Be The Last...", albumId: 'album-last', duration: 270 },
-    { id: 'myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', album: 'Myth', albumId: 'album-myth', duration: 241, syncedLyrics: demoSyncedLyrics },
-    { id: 'udong', title: '乌东', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', album: '乌东', albumId: 'album-udong', duration: 163 }
+    {
+      id: 'liuhen',
+      title: '留痕',
+      artist: 'MoonGlassKitty',
+      artistId: 'artist-moonglasskitty',
+      album: '留痕',
+      albumId: 'album-liuhen',
+      duration: 122,
+      artworkUrl: altArtwork,
+      sourcePath: liuhenAudioPath,
+      sourceUrl: liuhenAudioUrl,
+      syncedLyrics: liuhenSyncedLyrics
+    }
   ],
   artists: [
-    { id: 'artist-moonglasskitty', name: 'MoonGlassKitty', trackCount: 1, albumCount: 1 },
-    { id: 'artist-acloudyskye', name: 'acloudyskye', artworkUrl: albumArtwork, trackCount: 5, albumCount: 1 }
+    { id: 'artist-moonglasskitty', name: 'MoonGlassKitty', artworkUrl: altArtwork, trackCount: 1, albumCount: 1 }
   ],
   albums: [
-    { id: 'album-last', title: "This Won't Be The Last...", artist: 'acloudyskye', artistId: 'artist-acloudyskye', artworkUrl: albumArtwork, trackCount: 4 },
-    { id: 'album-myth', title: 'Myth', artist: 'acloudyskye', artistId: 'artist-acloudyskye', artworkUrl: altArtwork, trackCount: 1 },
-    { id: 'album-udong', title: '乌东', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', artworkUrl: altArtwork, trackCount: 1 }
+    { id: 'album-liuhen', title: '留痕', artist: 'MoonGlassKitty', artistId: 'artist-moonglasskitty', artworkUrl: altArtwork, trackCount: 1 }
   ],
-  playlists: [{ id: 'playlist-import-june-5', name: '导入于 6月 5', artworkUrl: altArtwork, trackCount: 6, trackIds: ['renascence', 'basin', 'bones', 'float', 'myth', 'udong'] }],
+  playlists: [],
   stats: {
-    totalTrackCount: 6,
-    weeklyPlayCount: 5,
-    weeklyListeningSeconds: 480,
-    favoriteArtistName: 'acloudyskye',
-    favoriteArtistPlayCount: 3,
+    totalTrackCount: 1,
+    weeklyPlayCount: 1,
+    weeklyListeningSeconds: 122,
+    favoriteArtistName: 'MoonGlassKitty',
+    favoriteArtistPlayCount: 1,
     ranking: [
-      { trackId: 'myth', title: 'Myth', artist: 'acloudyskye', artworkUrl: altArtwork, playCount: 2, score: 0.92 },
-      { trackId: 'udong', title: '乌东', artist: 'MoonGlassKitty', artworkUrl: altArtwork, playCount: 1, score: 0.76 }
+      { trackId: 'liuhen', title: '留痕', artist: 'MoonGlassKitty', artworkUrl: altArtwork, playCount: 1, score: 0.92 }
     ],
-    dailyListeningMap: { '2026-06-05': 3, '2026-06-06': 2 }
+    dailyListeningMap: { '2026-06-08': 1 }
   }
 }
 
@@ -1106,7 +1139,7 @@ function App(): React.ReactElement {
     updateViewportWidth()
     window.addEventListener('resize', updateViewportWidth)
     return () => window.removeEventListener('resize', updateViewportWidth)
-  }, [])
+  }, [currentTrack?.sourceUrl])
 
   React.useEffect(() => {
     let cancelled = false
@@ -1128,12 +1161,19 @@ function App(): React.ReactElement {
   }, [])
 
   const seekTo = React.useCallback((seconds: number) => {
+    if (!Number.isFinite(seconds)) return
+    const nextTime = Math.max(0, seconds)
     const audio = audioRef.current
-    if (!audio || !Number.isFinite(seconds)) return
-    audio.currentTime = Math.max(0, seconds)
-    lastPlaybackTimeRef.current = audio.currentTime
-    setPlaybackTime(audio.currentTime)
-  }, [])
+    if (audio && currentTrack?.sourceUrl) {
+      try {
+        audio.currentTime = nextTime
+      } catch {
+        // Keep the visual timeline responsive even if the media element cannot seek yet.
+      }
+    }
+    lastPlaybackTimeRef.current = nextTime
+    setPlaybackTime(nextTime)
+  }, [currentTrack?.sourceUrl])
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
   }, [])
@@ -1992,12 +2032,44 @@ function activeLyricIndex(lines: ParsedLyricLine[], playbackTime: number): numbe
   return activeIndex
 }
 
+function amllLyricLinesFromParsed(lines: ParsedLyricLine[], trackDuration: number): LyricLine[] {
+  const timedLines = lines.filter((line): line is ParsedLyricLine & { time: number } => line.time !== null)
+  const durationMs = trackDuration > 0 ? Math.round(trackDuration * 1000) : null
+
+  return timedLines.map((line, index) => {
+    const startTime = Math.max(0, Math.round(line.time * 1000))
+    const nextStartTime = timedLines[index + 1] ? Math.round(timedLines[index + 1].time * 1000) : null
+    const inferredEndTime = nextStartTime !== null ? nextStartTime - 80 : durationMs ?? startTime + 4200
+    const endTime = Math.max(startTime + 1200, Math.min(inferredEndTime, startTime + 8200))
+
+    return {
+      words: [{ startTime, endTime, word: line.text }],
+      translatedLyric: '',
+      romanLyric: '',
+      startTime,
+      endTime,
+      isBG: false,
+      isDuet: false
+    }
+  })
+}
+
 type LyricsSurfaceProps = {
   track: Track | null | undefined
   albums: Map<string, HomeAlbumCard>
   playbackTime: number
   isPlaying: boolean
   onSeek: (seconds: number) => void
+}
+
+type FullscreenLyricHitTarget = {
+  index: number
+  text: string
+  startTime: number
+  top: number
+  left: number
+  width: number
+  height: number
 }
 
 const LyricsLineList = React.memo(function LyricsLineList({
@@ -2089,7 +2161,74 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
 }: LyricsSurfaceProps): React.ReactElement {
   const lines = React.useMemo(() => parseLyrics(track), [track])
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
+  const amllLines = React.useMemo(() => amllLyricLinesFromParsed(lines, track?.duration ?? 0), [lines, track?.duration])
+  const amllShellRef = React.useRef<HTMLDivElement | null>(null)
+  const [amllHitTargets, setAmllHitTargets] = React.useState<FullscreenLyricHitTarget[]>([])
+  const amllOptimizeOptions = React.useMemo(() => ({ resetLineTimestamps: false }), [])
+  const amllBottomLine = React.useMemo(
+    () => <span className="fullscreen-amll-bottom">{track ? `${track.artist} · ${track.album}` : ''}</span>,
+    [track]
+  )
   const artwork = trackArtwork(track, albums)
+  React.useLayoutEffect(() => {
+    const shell = amllShellRef.current
+    if (!shell) return
+    let frameId = 0
+    const timeoutIds: number[] = []
+
+    const measureLyricRows = (): void => {
+      const shellRect = shell.getBoundingClientRect()
+      const lineElements = Array.from(shell.querySelectorAll<HTMLElement>('[class*="_lyricLine"]'))
+        .filter((element) => {
+          const classNames = Array.from(element.classList)
+          return (
+            classNames.some((className) => className.includes('_lyricLine')) &&
+            !classNames.some((className) => className.includes('_lyricLineWrapper') || className.includes('_bottomLine'))
+          )
+        })
+        .slice(0, amllLines.length)
+
+      const nextTargets = lineElements
+        .map((element, index): FullscreenLyricHitTarget | null => {
+          const line = amllLines[index]
+          if (!line) return null
+          const rect = element.getBoundingClientRect()
+          if (rect.width <= 0 || rect.height <= 0) return null
+          return {
+            index,
+            text: line.words.map((word) => word.word).join(''),
+            startTime: line.startTime,
+            top: Math.max(0, rect.top - shellRect.top - 10),
+            left: Math.max(0, rect.left - shellRect.left - 12),
+            width: Math.min(shellRect.width, rect.width + 24),
+            height: Math.min(shellRect.height, rect.height + 20)
+          }
+        })
+        .filter((target): target is FullscreenLyricHitTarget => target !== null)
+
+      setAmllHitTargets(nextTargets)
+    }
+
+    const scheduleMeasure = (): void => {
+      window.cancelAnimationFrame(frameId)
+      frameId = window.requestAnimationFrame(measureLyricRows)
+    }
+
+    scheduleMeasure()
+    ;[80, 240, 720].forEach((delay) => {
+      timeoutIds.push(window.setTimeout(scheduleMeasure, delay))
+    })
+    const mutationObserver = new MutationObserver(scheduleMeasure)
+    mutationObserver.observe(shell, { childList: true, subtree: true })
+    window.addEventListener('resize', scheduleMeasure)
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      mutationObserver.disconnect()
+      window.removeEventListener('resize', scheduleMeasure)
+    }
+  }, [amllLines, currentLineIndex, track?.id])
 
   return (
     <section className="fullscreen-lyrics-page no-drag">
@@ -2103,7 +2242,54 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
         <small>{track ? `${track.artist} · ${track.album}` : '选择一首歌曲后显示歌词'}</small>
       </div>
       <div className="fullscreen-lyrics-lines">
-        {lines.length ? (
+        {amllLines.length ? (
+          <div className="fullscreen-amll-shell" ref={amllShellRef}>
+            <LyricPlayer
+              key={track?.id ?? 'empty'}
+              className="fullscreen-amll-player"
+              data-lyric-count={amllLines.length}
+              lyricLines={amllLines}
+              currentTime={Math.max(0, Math.round(playbackTime * 1000))}
+              playing={isPlaying}
+              alignAnchor="center"
+              alignPosition={0.48}
+              enableBlur
+              enableScale
+              enableSpring
+              wordFadeWidth={0.5}
+              optimizeOptions={amllOptimizeOptions}
+              bottomLine={amllBottomLine}
+            />
+            <div className="fullscreen-amll-hit-layer" aria-hidden={!amllHitTargets.length}>
+              {amllHitTargets.map((target) => (
+                <button
+                  key={`${target.index}-${target.startTime}`}
+                  className="fullscreen-amll-hit-row"
+                  type="button"
+                  aria-label={`跳转到 ${target.text}`}
+                  data-seek-time={target.startTime / 1000}
+                  style={{
+                    top: target.top,
+                    left: target.left,
+                    width: target.width,
+                    height: target.height
+                  }}
+                  onPointerDown={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    onSeek(target.startTime / 1000)
+                  }}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
+                >
+                  {target.text}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : lines.length ? (
           <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="fullscreen" />
         ) : (
           <LyricsEmptyState />
