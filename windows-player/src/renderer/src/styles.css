@@ -357,7 +357,7 @@ input {
 
 .now-playing-cover {
   position: relative;
-  width: clamp(220px, min(50vh, 34vw), 388px);
+  width: clamp(250px, min(56vh, 39vw), 440px);
   aspect-ratio: 1;
   padding: 0;
   border: 0;
@@ -425,7 +425,7 @@ input {
 
 .apple-style-cover {
   position: relative;
-  width: clamp(220px, min(50vh, 34vw), 388px);
+  width: clamp(250px, min(56vh, 39vw), 440px);
   aspect-ratio: 1;
   border-radius: 14px;
   pointer-events: none;
@@ -453,7 +453,7 @@ input {
 }
 
 .rotating-cover {
-  width: clamp(230px, min(52vh, 36vw), 420px);
+  width: clamp(260px, min(58vh, 40vw), 470px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -516,7 +516,7 @@ input {
 
 .cassette-artwork {
   position: relative;
-  width: clamp(300px, min(62vh, 46vw), 520px);
+  width: clamp(340px, min(68vh, 50vw), 590px);
   aspect-ratio: 3149 / 2006;
   filter: drop-shadow(0 34px 70px rgba(0, 0, 0, 0.28));
   pointer-events: none;
@@ -1216,7 +1216,7 @@ input {
   }
 
   .now-playing-cover {
-    width: clamp(190px, 46vw, 318px);
+    width: clamp(220px, 54vw, 360px);
   }
 
   .now-playing-track-copy {
