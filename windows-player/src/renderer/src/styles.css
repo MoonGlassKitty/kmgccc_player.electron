@@ -275,7 +275,7 @@ input {
 }
 
 .lyrics-side-resize-handle {
-  left: -8px;
+  left: 0;
 }
 
 .sidebar-resize-handle::before,
@@ -1359,7 +1359,7 @@ input {
   min-height: 0;
   height: 100%;
   padding: 72px 28px 34px 16px;
-  overflow: visible;
+  overflow: hidden;
   border-top: 0;
   border-right: 0;
   border-bottom: 0;
@@ -1373,7 +1373,7 @@ input {
   box-shadow:
     0 1px 15px var(--glass-inner-shadow) inset,
     0 -1px 12px var(--glass-inner-highlight) inset;
-  contain: layout;
+  contain: layout paint;
 }
 
 .fullscreen-lyrics-open .content-pane {
