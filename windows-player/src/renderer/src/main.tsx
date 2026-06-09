@@ -4536,29 +4536,31 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
 
   return (
     <div
-      className={`amll-lyrics-surface ${variant === 'fullscreen' ? 'fullscreen-amll-shell' : 'side-amll-shell'} ${variant}`}
+      className={`amll-lyrics-surface ${variant === 'fullscreen' ? 'fullscreen-amll-shell' : 'side-amll-shell'} ${variant} quality-${renderQuality}`}
       ref={amllShellRef}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
     >
-      <LyricPlayer
-        key={`${variant}-${track?.id ?? 'empty'}`}
-        className={`fullscreen-amll-player amll-lyrics-player ${variant}`}
-        data-lyric-count={amllLines.length}
-        lyricLines={amllLines}
-        currentTime={Math.max(0, Math.round(playbackTime * 1000))}
-        isSeeking={isSeekingLyric}
-        playing={isPlaying}
-        alignAnchor="center"
-        alignPosition={0.18}
-        enableBlur={renderQuality !== 'performance' && !isLyricHovering}
-        enableScale={renderQuality !== 'performance'}
-        enableSpring={renderQuality === 'quality'}
-        wordFadeWidth={0.5}
-        optimizeOptions={amllOptimizeOptions}
-        bottomLine={amllBottomLine}
-        onLyricLineClick={handleLyricLineClick}
-      />
+      <div className="amll-quality-frame">
+        <LyricPlayer
+          key={`${variant}-${track?.id ?? 'empty'}`}
+          className={`fullscreen-amll-player amll-lyrics-player ${variant}`}
+          data-lyric-count={amllLines.length}
+          lyricLines={amllLines}
+          currentTime={Math.max(0, Math.round(playbackTime * 1000))}
+          isSeeking={isSeekingLyric}
+          playing={isPlaying}
+          alignAnchor="center"
+          alignPosition={0.18}
+          enableBlur={renderQuality !== 'performance' && !isLyricHovering}
+          enableScale={renderQuality !== 'performance'}
+          enableSpring={renderQuality === 'quality'}
+          wordFadeWidth={0.5}
+          optimizeOptions={amllOptimizeOptions}
+          bottomLine={amllBottomLine}
+          onLyricLineClick={handleLyricLineClick}
+        />
+      </div>
     </div>
   )
 })
