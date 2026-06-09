@@ -849,12 +849,12 @@ input {
 
 .now-playing-track-copy {
   position: absolute;
-  left: var(--mini-player-left-edge);
+  left: calc(var(--sidebar-width, 82px) + 18px);
   bottom: var(--playback-copy-bottom);
   z-index: 4;
   display: grid;
   gap: 7px;
-  max-width: min(520px, var(--mini-player-width));
+  max-width: min(520px, calc(100vw - var(--sidebar-width, 82px) - 80px));
   text-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 
@@ -4667,10 +4667,10 @@ input {
 
 .fullscreen-lyrics-copy {
   position: absolute;
-  left: var(--mini-player-left-edge);
-  bottom: var(--playback-copy-bottom);
+  left: clamp(72px, 7vw, 128px);
+  bottom: clamp(118px, 13vh, 168px);
   z-index: 2;
-  max-width: min(520px, var(--mini-player-width));
+  max-width: min(460px, 40vw);
   color: white;
 }
 
