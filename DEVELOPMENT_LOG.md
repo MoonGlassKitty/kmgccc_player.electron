@@ -131,3 +131,4 @@
 - 艺术封面 BPM 律动修正：检测到的 BPM 按“超过 130 则除 2”的规则归一，并把倍速/半速候选合并后选最高分；描边推进从 `setInterval` 改为 `requestAnimationFrame` 读取 audio.currentTime 计算 beat index，减少漂移和错拍。`npm run typecheck` 与 `npm run build` 已通过。
 - 艺术封面 BPM 重新测速：点击封面时会清除当前歌曲已缓存的 BPM，并停止当前 analyzer；如果这次点击是重新开启律动，会按当前歌曲重新检测 BPM，不再永久沿用第一次测速结果。`npm run typecheck` 与 `npm run build` 已通过。
 - 全屏播放 BK 饱和度提升：只调整 `mode-fullscreenDotOnly` 的全屏专用 BK，浅色/深色下的背景整体、image phase、dot gradient 和 dot grid 饱和度同步提高，避免全屏播放白天/黑夜都显得过灰。`npm run typecheck` 与 `npm run build` 已通过。
+- 艺术封面 BPM 检测换库：移除 `realtime-bpm-analyzer`，改用 `web-audio-beat-detector` 的 `guess(AudioBuffer, { minTempo: 45, maxTempo: 130 })` 离线分析当前歌曲，拿到 BPM 和 first beat offset 后驱动封面描边；点击封面会清当前曲目 beat 缓存并重新分析，分析失败才用 96 BPM 兜底。`npm run typecheck` 与 `npm run build` 已通过。

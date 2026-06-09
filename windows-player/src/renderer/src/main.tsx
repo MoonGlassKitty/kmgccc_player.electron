@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { LyricPlayer } from '@applemusic-like-lyrics/react'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
-import { createRealtimeBpmAnalyzer, type BpmAnalyzer, type BpmCandidates } from 'realtime-bpm-analyzer'
+import { guess } from 'web-audio-beat-detector'
 import {
   ArrowDownUp,
   CheckCircle2,
@@ -135,6 +135,11 @@ type Track = {
   albumMetadataFetchedAt?: string
   albumMetadataConfidence?: number
   albumArtworkUrl?: string
+}
+
+type ArtworkBeat = {
+  bpm: number
+  offset: number
 }
 
 type ImportSyncState = {
@@ -534,24 +539,6 @@ function normalizeArtworkPulseBpm(rawTempo: number): number {
   while (bpm > 180) bpm /= 2
   if (bpm > 130) bpm /= 2
   return clampNumber(Math.round(bpm), 45, 130)
-}
-
-function artworkPulseBpmFromCandidates(candidates: BpmCandidates['bpm']): number | null {
-  const scores = new Map<number, number>()
-  for (const candidate of candidates) {
-    const bpm = normalizeArtworkPulseBpm(candidate.tempo)
-    const score = candidate.count * Math.max(candidate.confidence, 0.35)
-    scores.set(bpm, (scores.get(bpm) ?? 0) + score)
-  }
-  let bestBpm: number | null = null
-  let bestScore = 0
-  for (const [bpm, score] of scores) {
-    if (score > bestScore) {
-      bestBpm = bpm
-      bestScore = score
-    }
-  }
-  return bestBpm
 }
 const playlistCoverBases = [playlistCover1, playlistCover2, playlistCover3, playlistCover4]
 
@@ -2238,7 +2225,7 @@ function App(): React.ReactElement {
   const [libraryLocationInfo, setLibraryLocationInfo] = React.useState<LibraryLocationInfo | null>(null)
   const [settingsActionStatus, setSettingsActionStatus] = React.useState<SettingsActionStatus>(null)
   const [artworkFrameIndex, setArtworkFrameIndex] = React.useState(0)
-  const [trackBpmById, setTrackBpmById] = React.useState<Record<string, number>>({})
+  const [trackBeatById, setTrackBeatById] = React.useState<Record<string, ArtworkBeat>>({})
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
@@ -2257,11 +2244,7 @@ function App(): React.ReactElement {
   const audioContextRef = React.useRef<AudioContext | null>(null)
   const audioSourceRef = React.useRef<MediaElementAudioSourceNode | null>(null)
   const audioAnalyserRef = React.useRef<AnalyserNode | null>(null)
-  const bpmAnalyzerRef = React.useRef<BpmAnalyzer | null>(null)
-  const bpmAnalyzerPromiseRef = React.useRef<Promise<BpmAnalyzer | null> | null>(null)
-  const bpmMutedGainRef = React.useRef<GainNode | null>(null)
-  const bpmDetectionTrackIdRef = React.useRef<string | null>(null)
-  const bpmCacheRef = React.useRef<Record<string, number>>({})
+  const beatCacheRef = React.useRef<Record<string, ArtworkBeat>>({})
   const artworkPulseFrameRef = React.useRef<number | null>(null)
   const artworkPulseLastBeatRef = React.useRef<number | null>(null)
   const ledAnimationFrameRef = React.useRef<number | null>(null)
@@ -2350,52 +2333,21 @@ function App(): React.ReactElement {
     }
     return audioAnalyserRef.current
   }, [])
-  const commitBpmCandidate = React.useCallback((data: BpmCandidates, stable: boolean): void => {
-    const trackId = bpmDetectionTrackIdRef.current
-    const candidate = data.bpm[0]
-    if (!trackId || !candidate) return
-    if (bpmCacheRef.current[trackId]) return
-    if (!stable && candidate.confidence < 0.58 && candidate.count < 8) return
-    const bpm = artworkPulseBpmFromCandidates(data.bpm)
-    if (!bpm) return
-    bpmCacheRef.current = { ...bpmCacheRef.current, [trackId]: bpm }
-    setTrackBpmById((previous) => (
-      previous[trackId] ? previous : { ...previous, [trackId]: bpm }
-    ))
-    bpmDetectionTrackIdRef.current = null
-    bpmAnalyzerRef.current?.stop()
+  const analyzeArtworkBeat = React.useCallback(async (track: Track): Promise<ArtworkBeat> => {
+    if (!track.sourceUrl) throw new Error('Track sourceUrl is empty')
+    const AudioContextCtor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextCtor) throw new Error('AudioContext is not available')
+    if (!audioContextRef.current) audioContextRef.current = new AudioContextCtor()
+    const context = audioContextRef.current
+    const response = await fetch(track.sourceUrl)
+    const arrayBuffer = await response.arrayBuffer()
+    const audioBuffer = await context.decodeAudioData(arrayBuffer.slice(0))
+    const result = await guess(audioBuffer, { minTempo: 45, maxTempo: 130 })
+    return {
+      bpm: normalizeArtworkPulseBpm(result.bpm),
+      offset: clampNumber(result.offset || 0, 0, Math.max(0, audioBuffer.duration))
+    }
   }, [])
-  const ensureBpmAnalyzer = React.useCallback(async (): Promise<BpmAnalyzer | null> => {
-    if (bpmAnalyzerRef.current) return bpmAnalyzerRef.current
-    if (bpmAnalyzerPromiseRef.current) return bpmAnalyzerPromiseRef.current
-    bpmAnalyzerPromiseRef.current = (async () => {
-      const analyser = ensureAudioAnalyser()
-      const context = audioContextRef.current
-      const source = audioSourceRef.current
-      if (!analyser || !context || !source) return null
-      const analyzer = await createRealtimeBpmAnalyzer(context, {
-        continuousAnalysis: false,
-        stabilizationTime: 8000,
-        debug: false
-      })
-      const mutedGain = context.createGain()
-      mutedGain.gain.value = 0
-      source.connect(analyzer.node)
-      analyzer.node.connect(mutedGain)
-      mutedGain.connect(context.destination)
-      analyzer.on('bpmStable', (data) => commitBpmCandidate(data, true))
-      analyzer.on('bpm', (data) => commitBpmCandidate(data, false))
-      analyzer.on('error', () => {
-        bpmDetectionTrackIdRef.current = null
-      })
-      bpmAnalyzerRef.current = analyzer
-      bpmMutedGainRef.current = mutedGain
-      return analyzer
-    })().finally(() => {
-      bpmAnalyzerPromiseRef.current = null
-    })
-    return bpmAnalyzerPromiseRef.current
-  }, [commitBpmCandidate, ensureAudioAnalyser])
   const lyricPlaybackOffsetSeconds = (lyricsGlobalAdvanceMs + lookaheadMs) / 1000
   const effectiveLyricPlaybackTime = Math.max(0, playbackTime + lyricPlaybackOffsetSeconds)
   const lyricsWidth = isLyricsSidebarOpen ? lyricsSidebarWidth : 0
@@ -2458,36 +2410,31 @@ function App(): React.ReactElement {
 
   React.useEffect(() => {
     if (!isArtworkBpmPulseEnabled || !isPlaying || !currentTrack?.id || !currentTrack.sourceUrl) {
-      bpmAnalyzerRef.current?.stop()
-      bpmDetectionTrackIdRef.current = null
       return
     }
     const detectionTrackId = currentTrack.id
-    if (bpmCacheRef.current[detectionTrackId]) {
-      bpmAnalyzerRef.current?.stop()
-      bpmDetectionTrackIdRef.current = null
-      return
-    }
+    if (beatCacheRef.current[detectionTrackId]) return
     let cancelled = false
-    void ensureBpmAnalyzer().then((analyzer) => {
-      if (cancelled || !analyzer || bpmCacheRef.current[detectionTrackId]) return
-      const context = audioContextRef.current
-      void context?.resume().catch(() => undefined)
-      bpmDetectionTrackIdRef.current = detectionTrackId
-      analyzer.reset()
-    })
+    void analyzeArtworkBeat(currentTrack)
+      .then((beat) => {
+        if (cancelled) return
+        beatCacheRef.current = { ...beatCacheRef.current, [detectionTrackId]: beat }
+        setTrackBeatById((previous) => ({ ...previous, [detectionTrackId]: beat }))
+      })
+      .catch(() => {
+        if (cancelled) return
+        const fallbackBeat = { bpm: 96, offset: audioRef.current?.currentTime ?? 0 }
+        beatCacheRef.current = { ...beatCacheRef.current, [detectionTrackId]: fallbackBeat }
+        setTrackBeatById((previous) => ({ ...previous, [detectionTrackId]: fallbackBeat }))
+      })
     return () => {
       cancelled = true
-      if (bpmDetectionTrackIdRef.current === detectionTrackId) {
-        bpmAnalyzerRef.current?.stop()
-        bpmDetectionTrackIdRef.current = null
-      }
     }
-  }, [currentTrack?.id, currentTrack?.sourceUrl, ensureBpmAnalyzer, isArtworkBpmPulseEnabled, isPlaying])
+  }, [analyzeArtworkBeat, currentTrack, currentTrack?.id, currentTrack?.sourceUrl, isArtworkBpmPulseEnabled, isPlaying])
 
   React.useEffect(() => {
-    const bpm = currentTrack?.id ? trackBpmById[currentTrack.id] : null
-    if (!isArtworkBpmPulseEnabled || !isPlaying || !bpm) {
+    const beat = currentTrack?.id ? trackBeatById[currentTrack.id] : null
+    if (!isArtworkBpmPulseEnabled || !isPlaying || !beat) {
       artworkPulseLastBeatRef.current = null
       if (artworkPulseFrameRef.current !== null) {
         window.cancelAnimationFrame(artworkPulseFrameRef.current)
@@ -2495,10 +2442,10 @@ function App(): React.ReactElement {
       }
       return
     }
-    const beatSeconds = 60 / bpm
+    const beatSeconds = 60 / beat.bpm
     const tick = (): void => {
       const time = audioRef.current?.currentTime ?? playbackTime
-      const beatIndex = Math.floor(time / beatSeconds)
+      const beatIndex = Math.floor(Math.max(0, time - beat.offset) / beatSeconds)
       if (artworkPulseLastBeatRef.current !== beatIndex) {
         artworkPulseLastBeatRef.current = beatIndex
         setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)
@@ -2513,7 +2460,7 @@ function App(): React.ReactElement {
       }
       artworkPulseLastBeatRef.current = null
     }
-  }, [currentTrack?.id, isArtworkBpmPulseEnabled, isPlaying, playbackTime, trackBpmById])
+  }, [currentTrack?.id, isArtworkBpmPulseEnabled, isPlaying, playbackTime, trackBeatById])
 
   React.useEffect(() => {
     persistSetting('globalArtworkTintEnabled', globalArtworkTintEnabled)
@@ -3148,18 +3095,16 @@ function App(): React.ReactElement {
   const toggleArtworkBpmPulse = React.useCallback(() => {
     const trackId = currentTrack?.id
     if (trackId) {
-      const nextCache = { ...bpmCacheRef.current }
+      const nextCache = { ...beatCacheRef.current }
       delete nextCache[trackId]
-      bpmCacheRef.current = nextCache
-      setTrackBpmById((previous) => {
+      beatCacheRef.current = nextCache
+      setTrackBeatById((previous) => {
         if (!previous[trackId]) return previous
         const next = { ...previous }
         delete next[trackId]
         return next
       })
     }
-    bpmAnalyzerRef.current?.stop()
-    bpmDetectionTrackIdRef.current = null
     artworkPulseLastBeatRef.current = null
     setIsArtworkBpmPulseEnabled((value) => !value)
   }, [currentTrack?.id])
@@ -3413,8 +3358,6 @@ function App(): React.ReactElement {
     if (artworkPulseFrameRef.current !== null) {
       window.cancelAnimationFrame(artworkPulseFrameRef.current)
     }
-    bpmAnalyzerRef.current?.disconnect()
-    bpmMutedGainRef.current?.disconnect()
   }, [])
 
   return (
