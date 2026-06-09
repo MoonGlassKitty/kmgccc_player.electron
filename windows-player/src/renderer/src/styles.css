@@ -1265,7 +1265,7 @@ input {
 
 .settings-skin-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
   gap: 12px;
   padding: 18px 24px;
   border-radius: 18px;
@@ -1300,31 +1300,176 @@ input {
 }
 
 .skin-thumb {
+  position: relative;
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  width: 82px;
   height: 82px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--cover-accent), var(--cover-accent-text));
-  opacity: 0.44;
+  color: rgba(0, 0, 0, 0.28);
+  opacity: 1;
+}
+
+.skin-thumb::before,
+.skin-thumb::after {
+  content: "";
+  display: block;
+  box-sizing: border-box;
 }
 
 .skin-thumb.cover-led {
+  align-content: center;
+  gap: 8px;
+}
+
+.skin-thumb.cover-led::before {
+  width: 48px;
+  height: 48px;
+  border: 1.5px solid rgba(0, 0, 0, 0.22);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.skin-thumb.cover-led::after {
+  width: 41px;
+  height: 5px;
   background:
-    radial-gradient(circle at 50% 80%, rgba(255, 255, 255, 0.72) 0 4px, transparent 5px 100%),
-    linear-gradient(135deg, var(--cover-accent), var(--cover-accent-text));
+    radial-gradient(circle, rgba(0, 0, 0, 0.12) 0 2.5px, transparent 2.8px) 0 0 / 13.5px 5px repeat-x;
 }
 
-.skin-thumb.apple-style {
-  filter: blur(0.4px) saturate(1.3);
+.skin-thumb.cover-led .skin-thumb-glyph {
+  display: none;
 }
 
-.skin-thumb.rotating {
+.skin-thumb.cover-led::before {
+  background:
+    var(--skin-symbol) center / 32px 32px no-repeat,
+    rgba(0, 0, 0, 0.06);
+}
+
+.skin-thumb.apple-style::before {
+  content: "A";
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 1.5px solid rgba(0, 0, 0, 0.22);
+  border-radius: 8px;
+  color: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.06);
+  font-size: 26px;
+  font-weight: 620;
+  font-family: ui-rounded, "SF Pro Rounded", "SF Pro Display", system-ui, sans-serif;
+}
+
+.skin-thumb.rotating::before {
+  width: 54px;
+  height: 54px;
+  border: 1.5px solid rgba(0, 0, 0, 0.22);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(0, 0, 0, 0.28) 0 2.5px, transparent 3px),
+    radial-gradient(circle, rgba(0, 0, 0, 0.06) 0 13px, transparent 13.5px),
+    radial-gradient(circle, transparent 0 20px, rgba(0, 0, 0, 0.11) 20.5px 21px, transparent 21.5px);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.22) inset,
+    0 0 0 12px rgba(255, 255, 255, 0) inset;
+}
+
+.skin-thumb.rotating::after {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  border-radius: 50%;
+}
+
+.skin-thumb.kmgccc-cassette::before {
+  width: 56px;
+  height: 36px;
+  border: 1.5px solid rgba(0, 0, 0, 0.22);
+  border-radius: 6px;
+  background:
+    radial-gradient(circle at 19px 18px, transparent 0 3px, rgba(0, 0, 0, 0.22) 3.5px 4px, transparent 4.5px),
+    radial-gradient(circle at 37px 18px, transparent 0 3px, rgba(0, 0, 0, 0.22) 3.5px 4px, transparent 4.5px),
+    linear-gradient(rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.06));
+}
+
+.skin-thumb.kmgccc-cassette::after {
+  position: absolute;
+  width: 32px;
+  height: 15px;
+  border: 1px solid rgba(0, 0, 0, 0.13);
   border-radius: 999px;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.skin-thumb.cover-gradient-blur::before {
+  width: 60px;
+  height: 60px;
+  border: 1.5px solid rgba(0, 0, 0, 0.22);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.06);
+  filter: blur(0.2px);
+}
+
+.skin-thumb.cover-gradient-blur::after {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  background: var(--skin-symbol) center / contain no-repeat;
+}
+
+.appearance-manual.appearance-dark .skin-thumb {
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.appearance-manual.appearance-dark .skin-thumb.cover-led::before,
+.appearance-manual.appearance-dark .skin-thumb.apple-style::before,
+.appearance-manual.appearance-dark .skin-thumb.cover-gradient-blur::before {
+  border-color: rgba(255, 255, 255, 0.26);
+  color: rgba(255, 255, 255, 0.36);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.appearance-manual.appearance-dark .skin-thumb.cover-gradient-blur::after {
+  filter: invert(1);
+  opacity: 0.86;
+}
+
+.appearance-manual.appearance-dark .skin-thumb.cover-led::after {
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.36) 0 2.5px, transparent 2.8px) 0 0 / 13.5px 5px repeat-x;
+}
+
+.appearance-manual.appearance-dark .skin-thumb.rotating::before {
+  border-color: rgba(255, 255, 255, 0.26);
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.36) 0 2.5px, transparent 3px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.08) 0 13px, transparent 13.5px),
+    radial-gradient(circle, transparent 0 20px, rgba(255, 255, 255, 0.18) 20.5px 21px, transparent 21.5px);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.26) inset;
+}
+
+.appearance-manual.appearance-dark .skin-thumb.rotating::after,
+.appearance-manual.appearance-dark .skin-thumb.kmgccc-cassette::before {
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.appearance-manual.appearance-dark .skin-thumb.kmgccc-cassette::before {
+  background:
+    radial-gradient(circle at 19px 18px, transparent 0 3px, rgba(255, 255, 255, 0.26) 3.5px 4px, transparent 4.5px),
+    radial-gradient(circle at 37px 18px, transparent 0 3px, rgba(255, 255, 255, 0.26) 3.5px 4px, transparent 4.5px),
+    linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08));
+}
+
+.appearance-manual.appearance-dark .skin-thumb.kmgccc-cassette::after {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .skin-thumb.kmgccc-cassette {
   border-radius: 8px;
-  background:
-    linear-gradient(90deg, transparent 18%, rgba(255, 255, 255, 0.56) 18% 82%, transparent 82%),
-    linear-gradient(135deg, var(--cover-accent), var(--cover-accent-text));
 }
 
 .settings-empty {

@@ -62,3 +62,4 @@
 - 歌词跳转再修正：目标时间额外前移 50ms，避免命中判定边界时落回上一句。`npm run typecheck` 与 `npm run build` 已通过。
 - 歌词点击/滚动改回 AMLL 原生事件路径：移除自定义透明命中层和 DOM 测量映射，点击直接使用 `onLyricLineClick` 返回的行索引 seek，并给 AMLL 短暂 `isSeeking` 状态；滚轮/手势不再被覆盖层吃掉，底栏时间也改回真实播放时间而非歌词提前时间。`npm run typecheck` 与 `npm run build` 已通过。
 - 歌词栏液态/磨砂背景切换修正：移除歌词侧栏 inline `--filter-url`，让 `lyrics-bg-clear/sidebar` 能真正覆盖；液态模式继续使用 `lg-sidebar` 折射滤镜，磨砂模式改为高 blur、低边缘/内阴影的普通 frosted glass。`npm run typecheck` 与 `npm run build` 已通过。
+- 全屏播放外观选择按 Swift 区分窗口/全屏皮肤：新增全屏专属 `fullscreen.coverGradientBlur` 选项并置顶，补右侧填充和模糊半径设置；皮肤预览改为 Swift `SkinPreviewViews` 的中性向量结构，并从本机 macOS SF Symbols 导出 `music.note` / `photo` 用于源程序同款预览图。`npm run typecheck` 与 `npm run build` 已通过。

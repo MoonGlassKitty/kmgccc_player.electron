@@ -75,6 +75,8 @@ import playlistCover1 from './assets/xc-assets/cov1.png'
 import playlistCover2 from './assets/xc-assets/cov2.png'
 import playlistCover3 from './assets/xc-assets/cov3.png'
 import playlistCover4 from './assets/xc-assets/cov4.png'
+import sfMusicNote from './assets/sf-symbols/music-note.png'
+import sfPhoto from './assets/sf-symbols/photo.png'
 import './styles.css'
 
 type Track = {
@@ -334,8 +336,10 @@ type DetailRoute = Exclude<AppRoute, { name: 'home' } | { name: 'nowPlaying' }>
 type SettingsCategoryKey = 'appearance' | 'nowPlaying' | 'fullscreen' | 'externalPlayback' | 'data' | 'about'
 type NowPlayingSettingsTab = 'general' | 'lyrics' | 'led'
 type NowPlayingSkinID = 'coverLed' | 'appleStyle' | 'rotatingCover' | 'kmgccc.cassette'
+type FullscreenSkinID = NowPlayingSkinID | 'fullscreen.coverGradientBlur'
 type VisualizerMode = 'off' | 'led' | 'spectrum'
 type AppleMeshSpeed = 'slow' | 'standard' | 'fast'
+type CoverGradientEdgeFillMode = 'pixelStretch' | 'mirroredCover'
 type LyricsBackgroundMode = 'clear' | 'sidebar'
 type HomeCardMaterialMode = 'liquidGlass' | 'frostedGlass' | 'solid'
 type HomeSectionID = 'featured' | 'artists' | 'albums' | 'playlists' | 'listeningFootprint'
@@ -380,6 +384,10 @@ const nowPlayingSkinOptions: Array<{ id: NowPlayingSkinID; name: string; detail:
   { id: 'appleStyle', name: 'Apple 风格', detail: 'AMLL Mesh 背景' },
   { id: 'rotatingCover', name: '旋转封面', detail: '黑胶/CD 旋转封面' },
   { id: 'kmgccc.cassette', name: 'kmgccc 磁带', detail: '磁带主体与 KMG 标识' }
+]
+const fullscreenSkinOptions: Array<{ id: FullscreenSkinID; name: string; detail: string }> = [
+  { id: 'fullscreen.coverGradientBlur', name: '封面渐变模糊', detail: '全屏封面延展背景' },
+  ...nowPlayingSkinOptions
 ]
 
 const homeSectionOptions: Array<{ id: HomeSectionID; title: string }> = [
@@ -616,8 +624,10 @@ function persistJsonSetting(key: string, value: unknown): void {
   }
 }
 
-function skinPreviewClassName(skin: NowPlayingSkinID): string {
+function skinPreviewClassName(skin: FullscreenSkinID): string {
   switch (skin) {
+    case 'fullscreen.coverGradientBlur':
+      return 'cover-gradient-blur'
     case 'coverLed':
       return 'cover-led'
     case 'appleStyle':
@@ -627,6 +637,12 @@ function skinPreviewClassName(skin: NowPlayingSkinID): string {
     case 'kmgccc.cassette':
       return 'kmgccc-cassette'
   }
+}
+
+function skinPreviewSymbolStyle(skin: FullscreenSkinID): React.CSSProperties | undefined {
+  if (skin === 'coverLed') return { '--skin-symbol': `url(${sfMusicNote})` } as React.CSSProperties
+  if (skin === 'fullscreen.coverGradientBlur') return { '--skin-symbol': `url(${sfPhoto})` } as React.CSSProperties
+  return undefined
 }
 
 function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<string, HomeAlbumCard>): React.CSSProperties {
@@ -1811,12 +1827,14 @@ function App(): React.ReactElement {
   const [ledCutoffHz, setLedCutoffHz] = React.useState(() => storedNumber('ledCutoffHz', 2400))
   const [ledSpeed, setLedSpeed] = React.useState(() => storedNumber('ledSpeed', 1.15))
   const [ledValues, setLedValues] = React.useState<number[]>([])
-  const [selectedFullscreenSkin, setSelectedFullscreenSkin] = React.useState<NowPlayingSkinID>(() => storedString('fullscreenSkin', 'kmgccc.cassette', ['coverLed', 'appleStyle', 'rotatingCover', 'kmgccc.cassette']))
+  const [selectedFullscreenSkin, setSelectedFullscreenSkin] = React.useState<FullscreenSkinID>(() => storedString('fullscreenSkin', 'kmgccc.cassette', ['fullscreen.coverGradientBlur', 'coverLed', 'appleStyle', 'rotatingCover', 'kmgccc.cassette']))
   const [isFullscreenArtBackgroundEnabled, setIsFullscreenArtBackgroundEnabled] = React.useState(() => storedBoolean('fullscreenArtBackgroundEnabled', true))
   const [fullscreenClassicVisualizerMode, setFullscreenClassicVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.classicLED.fullscreen.visualizerMode', 'led'))
   const [fullscreenAppleVisualizerMode, setFullscreenAppleVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.appleStyle.fullscreen.visualizerMode', 'led'))
   const [fullscreenRotatingVisualizerMode, setFullscreenRotatingVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.rotatingCover.fullscreen.visualizerMode', 'off'))
   const [fullscreenCassetteVisualizerMode, setFullscreenCassetteVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.kmgcccCassette.fullscreen.visualizerMode', 'off'))
+  const [coverGradientEdgeFillMode, setCoverGradientEdgeFillMode] = React.useState<CoverGradientEdgeFillMode>(() => storedString('skin.coverGradientBlur.edgeFillMode', 'pixelStretch', ['pixelStretch', 'mirroredCover']))
+  const [coverGradientBlurRadius, setCoverGradientBlurRadius] = React.useState(() => clampNumber(storedNumber('skin.coverGradientBlur.maxBlurRadius', 1600), 100, 2500))
   const [fullscreenLyricsRenderQuality, setFullscreenLyricsRenderQuality] = React.useState<LyricsRenderQuality>(() => storedString('fullscreen.amllLyricsRenderQuality', 'balanced', ['performance', 'balanced', 'quality']))
   const [fullscreenDiscreteWordHighlightEnabled, setFullscreenDiscreteWordHighlightEnabled] = React.useState(() => storedBoolean('fullscreen.amllDiscreteWordHighlightEnabled', false))
   const [fullscreenLyricsFontSize, setFullscreenLyricsFontSize] = React.useState(() => clampNumber(storedNumber('fullscreen.lyricsFontSize', 30), 16, 56))
@@ -2130,6 +2148,14 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     persistSetting('skin.kmgcccCassette.fullscreen.visualizerMode', fullscreenCassetteVisualizerMode)
   }, [fullscreenCassetteVisualizerMode])
+
+  React.useEffect(() => {
+    persistSetting('skin.coverGradientBlur.edgeFillMode', coverGradientEdgeFillMode)
+  }, [coverGradientEdgeFillMode])
+
+  React.useEffect(() => {
+    persistSetting('skin.coverGradientBlur.maxBlurRadius', coverGradientBlurRadius)
+  }, [coverGradientBlurRadius])
 
   React.useEffect(() => {
     persistSetting('fullscreen.amllLyricsRenderQuality', fullscreenLyricsRenderQuality)
@@ -2979,6 +3005,10 @@ function App(): React.ReactElement {
             onFullscreenRotatingVisualizerModeChange={setFullscreenRotatingVisualizerMode}
             fullscreenCassetteVisualizerMode={fullscreenCassetteVisualizerMode}
             onFullscreenCassetteVisualizerModeChange={setFullscreenCassetteVisualizerMode}
+            coverGradientEdgeFillMode={coverGradientEdgeFillMode}
+            onCoverGradientEdgeFillModeChange={setCoverGradientEdgeFillMode}
+            coverGradientBlurRadius={coverGradientBlurRadius}
+            onCoverGradientBlurRadiusChange={setCoverGradientBlurRadius}
             fullscreenLyricsRenderQuality={fullscreenLyricsRenderQuality}
             onFullscreenLyricsRenderQualityChange={setFullscreenLyricsRenderQuality}
             fullscreenDiscreteWordHighlightEnabled={fullscreenDiscreteWordHighlightEnabled}
@@ -5506,6 +5536,10 @@ const SettingsPanel = React.memo(function SettingsPanel({
   onFullscreenRotatingVisualizerModeChange,
   fullscreenCassetteVisualizerMode,
   onFullscreenCassetteVisualizerModeChange,
+  coverGradientEdgeFillMode,
+  onCoverGradientEdgeFillModeChange,
+  coverGradientBlurRadius,
+  onCoverGradientBlurRadiusChange,
   fullscreenLyricsRenderQuality,
   onFullscreenLyricsRenderQualityChange,
   fullscreenDiscreteWordHighlightEnabled,
@@ -5607,8 +5641,8 @@ const SettingsPanel = React.memo(function SettingsPanel({
   onLedSpeedChange: (value: number) => void
   selectedFullscreenTab: NowPlayingSettingsTab
   onSelectFullscreenTab: (tab: NowPlayingSettingsTab) => void
-  selectedFullscreenSkin: NowPlayingSkinID
-  onSelectedFullscreenSkinChange: (skin: NowPlayingSkinID) => void
+  selectedFullscreenSkin: FullscreenSkinID
+  onSelectedFullscreenSkinChange: (skin: FullscreenSkinID) => void
   fullscreenArtBackgroundEnabled: boolean
   onFullscreenArtBackgroundEnabledChange: (enabled: boolean) => void
   fullscreenClassicVisualizerMode: VisualizerMode
@@ -5619,6 +5653,10 @@ const SettingsPanel = React.memo(function SettingsPanel({
   onFullscreenRotatingVisualizerModeChange: (mode: VisualizerMode) => void
   fullscreenCassetteVisualizerMode: VisualizerMode
   onFullscreenCassetteVisualizerModeChange: (mode: VisualizerMode) => void
+  coverGradientEdgeFillMode: CoverGradientEdgeFillMode
+  onCoverGradientEdgeFillModeChange: (mode: CoverGradientEdgeFillMode) => void
+  coverGradientBlurRadius: number
+  onCoverGradientBlurRadiusChange: (value: number) => void
   fullscreenLyricsRenderQuality: 'performance' | 'balanced' | 'quality'
   onFullscreenLyricsRenderQualityChange: (quality: 'performance' | 'balanced' | 'quality') => void
   fullscreenDiscreteWordHighlightEnabled: boolean
@@ -5757,6 +5795,10 @@ const SettingsPanel = React.memo(function SettingsPanel({
               onRotatingVisualizerModeChange={onFullscreenRotatingVisualizerModeChange}
               cassetteVisualizerMode={fullscreenCassetteVisualizerMode}
               onCassetteVisualizerModeChange={onFullscreenCassetteVisualizerModeChange}
+              coverGradientEdgeFillMode={coverGradientEdgeFillMode}
+              onCoverGradientEdgeFillModeChange={onCoverGradientEdgeFillModeChange}
+              coverGradientBlurRadius={coverGradientBlurRadius}
+              onCoverGradientBlurRadiusChange={onCoverGradientBlurRadiusChange}
               lyricsRenderQuality={fullscreenLyricsRenderQuality}
               onLyricsRenderQualityChange={onFullscreenLyricsRenderQualityChange}
               discreteWordHighlightEnabled={fullscreenDiscreteWordHighlightEnabled}
@@ -5981,6 +6023,10 @@ const FullscreenSettingsContent = React.memo(function FullscreenSettingsContent(
   onRotatingVisualizerModeChange,
   cassetteVisualizerMode,
   onCassetteVisualizerModeChange,
+  coverGradientEdgeFillMode,
+  onCoverGradientEdgeFillModeChange,
+  coverGradientBlurRadius,
+  onCoverGradientBlurRadiusChange,
   lyricsRenderQuality,
   onLyricsRenderQualityChange,
   discreteWordHighlightEnabled,
@@ -6002,8 +6048,8 @@ const FullscreenSettingsContent = React.memo(function FullscreenSettingsContent(
 }: {
   selectedTab: NowPlayingSettingsTab
   onSelectTab: (tab: NowPlayingSettingsTab) => void
-  selectedSkin: NowPlayingSkinID
-  onSelectedSkinChange: (skin: NowPlayingSkinID) => void
+  selectedSkin: FullscreenSkinID
+  onSelectedSkinChange: (skin: FullscreenSkinID) => void
   artBackgroundEnabled: boolean
   onArtBackgroundEnabledChange: (enabled: boolean) => void
   classicVisualizerMode: VisualizerMode
@@ -6014,6 +6060,10 @@ const FullscreenSettingsContent = React.memo(function FullscreenSettingsContent(
   onRotatingVisualizerModeChange: (mode: VisualizerMode) => void
   cassetteVisualizerMode: VisualizerMode
   onCassetteVisualizerModeChange: (mode: VisualizerMode) => void
+  coverGradientEdgeFillMode: CoverGradientEdgeFillMode
+  onCoverGradientEdgeFillModeChange: (mode: CoverGradientEdgeFillMode) => void
+  coverGradientBlurRadius: number
+  onCoverGradientBlurRadiusChange: (value: number) => void
   lyricsRenderQuality: 'performance' | 'balanced' | 'quality'
   onLyricsRenderQualityChange: (quality: 'performance' | 'balanced' | 'quality') => void
   discreteWordHighlightEnabled: boolean
@@ -6033,7 +6083,7 @@ const FullscreenSettingsContent = React.memo(function FullscreenSettingsContent(
   ledSpeed: number
   onLedSpeedChange: (value: number) => void
 }): React.ReactElement {
-  const selectedSkinOption = nowPlayingSkinOptions.find((skin) => skin.id === selectedSkin) ?? nowPlayingSkinOptions[0]
+  const selectedSkinOption = fullscreenSkinOptions.find((skin) => skin.id === selectedSkin) ?? fullscreenSkinOptions[0]
   const visualizerMode = selectedSkin === 'coverLed'
     ? classicVisualizerMode
     : selectedSkin === 'appleStyle'
@@ -6071,9 +6121,9 @@ const FullscreenSettingsContent = React.memo(function FullscreenSettingsContent(
           <div className="settings-card-section">
             <strong>选择皮肤</strong>
             <div className="settings-skin-row">
-              {nowPlayingSkinOptions.map((skin) => (
+              {fullscreenSkinOptions.map((skin) => (
                 <button key={skin.id} className={selectedSkin === skin.id ? 'active' : ''} type="button" onClick={() => onSelectedSkinChange(skin.id)}>
-                  <span className={`skin-thumb ${skinPreviewClassName(skin.id)}`} />
+                  <span className={`skin-thumb ${skinPreviewClassName(skin.id)}`} style={skinPreviewSymbolStyle(skin.id)} />
                   <strong>{skin.name}</strong>
                   <small>{skin.detail}</small>
                 </button>
@@ -6081,7 +6131,14 @@ const FullscreenSettingsContent = React.memo(function FullscreenSettingsContent(
             </div>
           </div>
           <SettingsSection title={`${selectedSkinOption.name} 选项`}>
-            <SettingsSegment title="可视化" values={['off', 'led', 'spectrum']} labels={['关闭', 'LED', '频谱']} selected={visualizerMode} onSelect={(value) => setVisualizerMode(value as VisualizerMode)} />
+            {selectedSkin === 'fullscreen.coverGradientBlur' ? (
+              <>
+                <SettingsSegment title="右侧填充" values={['pixelStretch', 'mirroredCover']} labels={['像素拉伸', '镜像封面']} selected={coverGradientEdgeFillMode} onSelect={(value) => onCoverGradientEdgeFillModeChange(value as CoverGradientEdgeFillMode)} />
+                <SettingsRange title="模糊半径" valueText={`${Math.round(coverGradientBlurRadius)}`} value={coverGradientBlurRadius} min={100} max={2500} step={100} onChange={onCoverGradientBlurRadiusChange} />
+              </>
+            ) : (
+              <SettingsSegment title="可视化" values={['off', 'led', 'spectrum']} labels={['关闭', 'LED', '频谱']} selected={visualizerMode} onSelect={(value) => setVisualizerMode(value as VisualizerMode)} />
+            )}
           </SettingsSection>
         </div>
       ) : selectedTab === 'lyrics' ? (
@@ -6423,7 +6480,7 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
                   type="button"
                   onClick={() => onSelectedSkinChange(skin.id)}
                 >
-                  <span className={`skin-thumb ${skinPreviewClassName(skin.id)}`} />
+                  <span className={`skin-thumb ${skinPreviewClassName(skin.id)}`} style={skinPreviewSymbolStyle(skin.id)} />
                   <strong>{skin.name}</strong>
                   <small>{skin.detail}</small>
                 </button>
