@@ -1921,13 +1921,14 @@ function App(): React.ReactElement {
   const effectiveLyricPlaybackTime = Math.max(0, playbackTime + lyricPlaybackOffsetSeconds)
   const lyricsWidth = isLyricsSidebarOpen ? lyricsSidebarWidth : 0
   const adaptiveSidebarWidth = React.useMemo(() => {
+    if (isFullscreenLyricsOpen) return Math.max(sidebarWidth, DEFAULT_SIDEBAR_WIDTH)
     if (isSidebarCollapsed) return COLLAPSED_SIDEBAR_WIDTH
     const contentTargetWidth = isLyricsSidebarOpen ? 760 : 820
     const availableSidebarWidth = viewportWidth - lyricsWidth - contentTargetWidth
     if (availableSidebarWidth < 180) return COLLAPSED_SIDEBAR_WIDTH
     return clampNumber(Math.min(sidebarWidth, availableSidebarWidth), 180, sidebarWidth)
-  }, [isLyricsSidebarOpen, isSidebarCollapsed, lyricsWidth, sidebarWidth, viewportWidth])
-  const isSidebarVisuallyCollapsed = isSidebarCollapsed || adaptiveSidebarWidth <= 118
+  }, [isFullscreenLyricsOpen, isLyricsSidebarOpen, isSidebarCollapsed, lyricsWidth, sidebarWidth, viewportWidth])
+  const isSidebarVisuallyCollapsed = !isFullscreenLyricsOpen && (isSidebarCollapsed || adaptiveSidebarWidth <= 118)
   const openContextMenu = React.useCallback((event: React.MouseEvent, items: ContextMenuItem[]) => {
     event.preventDefault()
     event.stopPropagation()

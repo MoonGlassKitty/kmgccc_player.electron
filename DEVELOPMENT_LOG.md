@@ -64,3 +64,4 @@
 - 歌词栏液态/磨砂背景切换修正：移除歌词侧栏 inline `--filter-url`，让 `lyrics-bg-clear/sidebar` 能真正覆盖；液态模式继续使用 `lg-sidebar` 折射滤镜，磨砂模式改为高 blur、低边缘/内阴影的普通 frosted glass。`npm run typecheck` 与 `npm run build` 已通过。
 - 全屏播放外观选择按 Swift 区分窗口/全屏皮肤：新增全屏专属 `fullscreen.coverGradientBlur` 选项并置顶，补右侧填充和模糊半径设置；皮肤预览改为 Swift `SkinPreviewViews` 的中性向量结构，并从本机 macOS SF Symbols 导出 `music.note` / `photo` 用于源程序同款预览图。`npm run typecheck` 与 `npm run build` 已通过。
 - 主歌词界面打开时不再强制收缩左侧导航栏；保留 `.fullscreen-lyrics-open .sidebar` 的透明玻璃外观，只移除 `isFullscreenLyricsOpen -> setIsSidebarCollapsed(true)` 的自动折叠副作用。`npm run typecheck` 与 `npm run build` 已通过。
+- 主歌词界面左栏展开逻辑继续修正：全屏歌词打开期间 `isSidebarVisuallyCollapsed` 强制为 false，并让 sidebar 宽度绕过 collapsed/自适应压缩，避免从展开 Home 进入歌词后仍被关成窄栏；透明 sidebar CSS 保持不变。`npm run typecheck` 与 `npm run build` 已通过。
