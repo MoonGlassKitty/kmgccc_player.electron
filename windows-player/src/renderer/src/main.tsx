@@ -533,6 +533,7 @@ type LibraryDialogState =
 const bkShapeAssets = [shape1, shape2, shape3, shape4, shape5, shape6, shape7, shape8, shape9, shape10, shape11]
 const bkBackgroundAssets = [bkBackground1, bkBackground2]
 const artworkFrameAssets = [artworkFrame1, artworkFrame2, artworkFrame3, artworkFrame4]
+const ARTWORK_PULSE_VISUAL_ADVANCE_SECONDS = 0.1
 
 function normalizeArtworkPulseBpm(rawTempo: number): number {
   let bpm = rawTempo
@@ -2487,7 +2488,7 @@ function App(): React.ReactElement {
     }
     const beatSeconds = 60 / beat.bpm
     const tick = (): void => {
-      const time = audioRef.current?.currentTime ?? 0
+      const time = (audioRef.current?.currentTime ?? 0) + ARTWORK_PULSE_VISUAL_ADVANCE_SECONDS
       const beatIndex = Math.floor(Math.max(0, time - beat.offset) / beatSeconds)
       if (artworkPulseLastBeatRef.current !== beatIndex) {
         artworkPulseLastBeatRef.current = beatIndex
