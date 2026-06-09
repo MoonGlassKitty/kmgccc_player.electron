@@ -4170,7 +4170,7 @@ const HomePage = React.memo(function HomePage({
     }
     if (section === 'artists') {
       return (
-        <HomeSectionBlock key={section} title="艺人" onShowAll={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
+        <HomeSectionBlock key={section} title="艺人" variant="clipCarousel" onShowAll={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
           <div className="home-card-grid compact">
             {snapshot.artists.map((artist) => (
               <button
@@ -4193,7 +4193,7 @@ const HomePage = React.memo(function HomePage({
     }
     if (section === 'albums') {
       return (
-        <HomeSectionBlock key={section} title="专辑" onShowAll={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
+        <HomeSectionBlock key={section} title="专辑" variant="clipCarousel" onShowAll={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
           <div className="home-card-grid">
             {snapshot.albums.map((album) => (
               <button
@@ -4290,15 +4290,17 @@ const HomeHero = React.memo(function HomeHero({
 
 const HomeSectionBlock = React.memo(function HomeSectionBlock({
   title,
+  variant,
   onShowAll,
   children
 }: {
   title: string
+  variant?: 'clipCarousel'
   onShowAll?: () => void
   children: React.ReactNode
 }): React.ReactElement {
   return (
-    <section className="home-section-block">
+    <section className={`home-section-block ${variant === 'clipCarousel' ? 'home-clip-carousel-section' : ''}`}>
       <div className="home-section-heading">
         <h2>{title}</h2>
         {onShowAll ? (
