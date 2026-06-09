@@ -1029,21 +1029,32 @@ function amllLyricToneSet(seed: RgbColor): {
   }
 }
 
-function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties): React.CSSProperties {
-  const primarySeed = parseCssRgbColor(themeStyle['--cover-accent' as keyof React.CSSProperties]) ?? { r: 22, g: 128, b: 173 }
-  const secondarySeed =
+function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties, toneBlend = 0): React.CSSProperties {
+  const toneOne = parseCssRgbColor(themeStyle['--bk-bg-tone-1' as keyof React.CSSProperties])
+  const toneTwo = parseCssRgbColor(themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties])
+  const toneThree = parseCssRgbColor(themeStyle['--bk-bg-tone-3' as keyof React.CSSProperties])
+  const backgroundSeed = toneOne && toneTwo
+    ? mixRgb(mixRgb(toneOne, toneTwo, 0.16), toneThree ?? toneOne, 0.06)
+    : null
+  const primarySeed = backgroundSeed ?? parseCssRgbColor(themeStyle['--cover-accent' as keyof React.CSSProperties]) ?? { r: 22, g: 128, b: 173 }
+  const secondarySeed = toneOne && toneTwo
+    ? mixRgb(toneTwo, toneOne, 0.74)
+    :
     parseCssRgbColor(themeStyle['--cover-accent-secondary' as keyof React.CSSProperties]) ??
     parseCssRgbColor(themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties]) ??
     primarySeed
   const primary = amllLyricToneSet(primarySeed)
   const secondary = amllLyricToneSet(secondarySeed)
+  const blended = amllLyricToneSet(mixRgb(primarySeed, secondarySeed, toneBlend))
+  const sideActiveSeed = readableAccentTextColor(mixRgb(primarySeed, secondarySeed, toneBlend))
+  const sideInactiveSeed = readableAccentTextColor(mixRgb(primarySeed, secondarySeed, clampNumber(toneBlend * 0.72, 0, 1)))
   return {
-    '--amll-fullscreen-active-color': rgbaString(primary.active, 1),
-    '--amll-fullscreen-inactive-color': rgbaString(primary.inactive, 1),
-    '--amll-fullscreen-sub-active-color': rgbaString(primary.subActive, 1),
-    '--amll-fullscreen-sub-inactive-color': rgbaString(primary.subInactive, 1),
-    '--amll-fullscreen-bg-color': rgbaString(primary.wash, 0.18),
-    '--amll-fullscreen-glow-color': rgbaString(primary.wash, 0.52),
+    '--amll-fullscreen-active-color': rgbaString(blended.active, 1),
+    '--amll-fullscreen-inactive-color': rgbaString(blended.inactive, 1),
+    '--amll-fullscreen-sub-active-color': rgbaString(blended.subActive, 1),
+    '--amll-fullscreen-sub-inactive-color': rgbaString(blended.subInactive, 1),
+    '--amll-fullscreen-bg-color': rgbaString(blended.wash, 0.18),
+    '--amll-fullscreen-glow-color': rgbaString(blended.wash, 0.52),
     '--amll-fullscreen-active-color-a': rgbaString(primary.active, 1),
     '--amll-fullscreen-inactive-color-a': rgbaString(primary.inactive, 1),
     '--amll-fullscreen-sub-active-color-a': rgbaString(primary.subActive, 1),
@@ -1056,28 +1067,33 @@ function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties): Re
     '--amll-fullscreen-sub-inactive-color-b': rgbaString(secondary.subInactive, 1),
     '--amll-fullscreen-bg-color-b': rgbaString(secondary.wash, 0.18),
     '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, 0.52),
-    '--amll-side-active-color': rgbaString(readableAccentTextColor(primarySeed), 0.92),
-    '--amll-side-inactive-color': rgbaString(readableAccentTextColor(primarySeed), 0.58)
+    '--amll-side-active-color': rgbaString(sideActiveSeed, 0.92),
+    '--amll-side-inactive-color': rgbaString(sideInactiveSeed, 0.58),
+    '--amll-side-active-color-a': rgbaString(readableAccentTextColor(primarySeed), 0.92),
+    '--amll-side-inactive-color-a': rgbaString(readableAccentTextColor(primarySeed), 0.58),
+    '--amll-side-active-color-b': rgbaString(readableAccentTextColor(secondarySeed), 0.88),
+    '--amll-side-inactive-color-b': rgbaString(readableAccentTextColor(secondarySeed), 0.48)
   } as React.CSSProperties
 }
 
-function fullscreenLyricColorStyleFromBKTheme(themeStyle: React.CSSProperties): React.CSSProperties {
+function fullscreenLyricColorStyleFromBKTheme(themeStyle: React.CSSProperties, toneBlend = 0): React.CSSProperties {
   const toneOne = parseCssRgbColor(themeStyle['--bk-bg-tone-1' as keyof React.CSSProperties])
   const toneTwo = parseCssRgbColor(themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties])
   const toneThree = parseCssRgbColor(themeStyle['--bk-bg-tone-3' as keyof React.CSSProperties])
-  if (!toneOne || !toneTwo) return fullscreenLyricColorStyleFromTheme(themeStyle)
-  const backgroundSeed = mixRgb(mixRgb(toneOne, toneTwo, 0.64), toneThree ?? toneTwo, 0.18)
-  const secondarySeed = mixRgb(toneTwo, toneOne, 0.28)
+  if (!toneOne || !toneTwo) return fullscreenLyricColorStyleFromTheme(themeStyle, toneBlend)
+  const backgroundSeed = mixRgb(mixRgb(toneOne, toneTwo, 0.16), toneThree ?? toneOne, 0.06)
+  const secondarySeed = mixRgb(toneTwo, toneOne, 0.74)
   const primary = amllLyricToneSet(backgroundSeed)
   const secondary = amllLyricToneSet(secondarySeed)
+  const blended = amllLyricToneSet(mixRgb(backgroundSeed, secondarySeed, toneBlend))
   return {
-    ...fullscreenLyricColorStyleFromTheme(themeStyle),
-    '--amll-fullscreen-active-color': rgbaString(primary.active, 1),
-    '--amll-fullscreen-inactive-color': rgbaString(primary.inactive, 1),
-    '--amll-fullscreen-sub-active-color': rgbaString(primary.subActive, 1),
-    '--amll-fullscreen-sub-inactive-color': rgbaString(primary.subInactive, 1),
-    '--amll-fullscreen-bg-color': rgbaString(primary.wash, 0.18),
-    '--amll-fullscreen-glow-color': rgbaString(primary.wash, 0.52),
+    ...fullscreenLyricColorStyleFromTheme(themeStyle, toneBlend),
+    '--amll-fullscreen-active-color': rgbaString(blended.active, 1),
+    '--amll-fullscreen-inactive-color': rgbaString(blended.inactive, 1),
+    '--amll-fullscreen-sub-active-color': rgbaString(blended.subActive, 1),
+    '--amll-fullscreen-sub-inactive-color': rgbaString(blended.subInactive, 1),
+    '--amll-fullscreen-bg-color': rgbaString(blended.wash, 0.18),
+    '--amll-fullscreen-glow-color': rgbaString(blended.wash, 0.52),
     '--amll-fullscreen-active-color-a': rgbaString(primary.active, 1),
     '--amll-fullscreen-inactive-color-a': rgbaString(primary.inactive, 1),
     '--amll-fullscreen-sub-active-color-a': rgbaString(primary.subActive, 1),
@@ -2140,6 +2156,7 @@ function App(): React.ReactElement {
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
+  const [lyricToneBlend, setLyricToneBlend] = React.useState(0)
   const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
   const [playbackQueueIds, setPlaybackQueueIds] = React.useState<string[]>(() => fallbackHomeSnapshot.tracks.map((track) => track.id))
   const [isPlaying, setIsPlaying] = React.useState(false)
@@ -2175,7 +2192,7 @@ function App(): React.ReactElement {
   const currentArtworkUrl = React.useMemo(() => currentTrack ? trackArtwork(currentTrack, albums) : '', [albums, currentTrack])
   const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
   const effectiveCoverThemeStyle = globalArtworkTintEnabled ? coverThemeStyle : coverThemeFor(null, albums)
-  const lyricColorStyle = React.useMemo(() => fullscreenLyricColorStyleFromTheme(effectiveCoverThemeStyle), [effectiveCoverThemeStyle])
+  const lyricColorStyle = React.useMemo(() => fullscreenLyricColorStyleFromTheme(effectiveCoverThemeStyle, lyricToneBlend), [effectiveCoverThemeStyle, lyricToneBlend])
   const desktopStyle = React.useMemo(() => ({
     ...effectiveCoverThemeStyle,
     ...lyricColorStyle,
@@ -3124,6 +3141,28 @@ function App(): React.ReactElement {
     previousRouteNameRef.current = route.name
   }, [route.name])
 
+  React.useEffect(() => {
+    if (!isLyricsSidebarOpen && !isFullscreenLyricsOpen) {
+      setLyricToneBlend(0)
+      return
+    }
+    let frame = 0
+    let lastPublished = -1
+    const tick = (timestamp: number): void => {
+      const phase = (1 - Math.cos((timestamp % 4200) / 4200 * Math.PI * 2)) / 2
+      const rounded = Math.round(phase * 100) / 100
+      if (Math.abs(rounded - lastPublished) >= 0.02) {
+        lastPublished = rounded
+        setLyricToneBlend(rounded)
+      }
+      frame = window.requestAnimationFrame(tick)
+    }
+    frame = window.requestAnimationFrame(tick)
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [isFullscreenLyricsOpen, isLyricsSidebarOpen])
+
   return (
     <div
       className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''} lyrics-bg-${lyricsBackgroundMode} ${followSystemAppearance ? 'appearance-system' : `appearance-manual appearance-${manualAppearance}`}`}
@@ -3402,6 +3441,7 @@ function App(): React.ReactElement {
             onSeek={seekToLyricTime}
             onArtworkFrameAdvance={() => setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)}
             renderQuality={fullscreenLyricsRenderQuality}
+            lyricToneBlend={lyricToneBlend}
           />
         ) : null}
         {libraryDialog ? (
@@ -4862,7 +4902,8 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   cassetteKmgLookEnabled,
   onSeek,
   onArtworkFrameAdvance,
-  renderQuality = 'balanced'
+  renderQuality = 'balanced',
+  lyricToneBlend
 }: LyricsSurfaceProps & {
   bkThemeStyle: React.CSSProperties
   volume: number
@@ -4880,6 +4921,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   appleMeshSpeed: AppleMeshSpeed
   cassetteKmgLookEnabled: boolean
   onArtworkFrameAdvance: () => void
+  lyricToneBlend: number
 }): React.ReactElement {
   const lines = React.useMemo(() => parseLyrics(track), [track])
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
@@ -4895,9 +4937,9 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   const fullscreenPageStyle = React.useMemo(
     () => ({
       ...bkThemeStyle,
-      ...fullscreenLyricColorStyleFromBKTheme(activeBKThemeStyle)
+      ...fullscreenLyricColorStyleFromBKTheme(activeBKThemeStyle, lyricToneBlend)
     }) as React.CSSProperties,
-    [activeBKThemeStyle, bkThemeStyle]
+    [activeBKThemeStyle, bkThemeStyle, lyricToneBlend]
   )
 
   React.useEffect(() => {

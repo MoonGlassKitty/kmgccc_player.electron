@@ -4310,22 +4310,13 @@ input {
   transition: color 680ms ease, text-shadow 680ms ease;
 }
 
-.fullscreen-lyrics-page.amll-color-phase-0 {
+.fullscreen-lyrics-page {
   --amll-fullscreen-active-color: var(--amll-fullscreen-active-color-a, rgba(255, 255, 255, 0.96));
   --amll-fullscreen-inactive-color: var(--amll-fullscreen-inactive-color-a, rgba(255, 255, 255, 0.56));
   --amll-fullscreen-sub-active-color: var(--amll-fullscreen-sub-active-color-a, rgba(255, 255, 255, 0.72));
   --amll-fullscreen-sub-inactive-color: var(--amll-fullscreen-sub-inactive-color-a, rgba(255, 255, 255, 0.36));
   --amll-fullscreen-bg-color: var(--amll-fullscreen-bg-color-a, rgba(255, 255, 255, 0.13));
   --amll-fullscreen-glow-color: var(--amll-fullscreen-glow-color-a, rgba(255, 255, 255, 0.28));
-}
-
-.fullscreen-lyrics-page.amll-color-phase-1 {
-  --amll-fullscreen-active-color: var(--amll-fullscreen-active-color-b, rgba(255, 255, 255, 0.96));
-  --amll-fullscreen-inactive-color: var(--amll-fullscreen-inactive-color-b, rgba(255, 255, 255, 0.56));
-  --amll-fullscreen-sub-active-color: var(--amll-fullscreen-sub-active-color-b, rgba(255, 255, 255, 0.72));
-  --amll-fullscreen-sub-inactive-color: var(--amll-fullscreen-sub-inactive-color-b, rgba(255, 255, 255, 0.36));
-  --amll-fullscreen-bg-color: var(--amll-fullscreen-bg-color-b, rgba(255, 255, 255, 0.13));
-  --amll-fullscreen-glow-color: var(--amll-fullscreen-glow-color-b, rgba(255, 255, 255, 0.28));
 }
 
 .amll-lyrics-player.side {
@@ -4343,21 +4334,21 @@ input {
 
 .fullscreen-amll-player :is(.FmKaba_lyricLine, .FmKaba_lyricBgLine, .FmKaba_lyricSubLine, .FmKaba_word) {
   transition:
-    color 760ms ease,
-    text-shadow 760ms ease,
+    color 360ms ease,
+    text-shadow 360ms ease,
     opacity 240ms ease;
 }
 
 .fullscreen-amll-player .FmKaba_lyricBgLine {
   color: var(--amll-fullscreen-inactive-color, rgba(255, 255, 255, 0.56));
   opacity: 0.58;
-  transition: color 680ms ease;
+  transition: color 360ms ease;
 }
 
 .fullscreen-amll-player .FmKaba_lyricSubLine {
   color: var(--amll-fullscreen-sub-active-color, rgba(255, 255, 255, 0.72));
   opacity: 0.54;
-  transition: color 680ms ease;
+  transition: color 360ms ease;
 }
 
 .fullscreen-amll-player .FmKaba_lyricBgLine .FmKaba_lyricSubLine {
