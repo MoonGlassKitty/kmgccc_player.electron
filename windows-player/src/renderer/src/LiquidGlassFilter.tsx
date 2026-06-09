@@ -424,7 +424,7 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
       />
       <LiquidGlassFilter
         id="lg-mini"
-        width={717}
+        width={790}
         height={60}
         radius={30}
         blur={3.3}

@@ -65,3 +65,4 @@
 - 全屏播放外观选择按 Swift 区分窗口/全屏皮肤：新增全屏专属 `fullscreen.coverGradientBlur` 选项并置顶，补右侧填充和模糊半径设置；皮肤预览改为 Swift `SkinPreviewViews` 的中性向量结构，并从本机 macOS SF Symbols 导出 `music.note` / `photo` 用于源程序同款预览图。`npm run typecheck` 与 `npm run build` 已通过。
 - 主歌词界面打开时不再强制收缩左侧导航栏；保留 `.fullscreen-lyrics-open .sidebar` 的透明玻璃外观，只移除 `isFullscreenLyricsOpen -> setIsSidebarCollapsed(true)` 的自动折叠副作用。`npm run typecheck` 与 `npm run build` 已通过。
 - 主歌词界面左栏展开逻辑继续修正：全屏歌词打开期间 `isSidebarVisuallyCollapsed` 强制为 false，并让 sidebar 宽度绕过 collapsed/自适应压缩，避免从展开 Home 进入歌词后仍被关成窄栏；透明 sidebar CSS 保持不变。`npm run typecheck` 与 `npm run build` 已通过。
+- BK 艺术封面和底部状态栏对齐：Now Playing 艺术封面中心改为跟随底部状态栏中心，右歌词栏弹出时一起左移；底部状态栏、时间判定层和 `lg-mini` 滤镜同步加长。BK 背景点缀改为外层漂移、内层独立无限旋转，取消有限角度摆动，并按反馈连续两次将旋转速度降为 1/4。`npm run typecheck` 与 `npm run build` 已通过。

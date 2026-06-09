@@ -4938,14 +4938,18 @@ const BKArtSurface = React.memo(function BKArtSurface({
                     '--shape-rotation': `${shape.rotation}deg`,
                     '--shape-drift-x': `${shape.driftX}px`,
                     '--shape-drift-y': `${shape.driftY}px`,
-                    '--shape-duration': `${shape.duration}s`,
+                    '--shape-drift-duration': `${shape.driftDuration}s`,
+                    '--shape-spin-duration': `${shape.spinDuration}s`,
+                    '--shape-spin-delay': `${shape.spinDelay}s`,
+                    '--shape-spin-turn': shape.spinClockwise ? '360deg' : '-360deg',
                     '--shape-delay': `${shape.delay}s`,
                     '--shape-tint': shape.tint,
-                    WebkitMaskImage: `url(${bkShapeAssets[shape.assetIndex]})`,
-                    maskImage: `url(${bkShapeAssets[shape.assetIndex]})`
+                    '--shape-mask-url': `url(${bkShapeAssets[shape.assetIndex]})`
                   } as React.CSSProperties
                 }
-              />
+              >
+                <span className="bk-shape-mark" />
+              </span>
             ))}
           </div>
         </>
@@ -5197,7 +5201,10 @@ type BKShapePlan = {
   rotation: number
   driftX: number
   driftY: number
-  duration: number
+  driftDuration: number
+  spinDuration: number
+  spinDelay: number
+  spinClockwise: boolean
   delay: number
   tint: string
   edgePinned: boolean
@@ -5293,7 +5300,8 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
     const { x, y } = pickPosition(index, size)
     placed.push({ x, y, size })
     const baseDuration = durationBands[index % durationBands.length]
-    const duration = (baseDuration + random() * baseDuration * 0.32) * (specialScale > 1 ? 1.18 : 1)
+    const driftDuration = (baseDuration + random() * baseDuration * 0.32) * (specialScale > 1 ? 1.18 : 1)
+    const spinDuration = (28.8 + random() * 76.8) * (specialScale > 1 ? 1.18 : 1)
     return {
       id: `shape-${index}`,
       assetIndex: index % bkShapeAssets.length,
@@ -5303,8 +5311,11 @@ function makeBKShapePlan(seed: number): BKShapePlan[] {
       rotation: Math.round(random() * 360),
       driftX: index === 9 ? 0 : Math.round(-12 + random() * 24),
       driftY: index === 9 ? 0 : Math.round(-16 + random() * 32),
-      duration,
-      delay: -random() * duration,
+      driftDuration,
+      spinDuration,
+      spinDelay: -random() * spinDuration,
+      spinClockwise: random() > 0.5,
+      delay: -random() * driftDuration,
       tint: tints[index % tints.length],
       edgePinned: index === 9
     }

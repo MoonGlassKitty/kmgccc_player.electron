@@ -19,6 +19,9 @@
   --cover-accent-text: #1680ad;
   --cover-accent-shadow: rgba(15, 85, 120, 0.09);
   --win-titlebar-height: 28px;
+  --mini-player-min-width: 680px;
+  --mini-player-max-width: 790px;
+  --mini-player-side-gap: 40px;
   --wallpaper-tint-primary: rgba(174, 226, 241, 0.18);
   --wallpaper-tint-secondary: rgba(194, 220, 244, 0.12);
   --layer-app-pad: -2;
@@ -348,14 +351,21 @@ input {
   top: var(--shape-y);
   width: var(--shape-size);
   height: var(--shape-size);
-  transform: translate(-50%, -50%) rotate(var(--shape-rotation));
-  background: var(--shape-tint);
+  transform: translate(-50%, -50%);
   opacity: 0.9;
   filter:
     drop-shadow(0 22px 36px rgba(0, 0, 0, 0.18))
     saturate(0.78)
     brightness(1.02);
   mix-blend-mode: screen;
+}
+
+.bk-shape-mark {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: var(--shape-tint);
+  transform: rotate(var(--shape-rotation));
   -webkit-mask-size: contain;
   mask-size: contain;
   -webkit-mask-repeat: no-repeat;
@@ -364,28 +374,40 @@ input {
   mask-position: center;
   -webkit-mask-mode: alpha;
   mask-mode: alpha;
+  -webkit-mask-image: var(--shape-mask-url);
+  mask-image: var(--shape-mask-url);
 }
 
 .bk-art-surface.current .bk-shape,
 .bk-art-surface.previous .bk-shape {
-  animation: bkShapeDrift var(--shape-duration) ease-in-out var(--shape-delay) infinite alternate;
+  animation: bkShapeDrift var(--shape-drift-duration) ease-in-out var(--shape-delay) infinite alternate;
+}
+
+.bk-art-surface.current .bk-shape-mark,
+.bk-art-surface.previous .bk-shape-mark {
+  animation: bkShapeSpin var(--shape-spin-duration) linear var(--shape-spin-delay) infinite;
 }
 
 .bk-art-background.frozen .bk-art-surface.current .bk-shape,
-.bk-art-background.frozen .bk-art-surface.previous .bk-shape {
+.bk-art-background.frozen .bk-art-surface.previous .bk-shape,
+.bk-art-background.frozen .bk-art-surface.current .bk-shape-mark,
+.bk-art-background.frozen .bk-art-surface.previous .bk-shape-mark {
   animation-play-state: paused;
 }
 
 .now-playing-artwork-stage {
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: calc(var(--sidebar-width) + ((100% - var(--sidebar-width) - var(--lyrics-width)) / 2));
   z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 24px;
-  transform: translateY(18px);
+  width: clamp(var(--mini-player-min-width), calc(100% - var(--sidebar-width) - var(--lyrics-width) - var(--mini-player-side-gap)), var(--mini-player-max-width));
+  min-height: min(620px, calc(100% - 180px));
+  transform: translate(-50%, calc(-50% + 18px));
   pointer-events: none;
 }
 
@@ -1526,10 +1548,19 @@ input {
 
 @keyframes bkShapeDrift {
   from {
-    transform: translate(-50%, -50%) translate(calc(var(--shape-drift-x) * -1), calc(var(--shape-drift-y) * -1)) rotate(var(--shape-rotation));
+    transform: translate(-50%, -50%) translate(calc(var(--shape-drift-x) * -1), calc(var(--shape-drift-y) * -1));
   }
   to {
-    transform: translate(-50%, -50%) translate(var(--shape-drift-x), var(--shape-drift-y)) rotate(calc(var(--shape-rotation) + 10deg));
+    transform: translate(-50%, -50%) translate(var(--shape-drift-x), var(--shape-drift-y));
+  }
+}
+
+@keyframes bkShapeSpin {
+  from {
+    transform: rotate(var(--shape-rotation));
+  }
+  to {
+    transform: rotate(calc(var(--shape-rotation) + var(--shape-spin-turn)));
   }
 }
 
@@ -4353,10 +4384,10 @@ input {
   left: calc(var(--sidebar-width) + ((100% - var(--sidebar-width) - var(--lyrics-width)) / 2));
   z-index: var(--layer-floating-glass);
   display: grid;
-  grid-template-columns: minmax(130px, 165px) 40px 132px 58px minmax(150px, 170px);
+  grid-template-columns: minmax(150px, 190px) 40px 148px 58px minmax(170px, 195px);
   align-items: center;
-  gap: 14px;
-  width: clamp(620px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - 48px), 717px);
+  gap: 16px;
+  width: clamp(var(--mini-player-min-width), calc(100% - var(--sidebar-width) - var(--lyrics-width) - var(--mini-player-side-gap)), var(--mini-player-max-width));
   height: 60px;
   padding: 8px 18px;
   border-radius: 30px;
@@ -4407,7 +4438,7 @@ input {
   bottom: 0;
   left: calc(var(--sidebar-width) + ((100% - var(--sidebar-width) - var(--lyrics-width)) / 2));
   z-index: 1;
-  width: clamp(620px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - 48px), 717px);
+  width: clamp(var(--mini-player-min-width), calc(100% - var(--sidebar-width) - var(--lyrics-width) - var(--mini-player-side-gap)), var(--mini-player-max-width));
   height: 42px;
   transform: translate3d(-50%, 0, 0);
   pointer-events: auto;
