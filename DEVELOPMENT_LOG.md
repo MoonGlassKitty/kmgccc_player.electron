@@ -82,3 +82,4 @@
 - 右侧歌词玻璃拼接试验：左侧液态折射玻璃与右侧纯透明高斯玻璃比例改为 2:5；歌词栏玻璃阴影全部清零，右侧高斯块轻微覆盖液态块内部边缘，左侧液态层用 `clip-path`/`contain: paint` 限制 SVG filter 外扩。`npm run typecheck` 与 `npm run build` 已通过。
 - 右侧歌词玻璃接缝继续柔化：左右分块改为 18px 交叉渐变，右侧主体高斯调整为 `5px/126%`，左侧液态层右端同步渐隐，消除明显竖向接缝。Home 艺人/专辑横向卡片增加专用遮罩，超过右侧歌词栏 2:5 分块缝隙的内容会在 190px 过渡区内渐隐并截止。`npm run typecheck` 与 `npm run build` 已通过。
 - Home 艺人/专辑遮罩截止点回退到右侧歌词栏左边界，保留 190px 渐隐过渡，不再延伸到歌词栏内部 2:5 分块缝隙。`npm run typecheck` 与 `npm run build` 已通过。
+- AMLL 性能优化第一轮：增加轻量时间戳检测，只有当前歌曲存在同步歌词且侧栏/全屏歌词打开时才保持 0.25s 播放时间刷新；无歌词/纯文本歌词状态降为 2s 刷新，避免歌词栏和 AMLL 跟随播放时间持续重渲染。AMLL 动画按渲染质量降级：低质量关闭 blur/scale/spring，中等关闭 spring，高质量保留完整 spring。`npm run typecheck` 与 `npm run build` 已通过。

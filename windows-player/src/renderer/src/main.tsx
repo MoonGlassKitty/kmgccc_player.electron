@@ -2055,6 +2055,7 @@ function App(): React.ReactElement {
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
     [currentId, homeSnapshot]
   )
+  const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(currentTrack), [currentTrack])
   const playbackQueue = React.useMemo(() => {
     const queueTracks = playbackQueueIds
       .map((id) => homeSnapshot.tracks.find((track) => track.id === id))
@@ -2952,11 +2953,12 @@ function App(): React.ReactElement {
     if (!audio) return
     const nextTime = audio.currentTime
     const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : currentTrack?.duration ?? 0
-    const refreshInterval = isLyricsSidebarOpen || isFullscreenLyricsOpen ? 0.25 : 30
+    const needsLiveLyricClock = currentTrackHasTimedLyrics && (isLyricsSidebarOpen || isFullscreenLyricsOpen)
+    const refreshInterval = needsLiveLyricClock ? 0.25 : isLyricsSidebarOpen || isFullscreenLyricsOpen ? 2 : 30
     if (!audio.paused && Math.abs(nextTime - lastPlaybackTimeRef.current) < refreshInterval) return
     lastPlaybackTimeRef.current = nextTime
     setPlaybackTime(nextTime)
-  }, [currentTrack?.duration, isFullscreenLyricsOpen, isLyricsSidebarOpen, writeMiniProgressRatio])
+  }, [currentTrack?.duration, currentTrackHasTimedLyrics, isFullscreenLyricsOpen, isLyricsSidebarOpen, writeMiniProgressRatio])
 
   const handleAudioEnded = React.useCallback(() => {
     if (homeSnapshot.tracks.length > 1) {
@@ -3095,6 +3097,7 @@ function App(): React.ReactElement {
             isPlaying={isPlaying}
             onSeek={seekToLyricTime}
             onResizeStart={handleLyricsResizeStart}
+            renderQuality={lyricsRenderQuality}
           />
         ) : null}
         {isSettingsOpen ? (
@@ -3218,7 +3221,7 @@ function App(): React.ReactElement {
           />
         ) : null}
         {isFullscreenLyricsOpen ? (
-          <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={effectiveLyricPlaybackTime} isPlaying={isPlaying} onSeek={seekToLyricTime} />
+          <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={effectiveLyricPlaybackTime} isPlaying={isPlaying} onSeek={seekToLyricTime} renderQuality={fullscreenLyricsRenderQuality} />
         ) : null}
         {libraryDialog ? (
           <LibraryDialog state={libraryDialog} snapshot={homeSnapshot} onClose={() => setLibraryDialog(null)} onSubmit={submitLibraryDialog} />
@@ -4421,6 +4424,11 @@ function parseLyrics(track: Track | null | undefined): ParsedLyricLine[] {
   return parsed.sort((a, b) => (a.time ?? Number.MAX_SAFE_INTEGER) - (b.time ?? Number.MAX_SAFE_INTEGER))
 }
 
+function trackHasTimedLyrics(track: Track | null | undefined): boolean {
+  const rawLyrics = track?.syncedLyrics || track?.lyricsText || ''
+  return /\[[0-9]{1,2}:[0-9]{2}(?:[.:][0-9]{1,3})?\]/.test(rawLyrics)
+}
+
 function activeLyricIndex(lines: ParsedLyricLine[], playbackTime: number): number {
   let activeIndex = -1
   lines.forEach((line, index) => {
@@ -4459,6 +4467,7 @@ type LyricsSurfaceProps = {
   playbackTime: number
   isPlaying: boolean
   onSeek: (seconds: number) => void
+  renderQuality?: LyricsRenderQuality
 }
 
 const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
@@ -4467,7 +4476,8 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   playbackTime,
   isPlaying,
   onSeek,
-  variant
+  variant,
+  renderQuality = 'balanced'
 }: {
   lines: ParsedLyricLine[]
   track: Track | null | undefined
@@ -4475,6 +4485,7 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   isPlaying: boolean
   onSeek: (seconds: number) => void
   variant: 'side' | 'fullscreen'
+  renderQuality?: LyricsRenderQuality
 }): React.ReactElement {
   const amllLines = React.useMemo(() => amllLyricLinesFromParsed(lines, track?.duration ?? 0), [lines, track?.duration])
   const amllShellRef = React.useRef<HTMLDivElement | null>(null)
@@ -4540,9 +4551,9 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
         playing={isPlaying}
         alignAnchor="center"
         alignPosition={0.18}
-        enableBlur={!isLyricHovering}
-        enableScale
-        enableSpring
+        enableBlur={renderQuality !== 'performance' && !isLyricHovering}
+        enableScale={renderQuality !== 'performance'}
+        enableSpring={renderQuality === 'quality'}
         wordFadeWidth={0.5}
         optimizeOptions={amllOptimizeOptions}
         bottomLine={amllBottomLine}
@@ -4603,7 +4614,8 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
   playbackTime,
   isPlaying,
   onSeek,
-  onResizeStart
+  onResizeStart,
+  renderQuality = 'balanced'
 }: LyricsSurfaceProps & {
   onResizeStart: (event: React.PointerEvent) => void
 }): React.ReactElement {
@@ -4634,7 +4646,7 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
 
       {lines.length ? (
         hasTimedLyrics ? (
-          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="side" />
+          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="side" renderQuality={renderQuality} />
         ) : (
           <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="side" />
         )
@@ -4650,7 +4662,8 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   albums,
   playbackTime,
   isPlaying,
-  onSeek
+  onSeek,
+  renderQuality = 'balanced'
 }: LyricsSurfaceProps): React.ReactElement {
   const lines = React.useMemo(() => parseLyrics(track), [track])
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
@@ -4685,7 +4698,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       </div>
       <div className="fullscreen-lyrics-lines">
         {hasTimedLyrics ? (
-          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="fullscreen" />
+          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="fullscreen" renderQuality={renderQuality} />
         ) : lines.length ? (
           <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="fullscreen" />
         ) : (
