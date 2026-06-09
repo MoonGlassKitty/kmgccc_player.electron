@@ -1545,8 +1545,8 @@ input {
   padding: var(--win-titlebar-height) 0 0;
   border-radius: 28px;
   --filter-url: url(#lg-sidebar);
-  --glass-alpha: 0.38;
-  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-alpha: 0.48;
+  --glass-border: rgba(255, 255, 255, 0.58);
   --glass-shadow: rgba(16, 36, 52, 0.052);
   --glass-inner-shadow: rgba(0, 0, 0, 0.031);
   --glass-inner-highlight: rgba(255, 255, 255, 0.2);
@@ -3304,8 +3304,8 @@ input {
   border-left: 0;
   border-radius: 0;
   z-index: var(--layer-sidebars);
-  --glass-alpha: 0.38;
-  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-alpha: 0.48;
+  --glass-border: rgba(255, 255, 255, 0.58);
   --glass-shadow: rgba(16, 36, 52, 0.052);
   --glass-inner-shadow: rgba(0, 0, 0, 0.031);
   --glass-inner-highlight: rgba(255, 255, 255, 0.2);
