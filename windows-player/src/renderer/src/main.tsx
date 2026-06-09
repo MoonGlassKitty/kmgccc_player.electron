@@ -3409,17 +3409,19 @@ function App(): React.ReactElement {
           {importSyncState ? <ImportSyncCard state={importSyncState} onCancel={() => setImportSyncState(null)} /> : null}
         </main>
         {isLyricsSidebarRendered ? (
-          <LyricsSidePanel
-            track={currentTrack}
-            albums={albums}
-            playbackTime={effectiveLyricPlaybackTime}
-            isPlaying={isPlaying}
-            onSeek={seekToLyricTime}
-            onResizeStart={handleLyricsResizeStart}
-            renderQuality={lyricsRenderQuality}
-            reduceHighlight={isDiscreteWordHighlightEnabled}
-            colorStyle={desktopStyle}
-          />
+          <div className="lyrics-sidebar-slot">
+            <LyricsSidePanel
+              track={currentTrack}
+              albums={albums}
+              playbackTime={effectiveLyricPlaybackTime}
+              isPlaying={isPlaying}
+              onSeek={seekToLyricTime}
+              onResizeStart={handleLyricsResizeStart}
+              renderQuality={lyricsRenderQuality}
+              reduceHighlight={isDiscreteWordHighlightEnabled}
+              colorStyle={desktopStyle}
+            />
+          </div>
         ) : null}
         {isSettingsOpen ? (
           <SettingsPanel
