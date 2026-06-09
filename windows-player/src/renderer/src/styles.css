@@ -2389,7 +2389,7 @@ input {
 }
 
 .sidebar-section.compact {
-  gap: 18px;
+  gap: 6px;
 }
 
 .sidebar-label {
@@ -2419,8 +2419,28 @@ input {
   text-align: left;
 }
 
-.sidebar-label-icon {
-  display: none;
+.sidebar-label.as-button.disclosure {
+  min-height: 26px;
+  padding: 0 6px;
+}
+
+.sidebar-disclosure-chevron {
+  margin-left: auto;
+  color: rgba(10, 44, 63, 0.48);
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.sidebar-disclosure-chevron.open {
+  transform: rotate(90deg);
+}
+
+.playlist-row.compact-item.all-entry {
+  gap: 8px;
+  padding-left: 14px;
+}
+
+.playlist-row.compact-item.child-entry {
+  padding-left: 30px;
 }
 
 .playlist-icon {
@@ -2522,6 +2542,10 @@ input {
 
 .app-shell.sidebar-collapsed .sidebar-label-icon {
   display: block;
+}
+
+.app-shell.sidebar-collapsed .sidebar-disclosure-chevron {
+  display: none;
 }
 
 .app-shell.sidebar-collapsed .nav-row.active {

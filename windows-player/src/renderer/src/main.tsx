@@ -3166,6 +3166,8 @@ const Sidebar = React.memo(function Sidebar({
   onPlayRoute: (route: DetailRoute, preferredTrackId?: string) => void
   onOpenContextMenu: (event: React.MouseEvent, items: ContextMenuItem[]) => void
 }): React.ReactElement {
+  const [isArtistsExpanded, setIsArtistsExpanded] = React.useState(false)
+  const [isAlbumsExpanded, setIsAlbumsExpanded] = React.useState(false)
   return (
     <aside className="sidebar glass-panel chrome-drag">
       <div className="sidebar-resize-handle no-drag" role="separator" aria-orientation="vertical" aria-label="调整侧边栏宽度" onPointerDown={onResizeStart} />
@@ -3223,46 +3225,62 @@ const Sidebar = React.memo(function Sidebar({
         </section>
 
         <section className="sidebar-section compact no-drag">
-          <button className="sidebar-label as-button" type="button" onClick={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
-            <UserRound className="sidebar-label-icon" size={19} />
+          <button className="sidebar-label as-button disclosure" type="button" aria-expanded={isArtistsExpanded} onClick={() => setIsArtistsExpanded((value) => !value)}>
             <span>艺人</span>
+            <ChevronRight className={`sidebar-disclosure-chevron ${isArtistsExpanded ? 'open' : ''}`} size={14} />
           </button>
-          {snapshot.artists.slice(0, 8).map((artist) => (
-            <button
-              className={`playlist-row compact-item ${route.name === 'artistDetail' && route.id === artist.id ? 'active' : ''}`}
-              key={artist.id}
-              type="button"
-              onClick={() => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
-              onContextMenu={(event) => onOpenContextMenu(event, [
-                { label: '播放艺人', onSelect: () => onPlayRoute({ name: 'artistDetail', id: artist.id, title: artist.name }) },
-                { label: '编辑艺人', onSelect: () => onEditArtist(artist) },
-                { label: '-', onSelect: () => {} },
-                { label: '删除艺人', danger: true, onSelect: () => onDeleteArtist(artist) }
-              ])}
-            >
-              <span>{artist.name}</span>
-            </button>
-          ))}
-          <button className="sidebar-label as-button" type="button" onClick={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
-            <Disc3 className="sidebar-label-icon" size={19} />
+          {isArtistsExpanded ? (
+            <>
+              <button className={`playlist-row compact-item all-entry ${route.name === 'artistDetail' && route.id === 'all-artists' ? 'active' : ''}`} type="button" onClick={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
+                <UserRound size={16} />
+                <span>查看全部艺人</span>
+              </button>
+              {snapshot.artists.slice(0, 8).map((artist) => (
+                <button
+                  className={`playlist-row compact-item child-entry ${route.name === 'artistDetail' && route.id === artist.id ? 'active' : ''}`}
+                  key={artist.id}
+                  type="button"
+                  onClick={() => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
+                  onContextMenu={(event) => onOpenContextMenu(event, [
+                    { label: '播放艺人', onSelect: () => onPlayRoute({ name: 'artistDetail', id: artist.id, title: artist.name }) },
+                    { label: '编辑艺人', onSelect: () => onEditArtist(artist) },
+                    { label: '-', onSelect: () => {} },
+                    { label: '删除艺人', danger: true, onSelect: () => onDeleteArtist(artist) }
+                  ])}
+                >
+                  <span>{artist.name}</span>
+                </button>
+              ))}
+            </>
+          ) : null}
+          <button className="sidebar-label as-button disclosure" type="button" aria-expanded={isAlbumsExpanded} onClick={() => setIsAlbumsExpanded((value) => !value)}>
             <span>专辑</span>
+            <ChevronRight className={`sidebar-disclosure-chevron ${isAlbumsExpanded ? 'open' : ''}`} size={14} />
           </button>
-          {snapshot.albums.slice(0, 8).map((album) => (
-            <button
-              className={`playlist-row compact-item ${route.name === 'albumDetail' && route.id === album.id ? 'active' : ''}`}
-              key={album.id}
-              type="button"
-              onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
-              onContextMenu={(event) => onOpenContextMenu(event, [
-                { label: '播放专辑', onSelect: () => onPlayRoute({ name: 'albumDetail', id: album.id, title: album.title }) },
-                { label: '编辑专辑', onSelect: () => onEditAlbum(album) },
-                { label: '-', onSelect: () => {} },
-                { label: '删除专辑', danger: true, onSelect: () => onDeleteAlbum(album) }
-              ])}
-            >
-              <span>{album.title}</span>
-            </button>
-          ))}
+          {isAlbumsExpanded ? (
+            <>
+              <button className={`playlist-row compact-item all-entry ${route.name === 'albumDetail' && route.id === 'all-albums' ? 'active' : ''}`} type="button" onClick={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
+                <Disc3 size={16} />
+                <span>查看全部专辑</span>
+              </button>
+              {snapshot.albums.slice(0, 8).map((album) => (
+                <button
+                  className={`playlist-row compact-item child-entry ${route.name === 'albumDetail' && route.id === album.id ? 'active' : ''}`}
+                  key={album.id}
+                  type="button"
+                  onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
+                  onContextMenu={(event) => onOpenContextMenu(event, [
+                    { label: '播放专辑', onSelect: () => onPlayRoute({ name: 'albumDetail', id: album.id, title: album.title }) },
+                    { label: '编辑专辑', onSelect: () => onEditAlbum(album) },
+                    { label: '-', onSelect: () => {} },
+                    { label: '删除专辑', danger: true, onSelect: () => onDeleteAlbum(album) }
+                  ])}
+                >
+                  <span>{album.title}</span>
+                </button>
+              ))}
+            </>
+          ) : null}
         </section>
       </div>
 
