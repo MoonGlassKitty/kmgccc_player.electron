@@ -149,6 +149,8 @@ const altArtwork =
 
 const DEFAULT_SIDEBAR_WIDTH = 320
 const COLLAPSED_SIDEBAR_WIDTH = 82
+const MAX_ARTWORK_THUMBNAIL_CACHE_SIZE = 240
+const artworkThumbnailCache = new Map<string, Promise<string | null> | string | null>()
 
 function mediaUrlForLocalPath(audioPath: string): string {
   const bytes = new TextEncoder().encode(audioPath)
@@ -267,6 +269,94 @@ function createCoverPixelStretchBackground(artworkUrl: string): Promise<string |
     image.src = artworkUrl
   })
 }
+
+function createArtworkThumbnail(artworkUrl: string, maxSize: number): Promise<string | null> {
+  const cacheKey = `${maxSize}:${artworkUrl}`
+  const cached = artworkThumbnailCache.get(cacheKey)
+  if (typeof cached === 'string' || cached === null) return Promise.resolve(cached)
+  if (cached) return cached
+
+  const promise = new Promise<string | null>((resolve) => {
+    if (!artworkUrl || artworkUrl.startsWith('data:image/svg')) {
+      resolve(null)
+      return
+    }
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+    image.decoding = 'async'
+    image.onload = () => {
+      try {
+        const sourceWidth = image.naturalWidth
+        const sourceHeight = image.naturalHeight
+        if (sourceWidth <= 0 || sourceHeight <= 0 || Math.max(sourceWidth, sourceHeight) <= maxSize) {
+          resolve(null)
+          return
+        }
+        const scale = maxSize / Math.max(sourceWidth, sourceHeight)
+        const width = Math.max(1, Math.round(sourceWidth * scale))
+        const height = Math.max(1, Math.round(sourceHeight * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const context = canvas.getContext('2d')
+        if (!context) {
+          resolve(null)
+          return
+        }
+        context.imageSmoothingEnabled = true
+        context.imageSmoothingQuality = 'medium'
+        context.drawImage(image, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', 0.72))
+      } catch {
+        resolve(null)
+      }
+    }
+    image.onerror = () => resolve(null)
+    image.src = artworkUrl
+  }).then((thumbnail) => {
+    artworkThumbnailCache.set(cacheKey, thumbnail)
+    if (artworkThumbnailCache.size > MAX_ARTWORK_THUMBNAIL_CACHE_SIZE) {
+      for (const [key, value] of artworkThumbnailCache) {
+        if (key === cacheKey || value instanceof Promise) continue
+        artworkThumbnailCache.delete(key)
+        if (artworkThumbnailCache.size <= MAX_ARTWORK_THUMBNAIL_CACHE_SIZE) break
+      }
+    }
+    return thumbnail
+  })
+  artworkThumbnailCache.set(cacheKey, promise)
+  return promise
+}
+
+function useArtworkThumbnail(artworkUrl: string, maxSize: number): string {
+  const [thumbnail, setThumbnail] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    let cancelled = false
+    setThumbnail(null)
+    void createArtworkThumbnail(artworkUrl, maxSize).then((nextThumbnail) => {
+      if (!cancelled) setThumbnail(nextThumbnail)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [artworkUrl, maxSize])
+
+  return thumbnail || artworkUrl
+}
+
+const ArtworkImage = React.memo(function ArtworkImage({
+  src,
+  maxSize,
+  alt = '',
+  ...props
+}: React.ImgHTMLAttributes<HTMLImageElement> & {
+  src: string
+  maxSize: number
+}): React.ReactElement {
+  const displaySrc = useArtworkThumbnail(src, maxSize)
+  return <img {...props} src={displaySrc} alt={alt} decoding={props.decoding ?? 'async'} />
+})
 
 const fallbackHomeSnapshot: HomeSnapshot = {
   heroTrack: null,
@@ -3505,7 +3595,7 @@ function MetadataArtworkSection({
       <MetadataSectionTitle icon={<ImageIcon size={17} />} title={title} />
       <div className="metadata-artwork-row">
         <div className="metadata-artwork-preview">
-          {artworkUrl ? <img src={artworkUrl} alt="" decoding="async" /> : <ImageIcon size={36} />}
+          {artworkUrl ? <ArtworkImage src={artworkUrl} maxSize={220} alt="" /> : <ImageIcon size={36} />}
         </div>
         <div className="metadata-artwork-actions">
           <input ref={inputRef} className="metadata-artwork-file" type="file" accept="image/*" onChange={handleFileChange} />
@@ -3519,7 +3609,7 @@ function MetadataArtworkSection({
           <div className="metadata-cover-candidates">
             {candidates.map((candidate) => (
               <button className={candidate === artworkUrl ? 'active' : ''} key={candidate} type="button" onClick={() => onArtworkChange(candidate)}>
-                <img src={candidate} alt="" decoding="async" />
+                <ArtworkImage src={candidate} maxSize={96} alt="" />
               </button>
             ))}
           </div>
@@ -3766,12 +3856,12 @@ const Sidebar = React.memo(function Sidebar({
                 ])
               ])}
             >
-              <img className={`playlist-cover ${isImportedPlaylist(playlist) ? 'generated' : 'logo'}`} src={playlistArtworkFor(playlist)} style={playlistArtworkStyle(playlist)} alt="" decoding="async" />
+              <ArtworkImage className={`playlist-cover ${isImportedPlaylist(playlist) ? 'generated' : 'logo'}`} src={playlistArtworkFor(playlist)} maxSize={72} style={playlistArtworkStyle(playlist)} alt="" />
               <span>{playlist.name}</span>
             </button>
           )) : (
             <button className="playlist-row muted" type="button" onClick={onCreatePlaylist}>
-              <img className="playlist-cover logo" src={playlistArtworkFor(null)} alt="" decoding="async" />
+              <ArtworkImage className="playlist-cover logo" src={playlistArtworkFor(null)} maxSize={72} alt="" />
               <span>新建播放列表</span>
             </button>
           )}
@@ -4019,7 +4109,7 @@ const HomePage = React.memo(function HomePage({
                 onClick={() => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
               >
                 {artist.artworkUrl ? (
-                  <img src={artist.artworkUrl} alt="" loading="lazy" decoding="async" />
+                  <ArtworkImage src={artist.artworkUrl} maxSize={220} alt="" loading="lazy" />
                 ) : (
                   <span className="artist-avatar">{artist.name}</span>
                 )}
@@ -4041,7 +4131,7 @@ const HomePage = React.memo(function HomePage({
                 type="button"
                 onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
               >
-                <img src={albumArtworkFor(album)} alt="" loading="lazy" decoding="async" />
+                <ArtworkImage src={albumArtworkFor(album)} maxSize={260} alt="" loading="lazy" />
                 <strong>{album.title}</strong>
                 <span>{album.artist}</span>
               </button>
@@ -4061,7 +4151,7 @@ const HomePage = React.memo(function HomePage({
                 type="button"
                 onClick={() => onNavigate({ name: 'playlistDetail', id: playlist.id, title: playlist.name })}
               >
-                <img className={`home-playlist-artwork ${isImportedPlaylist(playlist) ? 'generated' : 'logo'}`} src={playlistArtworkFor(playlist)} style={playlistArtworkStyle(playlist)} alt="" loading="lazy" decoding="async" />
+                <ArtworkImage className={`home-playlist-artwork ${isImportedPlaylist(playlist) ? 'generated' : 'logo'}`} src={playlistArtworkFor(playlist)} maxSize={96} style={playlistArtworkStyle(playlist)} alt="" loading="lazy" />
                 <span>
                   <strong>{playlist.name}</strong>
                   <small>{playlist.trackCount} 首</small>
@@ -4101,9 +4191,9 @@ const HomeHero = React.memo(function HomeHero({
   const artwork = trackArtwork(track, albums)
   return (
     <header className="home-hero">
-      <img className="home-hero-bg" src={artwork} alt="" decoding="async" />
+      <ArtworkImage className="home-hero-bg" src={artwork} maxSize={420} alt="" />
       <div className="home-hero-cover">
-        <img src={artwork} alt="" decoding="async" />
+        <ArtworkImage src={artwork} maxSize={320} alt="" />
       </div>
       <div className="home-hero-copy">
         <span>{track.artist}</span>
@@ -4180,7 +4270,7 @@ const HomeStatsSection = React.memo(function HomeStatsSection({ stats }: { stats
           {stats.ranking.map((item, index) => (
             <div className="home-rank-row" key={item.trackId}>
               <span>{index + 1}</span>
-              <img src={item.artworkUrl || albumArtwork} alt="" decoding="async" />
+              <ArtworkImage src={item.artworkUrl || albumArtwork} maxSize={64} alt="" />
               <strong>{item.title}</strong>
               <small>{item.artist}</small>
               <i style={{ width: `${Math.max(18, item.score * 120)}px` }} />
@@ -4453,7 +4543,7 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
     <aside className="lyrics-side-panel glass-panel no-drag">
       <div className="lyrics-side-resize-handle" role="separator" aria-orientation="vertical" aria-label="调整歌词侧栏宽度" onPointerDown={onResizeStart} />
       <div className="lyrics-side-head">
-        <img src={artwork} alt="" decoding="async" />
+        <ArtworkImage src={artwork} maxSize={96} alt="" />
         <div>
           <span>{isPlaying ? '正在播放' : '已暂停'}</span>
           <strong>{track?.title ?? '未选择歌曲'}</strong>
@@ -6977,12 +7067,12 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
       >
         <header className="artist-header" onContextMenu={(event) => onOpenContextMenu(event, headerContextItems)}>
           <div className={`artist-image-frame ${artworkShape === 'square' ? 'square-artwork' : ''}`}>
-            <img
+            <ArtworkImage
               className={headerPlaylist && isImportedPlaylist(headerPlaylist) ? 'playlist-generated-artwork' : ''}
               src={detailArtwork(route, snapshot, albums)}
+              maxSize={420}
               style={playlistArtworkStyle(headerPlaylist)}
               alt=""
-              decoding="async"
             />
           </div>
           <div className="artist-copy">
@@ -7101,7 +7191,7 @@ const CollectionGrid = React.memo(function CollectionGrid({
             { label: '删除艺人', danger: true, onSelect: () => onDeleteArtist?.(artist) }
           ])}
         >
-          {artist.artworkUrl ? <img src={artist.artworkUrl} alt="" loading="lazy" decoding="async" /> : <span className="artist-avatar">{artist.name}</span>}
+          {artist.artworkUrl ? <ArtworkImage src={artist.artworkUrl} maxSize={220} alt="" loading="lazy" /> : <span className="artist-avatar">{artist.name}</span>}
           <strong>{artist.name}</strong>
         </button>
       ))}
@@ -7118,7 +7208,7 @@ const CollectionGrid = React.memo(function CollectionGrid({
             { label: '删除专辑', danger: true, onSelect: () => onDeleteAlbum?.(album) }
           ])}
         >
-          <img src={albumArtworkFor(album)} alt="" loading="lazy" decoding="async" />
+          <ArtworkImage src={albumArtworkFor(album)} maxSize={260} alt="" loading="lazy" />
           <strong>{album.title}</strong>
           <span>{album.artist}</span>
         </button>
@@ -7183,7 +7273,7 @@ const TrackRows = React.memo(function TrackRows({
             { label: '从资料库删除', danger: true, onSelect: () => onDelete(track) }
           ])}
         >
-          <img className="track-art" src={trackArtwork(track, albums)} alt="" loading="lazy" decoding="async" />
+          <ArtworkImage className="track-art" src={trackArtwork(track, albums)} maxSize={64} alt="" loading="lazy" />
           <span className="track-title">{track.title}</span>
           <span className="track-artist">{track.artist}</span>
           <span className="track-duration">{formatDuration(track.duration)}</span>
@@ -7288,7 +7378,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
       </div>
       <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={miniPlayerStyle}>
       <button className="mini-track" type="button" aria-label="打开窗口播放" onClick={onOpenNowPlaying}>
-        <img src={trackArtwork(track, albums)} alt="" decoding="async" />
+        <ArtworkImage src={trackArtwork(track, albums)} maxSize={72} alt="" />
         <div>
           <strong>{track.title}</strong>
           <span>{track.artist}</span>
@@ -7314,7 +7404,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
                   setIsQueueOpen(false)
                 }}
               >
-                <img src={trackArtwork(queueTrack, albums)} alt="" loading="lazy" decoding="async" />
+                <ArtworkImage src={trackArtwork(queueTrack, albums)} maxSize={56} alt="" loading="lazy" />
                 <span>
                   <strong>{queueTrack.title}</strong>
                   <small>{queueTrack.artist}</small>
