@@ -487,6 +487,11 @@ type HomeCardMaterialMode = 'liquidGlass' | 'frostedGlass' | 'solid'
 type HomeSectionID = 'featured' | 'artists' | 'albums' | 'playlists' | 'listeningFootprint'
 type ManualAppearanceMode = 'light' | 'dark'
 type LyricsRenderQuality = 'performance' | 'balanced' | 'quality'
+type EntryRevealTarget = 'home' | 'nowPlaying' | 'fullscreen'
+type EntryRevealState = {
+  target: EntryRevealTarget
+  phase: 'loading' | 'revealing'
+} | null
 type LibraryLocationInfo = {
   currentPath: string
   isDefault: boolean
@@ -2139,6 +2144,7 @@ function App(): React.ReactElement {
   const [viewportWidth, setViewportWidth] = React.useState(() => window.innerWidth)
   const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
   const [homeAmbientEpoch, setHomeAmbientEpoch] = React.useState(0)
+  const [entryReveal, setEntryReveal] = React.useState<EntryRevealState>(null)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [settingsCategory, setSettingsCategory] = React.useState<SettingsCategoryKey>('appearance')
   const [nowPlayingSettingsTab, setNowPlayingSettingsTab] = React.useState<NowPlayingSettingsTab>('general')
@@ -2225,6 +2231,8 @@ function App(): React.ReactElement {
   const lastPlaybackTimeRef = React.useRef(0)
   const loadedAudioTrackRef = React.useRef<string>('')
   const previousRouteNameRef = React.useRef<AppRoute['name']>('home')
+  const previousEntryTargetRef = React.useRef<EntryRevealTarget | 'other'>('home')
+  const entryRevealTimersRef = React.useRef<number[]>([])
   const albums = React.useMemo(() => albumById(homeSnapshot), [homeSnapshot])
   const currentTrack = React.useMemo(
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
@@ -3215,6 +3223,35 @@ function App(): React.ReactElement {
     previousRouteNameRef.current = route.name
   }, [route.name])
 
+  React.useEffect(() => {
+    const nextTarget: EntryRevealTarget | 'other' = isFullscreenLyricsOpen
+      ? 'fullscreen'
+      : route.name === 'home' || route.name === 'nowPlaying'
+        ? route.name
+        : 'other'
+    const previousTarget = previousEntryTargetRef.current
+    previousEntryTargetRef.current = nextTarget
+    if (nextTarget === 'other' || previousTarget === nextTarget) return
+
+    for (const timer of entryRevealTimersRef.current) {
+      window.clearTimeout(timer)
+    }
+    entryRevealTimersRef.current = []
+    setEntryReveal({ target: nextTarget, phase: 'loading' })
+    entryRevealTimersRef.current.push(window.setTimeout(() => {
+      setEntryReveal({ target: nextTarget, phase: 'revealing' })
+    }, 360))
+    entryRevealTimersRef.current.push(window.setTimeout(() => {
+      setEntryReveal((state) => state?.target === nextTarget ? null : state)
+    }, 1160))
+  }, [isFullscreenLyricsOpen, route.name])
+
+  React.useEffect(() => () => {
+    for (const timer of entryRevealTimersRef.current) {
+      window.clearTimeout(timer)
+    }
+  }, [])
+
   return (
     <div
       className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''} lyrics-bg-${lyricsBackgroundMode} ${followSystemAppearance ? 'appearance-system' : 'appearance-manual'} appearance-${effectiveAppearance}`}
@@ -3223,7 +3260,7 @@ function App(): React.ReactElement {
       <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
       <LiquidGlassFilters />
       <div
-        className={`app-shell ${isSidebarVisuallyCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''} ${route.name === 'nowPlaying' ? 'now-playing-route' : ''} ${dockProgressVisible ? 'dock-progress-visible' : 'dock-progress-hidden'} home-material-${homeCardMaterialMode}`}
+        className={`app-shell ${isSidebarVisuallyCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''} ${route.name === 'nowPlaying' ? 'now-playing-route' : ''} ${dockProgressVisible ? 'dock-progress-visible' : 'dock-progress-hidden'} home-material-${homeCardMaterialMode} ${entryReveal ? `page-entry-${entryReveal.target} page-entry-${entryReveal.phase}` : ''}`}
         style={
           {
             '--sidebar-width': `${isSidebarVisuallyCollapsed ? COLLAPSED_SIDEBAR_WIDTH : adaptiveSidebarWidth}px`,
@@ -3253,6 +3290,7 @@ function App(): React.ReactElement {
         />
         <WindowControls />
         <div className="titlebar-drag-region chrome-drag" aria-hidden="true" />
+        {entryReveal ? <RouteEntryLoader phase={entryReveal.phase} /> : null}
 
         <main className="content-pane">
           <Toolbar
@@ -3507,6 +3545,14 @@ function App(): React.ReactElement {
     </div>
   )
 }
+
+const RouteEntryLoader = React.memo(function RouteEntryLoader({ phase }: { phase: 'loading' | 'revealing' }): React.ReactElement {
+  return (
+    <div className={`route-entry-loader ${phase}`} aria-hidden="true">
+      <span />
+    </div>
+  )
+})
 
 const ContextMenu = React.memo(function ContextMenu({ state, onClose }: { state: ContextMenuState; onClose: () => void }): React.ReactElement {
   return (

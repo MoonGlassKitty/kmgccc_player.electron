@@ -3084,6 +3084,98 @@ input {
   container: content-pane / inline-size;
 }
 
+.route-entry-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 64;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 280ms ease;
+}
+
+.route-entry-loader.revealing {
+  opacity: 0;
+}
+
+.route-entry-loader span {
+  width: 38px;
+  height: 38px;
+  border: 3px solid rgba(255, 255, 255, 0.42);
+  border-top-color: color-mix(in srgb, var(--cover-accent-text) 72%, rgba(255, 255, 255, 0.94));
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 10px 34px rgba(12, 35, 48, 0.10),
+    0 0 0 1px rgba(255, 255, 255, 0.28) inset;
+  animation: routeEntrySpin 820ms linear infinite;
+}
+
+.page-entry-loading.page-entry-home .home-page,
+.page-entry-loading.page-entry-home .home-ambient-layer,
+.page-entry-loading.page-entry-nowPlaying .now-playing-page,
+.page-entry-loading.page-entry-fullscreen .fullscreen-lyrics-page {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0) scale(0.992);
+  pointer-events: none;
+}
+
+.page-entry-loading.page-entry-home .home-ambient-layer {
+  transform: translate3d(0, 0, 0) scale(0.985);
+}
+
+.page-entry-revealing.page-entry-home .home-page,
+.page-entry-revealing.page-entry-nowPlaying .now-playing-page,
+.page-entry-revealing.page-entry-fullscreen .fullscreen-lyrics-page {
+  animation: routeEntryPageReveal 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.page-entry-revealing.page-entry-home .home-ambient-layer {
+  animation: routeEntryDecorReveal 940ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes routeEntrySpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes routeEntryPageReveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes routeEntryDecorReveal {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-entry-loader span {
+    animation-duration: 1.4s;
+  }
+
+  .page-entry-revealing.page-entry-home .home-page,
+  .page-entry-revealing.page-entry-home .home-ambient-layer,
+  .page-entry-revealing.page-entry-nowPlaying .now-playing-page,
+  .page-entry-revealing.page-entry-fullscreen .fullscreen-lyrics-page {
+    animation-duration: 260ms;
+  }
+}
+
 .toolbar {
   position: absolute;
   inset: var(--win-titlebar-height) 0 auto;
