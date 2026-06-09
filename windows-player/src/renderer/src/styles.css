@@ -223,7 +223,7 @@ input {
 }
 
 .bk-art-background.mode-fullscreenDotOnly {
-  filter: saturate(0.9);
+  filter: saturate(1.22);
   background:
     radial-gradient(circle at 18% 24%, color-mix(in srgb, var(--bk-bg-tone-1) 98%, transparent), transparent 42%),
     radial-gradient(circle at 74% 64%, color-mix(in srgb, var(--bk-bg-tone-2) 94%, transparent), transparent 48%),
@@ -245,7 +245,7 @@ input {
 
 .bk-art-background.mode-fullscreenDotOnly .bk-image-phase {
   opacity: 0.74;
-  filter: contrast(1.01) saturate(0.9) brightness(1.0);
+  filter: contrast(1.02) saturate(1.18) brightness(1.0);
 }
 
 .bk-art-background.mode-fullscreenDotOnly .bk-art-surface .phase-a {
@@ -265,12 +265,12 @@ input {
     radial-gradient(circle at 30% 22%, color-mix(in srgb, var(--bk-bg-tone-1) 30%, transparent), transparent 38%),
     radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 28%, transparent), transparent 44%);
   opacity: 0.20;
-  filter: saturate(0.88);
+  filter: saturate(1.16);
 }
 
 .bk-art-background.mode-fullscreenDotOnly .bk-dot-grid {
   opacity: 0.96;
-  filter: blur(0.1px) saturate(0.88) contrast(1.01);
+  filter: blur(0.1px) saturate(1.14) contrast(1.01);
 }
 
 .bk-art-background.mode-fullscreenDotOnly .bk-dot-grid.small {
@@ -5958,7 +5958,7 @@ input {
 }
 
 .appearance-dark .bk-art-background.mode-fullscreenDotOnly {
-  filter: saturate(0.76) brightness(0.84) contrast(0.96);
+  filter: saturate(1.08) brightness(0.84) contrast(0.96);
   background:
     radial-gradient(circle at 18% 24%, color-mix(in srgb, var(--bk-bg-tone-1) 64%, rgba(54, 58, 62, 0.40)), transparent 42%),
     radial-gradient(circle at 74% 64%, color-mix(in srgb, var(--bk-bg-tone-2) 58%, rgba(42, 46, 50, 0.36)), transparent 48%),
@@ -5970,7 +5970,7 @@ input {
 }
 
 .appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-image-phase {
-  filter: contrast(0.98) saturate(0.84) brightness(0.80);
+  filter: contrast(0.98) saturate(1.08) brightness(0.80);
   opacity: 0.70;
 }
 
@@ -5980,12 +5980,12 @@ input {
 
 .appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-dot-gradient {
   opacity: 0.18;
-  filter: saturate(0.86);
+  filter: saturate(1.06);
 }
 
 .appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-dot-grid {
   opacity: 0.76;
-  filter: blur(0.1px) saturate(0.86) contrast(1) brightness(0.92);
+  filter: blur(0.1px) saturate(1.04) contrast(1) brightness(0.92);
 }
 
 .appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-dot-grid.small {
