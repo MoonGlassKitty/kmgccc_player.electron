@@ -113,3 +113,4 @@
 - Home/窗口播放/全屏播放进入态增加统一 loading reveal：从其他页面进入这些重资源页面时先显示短暂转圈，目标页面和 Home 点缀透明挂载后再渐入/轻微弹出，避免元素资源未就绪时瞬间跳出。`npm run typecheck` 与 `npm run build` 已通过。
 - 深色模式继续收口：BK 背景、dot、点缀元素在暗色下单独降饱和、降亮度并偏灰；底部状态栏改为显式黑色硅胶底和更暗的内阴影；Home 的 hover、solid、frosted 与音乐足迹分块补深色覆盖，避免继续露出白底。`npm run typecheck` 与 `npm run build` 已通过。
 - 深色模式歌词高亮补回接近白色 glow：侧栏 AMLL、全屏 AMLL 和普通歌词 fallback 的唱出歌词改为近白高亮并带柔光；未唱行和副歌词继续灰色且关闭 text-shadow，避免整片歌词一起发光。`npm run typecheck` 与 `npm run build` 已通过。
+- 左侧导航栏底部三个圆按钮补动画和统一外观：设置/外观/全屏按钮增加入场、hover 和按压动画；外观按钮接入真实点击事件，点击后关闭跟随系统并在手动深/浅色之间切换。深色模式下三个按钮统一为暗色硅胶/月光边缘，中间外观按钮显示月亮图标并稍强柔光，避免单独突兀。`npm run typecheck` 与 `npm run build` 已通过。

@@ -23,6 +23,7 @@ import {
   MessageSquareQuote,
   Minus,
   Minimize2,
+  Moon,
   Music2,
   Palette,
   Pause,
@@ -2730,6 +2731,10 @@ function App(): React.ReactElement {
     setSettingsCategory('fullscreen')
     setIsSettingsOpen(true)
   }, [])
+  const toggleAppearanceShortcut = React.useCallback(() => {
+    setFollowSystemAppearance(false)
+    setManualAppearance(effectiveAppearance === 'dark' ? 'light' : 'dark')
+  }, [effectiveAppearance])
   const changeNowPlayingSkin = React.useCallback((skin: NowPlayingSkinID) => {
     setSelectedNowPlayingSkin((previous) => {
       if (previous === skin) return previous
@@ -3278,6 +3283,8 @@ function App(): React.ReactElement {
           onResizeStart={handleSidebarResizeStart}
           onToggleFullscreenLyrics={toggleFullscreenLyrics}
           onOpenSettings={isFullscreenLyricsOpen ? openFullscreenSettings : openSettings}
+          isDarkAppearance={effectiveAppearance === 'dark'}
+          onToggleAppearance={toggleAppearanceShortcut}
           onCreatePlaylist={createPlaylist}
           onEditPlaylist={editPlaylist}
           onDeletePlaylist={deletePlaylist}
@@ -4179,6 +4186,8 @@ const Sidebar = React.memo(function Sidebar({
   onResizeStart,
   onToggleFullscreenLyrics,
   onOpenSettings,
+  isDarkAppearance,
+  onToggleAppearance,
   onCreatePlaylist,
   onEditPlaylist,
   onDeletePlaylist,
@@ -4197,6 +4206,8 @@ const Sidebar = React.memo(function Sidebar({
   onResizeStart: (event: React.PointerEvent) => void
   onToggleFullscreenLyrics: () => void
   onOpenSettings: () => void
+  isDarkAppearance: boolean
+  onToggleAppearance: () => void
   onCreatePlaylist: () => void
   onEditPlaylist: (playlist: HomePlaylistCard) => void
   onDeletePlaylist: (playlist: HomePlaylistCard) => void
@@ -4335,8 +4346,8 @@ const Sidebar = React.memo(function Sidebar({
           <button className="round-control" type="button" aria-label="设置" onClick={onOpenSettings}>
             <Settings size={18} />
           </button>
-          <button className="round-control" type="button" aria-label="外观">
-            <Sun size={18} />
+          <button className={`round-control appearance-control ${isDarkAppearance ? 'is-dark' : 'is-light'}`} type="button" aria-label={isDarkAppearance ? '切换到浅色模式' : '切换到深色模式'} onClick={onToggleAppearance}>
+            {isDarkAppearance ? <Moon className="appearance-icon moon" key="moon" size={18} /> : <Sun className="appearance-icon sun" key="sun" size={18} />}
           </button>
           <button className="round-control" type="button" aria-label="全屏播放" onClick={onToggleFullscreenLyrics}>
             <Maximize2 size={17} />
