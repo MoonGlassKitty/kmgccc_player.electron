@@ -4122,9 +4122,9 @@ input {
   border-radius: inherit;
   isolation: isolate;
   background:
-    radial-gradient(circle at 30% 44%, color-mix(in srgb, var(--cover-accent) 56%, transparent), transparent 32%),
-    radial-gradient(circle at 74% 24%, color-mix(in srgb, var(--cover-accent-text) 30%, transparent), transparent 36%),
-    linear-gradient(135deg, #10171c 0%, #172027 42%, #0a0f14 100%);
+    radial-gradient(circle at 30% 44%, color-mix(in srgb, var(--cover-accent) 42%, transparent), transparent 34%),
+    radial-gradient(circle at 74% 24%, color-mix(in srgb, var(--cover-accent-text) 18%, transparent), transparent 38%),
+    color-mix(in srgb, var(--bk-bg-tone-1) 62%, #f7fbff);
 }
 
 .fullscreen-lyrics-page > .bk-art-background,
@@ -4152,10 +4152,11 @@ input {
   position: absolute;
   inset: 0;
   z-index: 1;
+  display: none;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.26), rgba(0, 0, 0, 0.16) 44%, rgba(0, 0, 0, 0.46)),
-    linear-gradient(0deg, rgba(0, 0, 0, 0.36), transparent 28%, transparent 68%, rgba(0, 0, 0, 0.24));
+    linear-gradient(90deg, rgba(255, 255, 255, 0.10), transparent 34%, rgba(255, 255, 255, 0.06)),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.08), transparent 24%, transparent 72%, rgba(255, 255, 255, 0.04));
 }
 
 .fullscreen-lyrics-bg {
@@ -4165,8 +4166,8 @@ input {
   width: 116%;
   height: 116%;
   object-fit: cover;
-  opacity: 0.12;
-  filter: blur(56px) saturate(170%) brightness(0.58);
+  opacity: 0.10;
+  filter: blur(56px) saturate(150%) brightness(0.88);
   transform: scale(1.08);
 }
 
@@ -4178,7 +4179,7 @@ input {
   height: 100%;
   object-fit: cover;
   opacity: 1;
-  filter: saturate(112%) brightness(0.78);
+  filter: saturate(112%) brightness(0.98);
   pointer-events: none;
 }
 
@@ -4633,6 +4634,39 @@ input {
     background-color 140ms ease,
     box-shadow 140ms ease;
   transform: translateX(-50%);
+}
+
+.fullscreen-lyrics-open .mini-player,
+.mini-player.fullscreen-controls-active,
+.app-shell.now-playing-route .mini-player {
+  grid-template-columns: 96px minmax(120px, 180px) 40px 148px 58px minmax(160px, 190px);
+  width: clamp(790px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - var(--mini-player-side-gap)), 900px);
+}
+
+.mini-fullscreen-actions {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.fullscreen-lyrics-open .mini-fullscreen-actions,
+.mini-player.fullscreen-controls-active .mini-fullscreen-actions,
+.app-shell.now-playing-route .mini-fullscreen-actions {
+  display: flex;
+}
+
+.mini-fullscreen-actions button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 999px;
+  color: rgba(6, 31, 45, 0.88);
+  background: color-mix(in srgb, var(--cover-accent) 24%, rgba(255, 255, 255, 0.32));
 }
 
 .mini-player::before {

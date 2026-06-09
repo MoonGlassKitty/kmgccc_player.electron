@@ -22,7 +22,9 @@ import {
   Maximize2,
   MessageSquareQuote,
   Minus,
+  Minimize2,
   Music2,
+  Palette,
   Pause,
   Pencil,
   Play,
@@ -2515,6 +2517,10 @@ function App(): React.ReactElement {
     setSettingsCategory('nowPlaying')
     setIsSettingsOpen(true)
   }, [])
+  const openFullscreenSettings = React.useCallback(() => {
+    setSettingsCategory('fullscreen')
+    setIsSettingsOpen(true)
+  }, [])
   const changeNowPlayingSkin = React.useCallback((skin: NowPlayingSkinID) => {
     setSelectedNowPlayingSkin((previous) => {
       if (previous === skin) return previous
@@ -3019,7 +3025,7 @@ function App(): React.ReactElement {
           onToggle={toggleSidebar}
           onResizeStart={handleSidebarResizeStart}
           onToggleFullscreenLyrics={toggleFullscreenLyrics}
-          onOpenSettings={openSettings}
+          onOpenSettings={isFullscreenLyricsOpen ? openFullscreenSettings : openSettings}
           onCreatePlaylist={createPlaylist}
           onEditPlaylist={editPlaylist}
           onDeletePlaylist={deletePlaylist}
@@ -3108,6 +3114,9 @@ function App(): React.ReactElement {
                 onVolumeChange={changeVolume}
                 onSelectTrack={selectTrack}
                 onOpenNowPlaying={openNowPlaying}
+                showFullscreenActions={isFullscreenLyricsOpen}
+                onOpenFullscreenSettings={openFullscreenSettings}
+                onExitFullscreen={isFullscreenLyricsOpen ? toggleFullscreenLyrics : navigateHome}
                 onSeek={seekTo}
               />
             </>
@@ -4064,7 +4073,7 @@ const Sidebar = React.memo(function Sidebar({
           <button className="round-control" type="button" aria-label="外观">
             <Sun size={18} />
           </button>
-          <button className="round-control" type="button" aria-label="全屏" onClick={onToggleFullscreenLyrics}>
+          <button className="round-control" type="button" aria-label="全屏播放" onClick={onToggleFullscreenLyrics}>
             <Maximize2 size={17} />
           </button>
         </div>
@@ -7493,6 +7502,9 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onVolumeChange,
   onSelectTrack,
   onOpenNowPlaying,
+  showFullscreenActions,
+  onOpenFullscreenSettings,
+  onExitFullscreen,
   onSeek
 }: {
   track: Track
@@ -7511,6 +7523,9 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onVolumeChange: (volume: number) => void
   onSelectTrack: (id: string) => void
   onOpenNowPlaying: () => void
+  showFullscreenActions: boolean
+  onOpenFullscreenSettings: () => void
+  onExitFullscreen: () => void
   onSeek: (seconds: number) => void
 }): React.ReactElement {
   const [isQueueOpen, setIsQueueOpen] = React.useState(false)
@@ -7576,7 +7591,15 @@ const MiniPlayer = React.memo(function MiniPlayer({
       >
         <span className="mini-progress-line" aria-hidden="true" />
       </div>
-      <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={miniPlayerStyle}>
+      <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''} ${showFullscreenActions ? 'fullscreen-controls-active' : ''}`} style={miniPlayerStyle}>
+        <div className="mini-fullscreen-actions">
+          <button type="button" aria-label="缩小到主界面" onClick={onExitFullscreen}>
+            <Minimize2 size={22} />
+          </button>
+          <button type="button" aria-label="全屏播放设置" onClick={onOpenFullscreenSettings}>
+            <Palette size={22} />
+          </button>
+        </div>
       <button className="mini-track" type="button" aria-label="打开窗口播放" onClick={onOpenNowPlaying}>
         <ArtworkImage src={trackArtwork(track, albums)} maxSize={72} alt="" />
         <div>
