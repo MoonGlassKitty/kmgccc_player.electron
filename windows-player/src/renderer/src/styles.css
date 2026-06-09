@@ -1481,10 +1481,21 @@ input {
   contain: layout paint style;
 }
 
-.home-ambient-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
+.home-ambient-shape {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  will-change: transform;
+  transform: translate3d(-9999px, -9999px, 0);
+  transform-origin: center;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  backface-visibility: hidden;
+  contain: layout paint style;
 }
 
 .glass-panel {
@@ -2803,6 +2814,7 @@ input {
 .home-scroll-content {
   container: home-content / inline-size;
   transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
 
 .home-scroll-content.elastic-active {
@@ -2986,6 +2998,8 @@ input {
   scrollbar-width: none;
   scroll-padding-inline: calc(var(--sidebar-width) + 44px) calc(var(--lyrics-width) + 44px);
   overscroll-behavior-x: contain;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
 
 .home-card-grid::-webkit-scrollbar {
@@ -3002,6 +3016,8 @@ input {
 .home-card-grid > .home-album-card {
   flex: 0 0 210px;
   width: 210px;
+  content-visibility: auto;
+  contain-intrinsic-size: 240px 260px;
 }
 
 .home-card-grid > .home-person-card {
@@ -3204,6 +3220,8 @@ input {
   padding: 14px 18px;
   border-radius: 16px;
   text-align: left;
+  content-visibility: auto;
+  contain-intrinsic-size: 300px 92px;
 }
 
 .playlist-icon.large,

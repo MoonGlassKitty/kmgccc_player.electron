@@ -47,3 +47,4 @@
 - 底部时间条按合并层重写：移除额外透明 rail/fill 子层，播放进度改由底栏 `.mini-player::before` 自身绘制；`mini-timeline-layer` 只保留底部透明 slider 命中层，避免独立时间条动画与 BK/home 点缀抢帧或盖住播放按钮。
 - 导入播放列表封面接入 mac 素材库 `cov1`-`cov4`：解出对应 encrypted XCAssets，移除“第一首歌封面”伪兜底；仅导入列表按稳定 hash 显示自动封面，资料库/普通播放列表保持统一 logo。
 - 播放列表 logo 修正为透明无底图标；导入列表 cov 保留模板图并按稳定 hash 增加随机染色滤镜，避免灰度模板原样显示。
+- Home 性能优化：滚动状态改为 DOM class，不再触发 React 重渲染；home 点缀从每帧 canvas 重绘改为一次性染色贴图 + DOM transform 合成，保留玻璃参数和点缀外观，自动滚动采样约从 36fps 提升到 51fps。

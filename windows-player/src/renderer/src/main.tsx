@@ -288,17 +288,17 @@ function useElasticScroll<T extends HTMLElement>(): {
   isSettling: boolean
   isScrolling: boolean
   onWheel: (event: React.WheelEvent<T>) => void
-  onScroll: () => void
+  onScroll: (event: React.UIEvent<T>) => void
 } {
   const scrollRef = React.useRef<T>(null)
   const scrollEndTimerRef = React.useRef<number | null>(null)
   const scrollingRef = React.useRef(false)
-  const [isScrolling, setIsScrolling] = React.useState(false)
   const onWheel = React.useCallback((_event: React.WheelEvent<T>) => {}, [])
-  const onScroll = React.useCallback(() => {
+  const onScroll = React.useCallback((event: React.UIEvent<T>) => {
+    const target = event.currentTarget
     if (!scrollingRef.current) {
       scrollingRef.current = true
-      setIsScrolling(true)
+      target.classList.add('is-scrolling')
     }
 
     if (scrollEndTimerRef.current !== null) {
@@ -307,7 +307,7 @@ function useElasticScroll<T extends HTMLElement>(): {
     scrollEndTimerRef.current = window.setTimeout(() => {
       scrollingRef.current = false
       scrollEndTimerRef.current = null
-      setIsScrolling(false)
+      target.classList.remove('is-scrolling')
     }, 140)
   }, [])
 
@@ -315,9 +315,10 @@ function useElasticScroll<T extends HTMLElement>(): {
     if (scrollEndTimerRef.current !== null) {
       window.clearTimeout(scrollEndTimerRef.current)
     }
+    scrollRef.current?.classList.remove('is-scrolling')
   }, [])
 
-  return { scrollRef, elasticOffset: 0, isSettling: false, isScrolling, onWheel, onScroll }
+  return { scrollRef, elasticOffset: 0, isSettling: false, isScrolling: false, onWheel, onScroll }
 }
 
 type AppRoute =
@@ -1469,15 +1470,12 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
   isActive: boolean
 }): React.ReactElement {
   const rootRef = React.useRef<HTMLDivElement>(null)
-  const canvasRef = React.useRef<HTMLCanvasElement>(null)
+  const shapeRefs = React.useRef(new Map<number, HTMLDivElement>())
   const specs = React.useMemo(() => makeAmbientShapeSpecs(makeAmbientSeed()), [])
 
   React.useEffect(() => {
     const root = rootRef.current
-    const canvas = canvasRef.current
-    if (!root || !canvas) return
-    const context = canvas.getContext('2d')
-    if (!context) return
+    if (!root) return
 
     let frame = 0
     let scrollElement: HTMLElement | null = null
@@ -1486,7 +1484,6 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
     let layoutMetrics: {
       width: number
       height: number
-      dpr: number
       viewportHeight: number
       virtualHeight: number
       centerMinX: number
@@ -1495,24 +1492,26 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       fluidBoundaryScale: number
       shapeScale: number
     } | null = null
-    let disposed = false
     let loadedImages = new Map<string, HTMLImageElement>()
-    const tintedCache = new Map<string, HTMLCanvasElement>()
+    const tintedUrlCache = new Map<string, string>()
+    const resolvedColorCache = new Map<string, string>()
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
     const resolveColor = (color: string): string => {
+      const cached = resolvedColorCache.get(color)
+      if (cached) return cached
       const variableMatch = color.match(/^var\((--[^)]+)\)$/)
-      if (!variableMatch) return color
-      return getComputedStyle(root).getPropertyValue(variableMatch[1]).trim() || color
+      const resolved = variableMatch ? getComputedStyle(root).getPropertyValue(variableMatch[1]).trim() || color : color
+      resolvedColorCache.set(color, resolved)
+      return resolved
     }
 
-    const tintedImage = (asset: AmbientShapeAsset, color: string): HTMLCanvasElement | null => {
+    const tintedUrl = (asset: AmbientShapeAsset, color: string): string | null => {
       const image = loadedImages.get(asset.name)
       if (!image) return null
       const cacheKey = `${asset.name}|${color}`
-      const cached = tintedCache.get(cacheKey)
+      const cached = tintedUrlCache.get(cacheKey)
       if (cached) return cached
-
       const tintCanvas = document.createElement('canvas')
       tintCanvas.width = image.naturalWidth
       tintCanvas.height = image.naturalHeight
@@ -1522,8 +1521,18 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       context.globalCompositeOperation = 'source-in'
       context.fillStyle = color
       context.fillRect(0, 0, tintCanvas.width, tintCanvas.height)
-      tintedCache.set(cacheKey, tintCanvas)
-      return tintCanvas
+      const url = tintCanvas.toDataURL('image/png')
+      tintedUrlCache.set(cacheKey, url)
+      return url
+    }
+
+    const syncShapeImages = (): void => {
+      for (const spec of specs) {
+        const element = shapeRefs.current.get(spec.id)
+        if (!element) continue
+        const url = tintedUrl(spec.asset, resolveColor(spec.color))
+        if (url) element.style.backgroundImage = `url("${url}")`
+      }
     }
 
     const applyTransforms = (): void => {
@@ -1533,14 +1542,9 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       if (!metrics) return
       const scrollTop = isActive ? (scrollElement?.scrollTop ?? 0) : 0
 
-      context.setTransform(metrics.dpr, 0, 0, metrics.dpr, 0, 0)
-      context.clearRect(0, 0, metrics.width, metrics.height)
-      context.save()
-      context.beginPath()
-      context.rect(0, 0, metrics.width, metrics.height)
-      context.clip()
-
       for (const spec of specs) {
+        const element = shapeRefs.current.get(spec.id)
+        if (!element) continue
         const isUltra = spec.tier === 'ultra'
         const side = clampNumber(spec.nominalSide * metrics.shapeScale, spec.tier === 'small' ? 54 : 96, isUltra ? 980 : 760)
         const boundary = spec.side === 'left' ? metrics.centerMinX : metrics.centerMaxX
@@ -1558,21 +1562,19 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
         const rotation = reducedMotion
           ? spec.baseRotation
           : spec.baseRotation + clampNumber(scrollTop * spec.rotationPerPoint, -spec.rotationClamp, spec.rotationClamp)
-        const image = tintedImage(spec.asset, resolveColor(spec.color))
-        if (!image) continue
         const drawX = baseX + scrollX
         const drawY = baseY + scrollY
-        if (drawX < -side || drawX > metrics.width + side || drawY < -side || drawY > metrics.height + side) continue
+        if (drawX < -side || drawX > metrics.width + side || drawY < -side || drawY > metrics.height + side) {
+          element.style.visibility = 'hidden'
+          continue
+        }
 
-        context.save()
-        context.globalAlpha = spec.opacity
-        context.translate(drawX, drawY)
-        context.rotate((rotation * Math.PI) / 180)
-        context.drawImage(image, -side / 2, -side / 2, side, side)
-        context.restore()
+        element.style.visibility = 'visible'
+        element.style.width = `${side}px`
+        element.style.height = `${side}px`
+        element.style.opacity = String(spec.opacity)
+        element.style.transform = `translate3d(${drawX - side / 2}px, ${drawY - side / 2}px, 0) rotate(${rotation}deg)`
       }
-
-      context.restore()
     }
 
     const requestApply = (): void => {
@@ -1585,16 +1587,6 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       if (rootRect.width <= 0 || rootRect.height <= 0) {
         layoutMetrics = null
         return
-      }
-
-      const dpr = Math.min(window.devicePixelRatio || 1, 1)
-      const pixelWidth = Math.max(1, Math.round(rootRect.width * dpr))
-      const pixelHeight = Math.max(1, Math.round(rootRect.height * dpr))
-      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
-        canvas.width = pixelWidth
-        canvas.height = pixelHeight
-        canvas.style.width = `${rootRect.width}px`
-        canvas.style.height = `${rootRect.height}px`
       }
 
       const sidebarRect = sidebarElement?.getBoundingClientRect()
@@ -1610,7 +1602,6 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       layoutMetrics = {
         width: rootRect.width,
         height: rootRect.height,
-        dpr,
         viewportHeight,
         virtualHeight,
         centerMinX,
@@ -1655,7 +1646,9 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
     const appShell = document.querySelector('.app-shell')
     if (appShell) appShellObserver.observe(appShell, { attributes: true, attributeFilter: ['class', 'style'], childList: true })
     const themeObserver = new MutationObserver(() => {
-      tintedCache.clear()
+      tintedUrlCache.clear()
+      resolvedColorCache.clear()
+      syncShapeImages()
       requestApply()
     })
     const themeRoot = document.querySelector('.desktop-root')
@@ -1670,8 +1663,8 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       }))
     )
       .then((entries) => {
-        if (disposed) return
         loadedImages = new Map(entries)
+        syncShapeImages()
         requestApply()
       })
       .catch(() => {
@@ -1682,7 +1675,6 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
     const bindTimer = window.setTimeout(bindScrollElement, 80)
 
     return () => {
-      disposed = true
       window.clearTimeout(bindTimer)
       if (frame) window.cancelAnimationFrame(frame)
       scrollElement?.removeEventListener('scroll', handleScroll)
@@ -1695,7 +1687,19 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 
   return (
     <div className="home-ambient-layer" ref={rootRef} aria-hidden="true">
-      <canvas className="home-ambient-canvas" ref={canvasRef} />
+      {specs.map((spec) => (
+        <div
+          className="home-ambient-shape"
+          key={spec.id}
+          ref={(element) => {
+            if (element) {
+              shapeRefs.current.set(spec.id, element)
+            } else {
+              shapeRefs.current.delete(spec.id)
+            }
+          }}
+        />
+      ))}
     </div>
   )
 })
@@ -3636,7 +3640,7 @@ const HomePage = React.memo(function HomePage({
                 onClick={() => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
               >
                 {artist.artworkUrl ? (
-                  <img src={artist.artworkUrl} alt="" decoding="async" />
+                  <img src={artist.artworkUrl} alt="" loading="lazy" decoding="async" />
                 ) : (
                   <span className="artist-avatar">{artist.name}</span>
                 )}
@@ -3655,7 +3659,7 @@ const HomePage = React.memo(function HomePage({
                 type="button"
                 onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
               >
-                <img src={albumArtworkFor(album)} alt="" decoding="async" />
+                <img src={albumArtworkFor(album)} alt="" loading="lazy" decoding="async" />
                 <strong>{album.title}</strong>
                 <span>{album.artist}</span>
               </button>
@@ -3672,7 +3676,7 @@ const HomePage = React.memo(function HomePage({
                 type="button"
                 onClick={() => onNavigate({ name: 'playlistDetail', id: playlist.id, title: playlist.name })}
               >
-                <img className={`home-playlist-artwork ${isImportedPlaylist(playlist) ? 'generated' : 'logo'}`} src={playlistArtworkFor(playlist)} style={playlistArtworkStyle(playlist)} alt="" decoding="async" />
+                <img className={`home-playlist-artwork ${isImportedPlaylist(playlist) ? 'generated' : 'logo'}`} src={playlistArtworkFor(playlist)} style={playlistArtworkStyle(playlist)} alt="" loading="lazy" decoding="async" />
                 <span>
                   <strong>{playlist.name}</strong>
                   <small>{playlist.trackCount} 首</small>
