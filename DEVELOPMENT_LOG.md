@@ -76,3 +76,4 @@
 - Home 默认材质调整：左右侧栏共用大玻璃 DPR 从 0.2 降到 0.05；主页卡片默认改为磨砂玻璃，并在设置里标注“液态玻璃（试验品）”，增加一次性迁移避免旧默认值继续停留在液态玻璃。Home 卡片不再使用 `content-visibility` 按需卸载，主页卡片图片改为 eager，并修复缩略图缓存已存在时仍闪回原图的问题。`npm run typecheck` 与 `npm run build` 已通过。
 - Home 共享玻璃试改：按原作者“多个卡片打包成一个 view”的思路，把 Home 艺人/专辑横向卡片排和播放列表排改为外层 grid 共享一个玻璃/backdrop 层，内部单张卡片只保留半透明壳、高光、边界和阴影，不再每张卡片各自计算 backdrop。`npm run typecheck`、`npm run build` 与 `npm run preview` 启动 smoke test 已通过。
 - 音乐足迹板块静态化：`home-stats-block` 整块禁用 pointer events，内部卡片和高光层禁用 transition，避免鼠标经过时触发任何 hover、动画或阴影变化。`npm run typecheck` 与 `npm run build` 已通过。
+- Home 性能优化回到音乐足迹本体：撤回横向卡片/播放列表共享外层玻璃方案；统计小卡改为静态半透明层，听歌日历和排行内容保持完整但底层玻璃拆成左右两块单独计算，并修正磨砂材质隐藏伪元素导致分块玻璃不生效的问题。Home 点缀生成位置进一步外移，减少中心卡片吃到点缀。`npm run typecheck` 与 `npm run build` 已通过。

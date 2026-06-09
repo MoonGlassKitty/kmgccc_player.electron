@@ -3357,10 +3357,6 @@ input {
 }
 
 .home-card-grid {
-  --home-shared-glass-alpha: 0.28;
-  --home-shared-glass-border: rgba(255, 255, 255, 0.38);
-  --home-shared-glass-shadow: rgba(25, 58, 80, 0.036);
-  --filter-url: url(#lg-home-liquid);
   display: flex;
   gap: 16px;
   width: 100vw;
@@ -3375,18 +3371,6 @@ input {
   scrollbar-width: none;
   scroll-padding-inline: calc(var(--sidebar-width) + 44px) calc(var(--lyrics-width) + 44px);
   overscroll-behavior-x: contain;
-  border: 1px solid var(--home-shared-glass-border);
-  border-radius: 22px;
-  background-color: rgba(255, 255, 255, var(--home-shared-glass-alpha));
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  backdrop-filter: var(--filter-url);
-  -webkit-backdrop-filter: var(--filter-url);
-  box-shadow:
-    0 20px 54px var(--home-shared-glass-shadow),
-    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
-  contain: layout paint style;
-  isolation: isolate;
 }
 
 .home-card-grid::-webkit-scrollbar {
@@ -3497,34 +3481,6 @@ input {
   box-shadow:
     0 10px 22px rgba(20, 33, 40, 0.08),
     0 0 0 1px rgba(20, 33, 40, 0.06) inset;
-}
-
-.app-shell.home-material-frostedGlass .home-card-grid,
-.app-shell.home-material-frostedGlass .home-playlist-grid {
-  --home-shared-glass-alpha: 0.30;
-  --home-shared-glass-border: rgba(255, 255, 255, 0.34);
-  --home-shared-glass-shadow: rgba(20, 33, 40, 0.075);
-  backdrop-filter: blur(22px) saturate(1.08);
-  -webkit-backdrop-filter: blur(22px) saturate(1.08);
-}
-
-.app-shell.home-material-solid .home-card-grid,
-.app-shell.home-material-solid .home-playlist-grid {
-  --home-shared-glass-alpha: 0.18;
-  --home-shared-glass-border: rgba(20, 33, 40, 0.05);
-  --home-shared-glass-shadow: rgba(20, 33, 40, 0.055);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.app-shell .home-card-grid > .home-liquid-card,
-.app-shell .home-playlist-grid > .home-liquid-card {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  background-color: rgba(255, 255, 255, 0.30);
-  box-shadow:
-    0 12px 28px rgba(25, 58, 80, 0.038),
-    0 0 0 1px rgba(255, 255, 255, 0.30) inset;
 }
 
 .home-liquid-card::before {
@@ -3646,26 +3602,8 @@ input {
 }
 
 .home-playlist-grid {
-  --home-shared-glass-alpha: 0.28;
-  --home-shared-glass-border: rgba(255, 255, 255, 0.38);
-  --home-shared-glass-shadow: rgba(25, 58, 80, 0.036);
-  --filter-url: url(#lg-home-liquid);
   display: grid;
   grid-template-columns: minmax(260px, 480px);
-  width: min(520px, 100%);
-  padding: 12px;
-  border: 1px solid var(--home-shared-glass-border);
-  border-radius: 22px;
-  background-color: rgba(255, 255, 255, var(--home-shared-glass-alpha));
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  backdrop-filter: var(--filter-url);
-  -webkit-backdrop-filter: var(--filter-url);
-  box-shadow:
-    0 20px 54px var(--home-shared-glass-shadow),
-    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
-  contain: layout paint style;
-  isolation: isolate;
 }
 
 .home-playlist-card {
@@ -3723,6 +3661,22 @@ input {
   border-radius: 16px;
 }
 
+.home-stats-block .home-stat-grid .home-stat-card {
+  border: 0;
+  background: rgba(255, 255, 255, 0.66);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    0 14px 34px rgba(25, 58, 80, 0.026),
+    0 0 0 1px rgba(255, 255, 255, 0.26) inset;
+  contain: layout paint style;
+}
+
+.home-stats-block .home-stat-grid .home-stat-card::before,
+.home-stats-block .home-stat-grid .home-stat-card::after {
+  display: none;
+}
+
 .home-stat-card span,
 .home-stat-card small {
   display: block;
@@ -3737,6 +3691,94 @@ input {
   color: color-mix(in srgb, var(--cover-accent-text) 76%, #071f2f);
   font-size: 30px;
   font-weight: 900;
+}
+
+.home-calendar-panel {
+  justify-self: start;
+  width: min(760px, 100%);
+}
+
+.home-rank-panel {
+  max-width: min(100%, 980px);
+  padding-right: 26px;
+}
+
+.home-stats-block .home-rank-panel,
+.home-stats-block .home-calendar-panel {
+  --filter-url: url(#lg-home-liquid);
+  overflow: visible;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  contain: layout style;
+  isolation: isolate;
+}
+
+.home-stats-block .home-rank-panel::before,
+.home-stats-block .home-rank-panel::after,
+.home-stats-block .home-calendar-panel::before,
+.home-stats-block .home-calendar-panel::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  display: block;
+  border-radius: inherit;
+  background-color: rgba(255, 255, 255, var(--glass-alpha));
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  backdrop-filter: var(--filter-url);
+  -webkit-backdrop-filter: var(--filter-url);
+  box-shadow:
+    0 18px 46px var(--glass-shadow),
+    0 0 0 1px rgba(255, 255, 255, 0.22) inset;
+  pointer-events: none;
+}
+
+.app-shell.home-material-frostedGlass .home-stats-block .home-rank-panel::before,
+.app-shell.home-material-frostedGlass .home-stats-block .home-rank-panel::after,
+.app-shell.home-material-frostedGlass .home-stats-block .home-calendar-panel::before,
+.app-shell.home-material-frostedGlass .home-stats-block .home-calendar-panel::after {
+  display: block;
+  backdrop-filter: blur(22px) saturate(1.08);
+  -webkit-backdrop-filter: blur(22px) saturate(1.08);
+  background-color: rgba(255, 255, 255, 0.34);
+  box-shadow:
+    0 14px 32px rgba(20, 33, 40, 0.10),
+    0 0 0 1px rgba(255, 255, 255, 0.34) inset;
+}
+
+.home-stats-block .home-rank-panel:hover,
+.home-stats-block .home-calendar-panel:hover {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.home-stats-block .home-rank-panel::before {
+  left: 0;
+  width: min(350px, 42%);
+  border-radius: 16px 0 0 16px;
+}
+
+.home-stats-block .home-rank-panel::after {
+  right: 0;
+  width: calc(100% - min(390px, 46%));
+  border-radius: 0 16px 16px 0;
+}
+
+.home-stats-block .home-calendar-panel::before {
+  left: 0;
+  width: calc((100% - 48px) / 7 * 5 + 32px);
+  border-radius: 16px 0 0 16px;
+}
+
+.home-stats-block .home-calendar-panel::after {
+  right: 0;
+  width: calc((100% - 48px) / 7 * 2 + 8px);
+  border-radius: 0 16px 16px 0;
 }
 
 .lyrics-side-panel {
