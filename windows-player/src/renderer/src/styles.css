@@ -3305,6 +3305,7 @@ input {
   grid-template-columns: minmax(380px, 1.2fr) minmax(260px, 0.8fr);
   gap: 16px;
   contain-intrinsic-size: auto 620px;
+  pointer-events: none;
 }
 
 .home-stats-block .home-section-heading {
@@ -3318,6 +3319,11 @@ input {
 .home-stats-block .home-stat-grid {
   grid-column: 1;
   grid-row: 2;
+}
+
+.home-stats-block .home-liquid-card,
+.home-stats-block .home-liquid-card::before {
+  transition: none;
 }
 
 .home-metrics-row,
