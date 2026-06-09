@@ -40,3 +40,4 @@
 - 封面查找按 Swift/QQMusicApi 源补齐：主进程接入 `musicu.fcg` QQMusic 搜索结构，网易云专辑搜索返回多候选，并将远程封面下载校验成 data URL 后再交给渲染层保存/显示，避免热链封面失败。
 - 艺人“生成封面”按 Swift `ArtistArtworkGenerator` 参数重写：优先从该艺人歌曲封面抽取调色板，使用 HSB clamp、稳定角度、低饱和 fallback、高光和对比文字；专辑“使用歌曲封面”改为取专辑内歌曲封面。
 - BK 背景按 Swift 状态分支校正：dot 阶段不再透出动态背景图和大块径向底纹，只保留主题纯色底与轻量渐变层；image/油漆阶段继续使用 tinted background 变换，并整体降低 BK 背景、dot、shape 的饱和度。
+- BK dot 可见度微调：dot 窗口改为正常混合，压低底层渐变干扰，提高大小点阵层透明度和轻微对比，保持低饱和但让点阵更清楚。
