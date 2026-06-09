@@ -1056,17 +1056,38 @@ function amllLyricToneSet(seed: RgbColor): {
   wash: RgbColor
 } {
   const hsl = rgbToHsl(seed)
-  const tunedSaturation = clampNumber(hsl.s * 0.82 + 0.08, 0.18, 0.72)
-  const mainLightness = clampNumber(hsl.l * 0.82 + 0.12, 0.34, 0.64)
-  const deepLightness = clampNumber(mainLightness * 0.48, 0.16, 0.30)
-  const inactiveLightness = clampNumber(mainLightness + 0.16, 0.46, 0.70)
-  const subActiveLightness = clampNumber(mainLightness + 0.24, 0.56, 0.78)
+  const isLightBackground = relativeLuminance(seed) >= 0.56
+  const tunedSaturation = clampNumber(hsl.s * 1.06 + 0.10, 0.30, 0.78)
+  const activeLightness = isLightBackground
+    ? clampNumber(hsl.l * 0.34 + 0.62, 0.74, 0.92)
+    : clampNumber(hsl.l * 0.40, 0.16, 0.36)
+  const inactiveTint = hslToRgb({
+    h: hsl.h,
+    s: clampNumber(tunedSaturation * 0.30, 0.06, 0.22),
+    l: isLightBackground ? 0.88 : 0.72
+  })
+  const subInactiveTint = hslToRgb({
+    h: hsl.h,
+    s: clampNumber(tunedSaturation * 0.24, 0.05, 0.18),
+    l: isLightBackground ? 0.91 : 0.76
+  })
+  const active = hslToRgb({ h: hsl.h, s: tunedSaturation, l: activeLightness })
+  const subActive = hslToRgb({
+    h: hsl.h,
+    s: clampNumber(tunedSaturation * 0.82, 0.22, 0.62),
+    l: isLightBackground ? clampNumber(activeLightness - 0.08, 0.64, 0.84) : clampNumber(activeLightness + 0.08, 0.24, 0.46)
+  })
+  const wash = hslToRgb({
+    h: hsl.h,
+    s: clampNumber(tunedSaturation * 0.84, 0.16, 0.58),
+    l: isLightBackground ? clampNumber(activeLightness * 0.72, 0.54, 0.72) : clampNumber(activeLightness * 0.56, 0.12, 0.26)
+  })
   return {
-    active: hslToRgb({ h: hsl.h, s: tunedSaturation, l: mainLightness }),
-    inactive: hslToRgb({ h: hsl.h, s: clampNumber(tunedSaturation * 0.44, 0.10, 0.34), l: inactiveLightness }),
-    subActive: hslToRgb({ h: hsl.h, s: clampNumber(tunedSaturation * 0.58, 0.12, 0.42), l: subActiveLightness }),
-    subInactive: hslToRgb({ h: hsl.h, s: clampNumber(tunedSaturation * 0.30, 0.08, 0.24), l: inactiveLightness }),
-    wash: hslToRgb({ h: hsl.h, s: clampNumber(tunedSaturation * 0.88, 0.14, 0.62), l: deepLightness })
+    active,
+    inactive: mixRgb(inactiveTint, { r: 255, g: 255, b: 255 }, isLightBackground ? 0.20 : 0.10),
+    subActive,
+    subInactive: mixRgb(subInactiveTint, { r: 255, g: 255, b: 255 }, isLightBackground ? 0.24 : 0.14),
+    wash
   }
 }
 
@@ -1084,33 +1105,34 @@ function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties, ton
   const primary = amllLyricToneSet(primarySeed)
   const secondary = amllLyricToneSet(secondarySeed)
   const blended = amllLyricToneSet(currentSeed)
-  const sideActiveSeed = readableAccentTextColor(currentSeed)
-  const sideInactiveSeed = readableAccentTextColor(toneSeed ?? mixRgb(primarySeed, secondarySeed, clampNumber(toneBlend * 0.72, 0, 1)))
+  const glowAlpha = relativeLuminance(blended.active) < 0.48 ? 0 : 0.42
+  const primaryGlowAlpha = relativeLuminance(primary.active) < 0.48 ? 0 : 0.42
+  const secondaryGlowAlpha = relativeLuminance(secondary.active) < 0.48 ? 0 : 0.42
   return {
     '--amll-fullscreen-active-color': rgbaString(blended.active, 1),
     '--amll-fullscreen-inactive-color': rgbaString(blended.inactive, 1),
     '--amll-fullscreen-sub-active-color': rgbaString(blended.subActive, 1),
     '--amll-fullscreen-sub-inactive-color': rgbaString(blended.subInactive, 1),
     '--amll-fullscreen-bg-color': rgbaString(blended.wash, 0.18),
-    '--amll-fullscreen-glow-color': rgbaString(blended.wash, 0.52),
+    '--amll-fullscreen-glow-color': rgbaString(blended.wash, glowAlpha),
     '--amll-fullscreen-active-color-a': rgbaString(primary.active, 1),
     '--amll-fullscreen-inactive-color-a': rgbaString(primary.inactive, 1),
     '--amll-fullscreen-sub-active-color-a': rgbaString(primary.subActive, 1),
     '--amll-fullscreen-sub-inactive-color-a': rgbaString(primary.subInactive, 1),
     '--amll-fullscreen-bg-color-a': rgbaString(primary.wash, 0.18),
-    '--amll-fullscreen-glow-color-a': rgbaString(primary.wash, 0.52),
+    '--amll-fullscreen-glow-color-a': rgbaString(primary.wash, primaryGlowAlpha),
     '--amll-fullscreen-active-color-b': rgbaString(secondary.active, 1),
     '--amll-fullscreen-inactive-color-b': rgbaString(secondary.inactive, 1),
     '--amll-fullscreen-sub-active-color-b': rgbaString(secondary.subActive, 1),
     '--amll-fullscreen-sub-inactive-color-b': rgbaString(secondary.subInactive, 1),
     '--amll-fullscreen-bg-color-b': rgbaString(secondary.wash, 0.18),
-    '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, 0.52),
-    '--amll-side-active-color': rgbaString(sideActiveSeed, 0.92),
-    '--amll-side-inactive-color': rgbaString(sideInactiveSeed, 0.58),
-    '--amll-side-active-color-a': rgbaString(readableAccentTextColor(primarySeed), 0.92),
-    '--amll-side-inactive-color-a': rgbaString(readableAccentTextColor(primarySeed), 0.58),
-    '--amll-side-active-color-b': rgbaString(readableAccentTextColor(secondarySeed), 0.88),
-    '--amll-side-inactive-color-b': rgbaString(readableAccentTextColor(secondarySeed), 0.48)
+    '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, secondaryGlowAlpha),
+    '--amll-side-active-color': rgbaString(blended.active, 0.94),
+    '--amll-side-inactive-color': rgbaString(blended.inactive, 0.58),
+    '--amll-side-active-color-a': rgbaString(primary.active, 0.94),
+    '--amll-side-inactive-color-a': rgbaString(primary.inactive, 0.58),
+    '--amll-side-active-color-b': rgbaString(secondary.active, 0.90),
+    '--amll-side-inactive-color-b': rgbaString(secondary.inactive, 0.50)
   } as React.CSSProperties
 }
 
@@ -1123,6 +1145,9 @@ function fullscreenLyricColorStyleFromBKTheme(themeStyle: React.CSSProperties, t
   const primary = amllLyricToneSet(backgroundSeed)
   const secondary = amllLyricToneSet(secondarySeed)
   const blended = amllLyricToneSet(toneSeed ?? mixRgb(backgroundSeed, secondarySeed, toneBlend))
+  const glowAlpha = relativeLuminance(blended.active) < 0.48 ? 0 : 0.42
+  const primaryGlowAlpha = relativeLuminance(primary.active) < 0.48 ? 0 : 0.42
+  const secondaryGlowAlpha = relativeLuminance(secondary.active) < 0.48 ? 0 : 0.42
   return {
     ...fullscreenLyricColorStyleFromTheme(themeStyle, toneBlend, toneSeed),
     '--amll-fullscreen-active-color': rgbaString(blended.active, 1),
@@ -1130,19 +1155,19 @@ function fullscreenLyricColorStyleFromBKTheme(themeStyle: React.CSSProperties, t
     '--amll-fullscreen-sub-active-color': rgbaString(blended.subActive, 1),
     '--amll-fullscreen-sub-inactive-color': rgbaString(blended.subInactive, 1),
     '--amll-fullscreen-bg-color': rgbaString(blended.wash, 0.18),
-    '--amll-fullscreen-glow-color': rgbaString(blended.wash, 0.52),
+    '--amll-fullscreen-glow-color': rgbaString(blended.wash, glowAlpha),
     '--amll-fullscreen-active-color-a': rgbaString(primary.active, 1),
     '--amll-fullscreen-inactive-color-a': rgbaString(primary.inactive, 1),
     '--amll-fullscreen-sub-active-color-a': rgbaString(primary.subActive, 1),
     '--amll-fullscreen-sub-inactive-color-a': rgbaString(primary.subInactive, 1),
     '--amll-fullscreen-bg-color-a': rgbaString(primary.wash, 0.18),
-    '--amll-fullscreen-glow-color-a': rgbaString(primary.wash, 0.52),
+    '--amll-fullscreen-glow-color-a': rgbaString(primary.wash, primaryGlowAlpha),
     '--amll-fullscreen-active-color-b': rgbaString(secondary.active, 1),
     '--amll-fullscreen-inactive-color-b': rgbaString(secondary.inactive, 1),
     '--amll-fullscreen-sub-active-color-b': rgbaString(secondary.subActive, 1),
     '--amll-fullscreen-sub-inactive-color-b': rgbaString(secondary.subInactive, 1),
     '--amll-fullscreen-bg-color-b': rgbaString(secondary.wash, 0.18),
-    '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, 0.52)
+    '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, secondaryGlowAlpha)
   } as React.CSSProperties
 }
 
@@ -3263,6 +3288,7 @@ function App(): React.ReactElement {
               appleMeshSpeed={appleMeshSpeed}
               cassetteKmgLookEnabled={isCassetteKmgLookEnabled}
               onArtworkFrameAdvance={() => setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)}
+              onLyricToneSeedChange={setLyricToneSeed}
             />
           ) : (
             <LibraryDetailPage
@@ -3326,6 +3352,7 @@ function App(): React.ReactElement {
             onSeek={seekToLyricTime}
             onResizeStart={handleLyricsResizeStart}
             renderQuality={lyricsRenderQuality}
+            colorStyle={desktopStyle}
           />
         ) : null}
         {isSettingsOpen ? (
@@ -4753,7 +4780,8 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   isPlaying,
   onSeek,
   variant,
-  renderQuality = 'balanced'
+  renderQuality = 'balanced',
+  colorStyle
 }: {
   lines: ParsedLyricLine[]
   track: Track | null | undefined
@@ -4762,6 +4790,7 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   onSeek: (seconds: number) => void
   variant: 'side' | 'fullscreen'
   renderQuality?: LyricsRenderQuality
+  colorStyle?: React.CSSProperties
 }): React.ReactElement {
   const amllLines = React.useMemo(() => amllLyricLinesFromParsed(lines, track?.duration ?? 0), [lines, track?.duration])
   const amllShellRef = React.useRef<HTMLDivElement | null>(null)
@@ -4821,6 +4850,7 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
         <LyricPlayer
           key={`${variant}-${track?.id ?? 'empty'}`}
           className={`fullscreen-amll-player amll-lyrics-player ${variant}`}
+          style={colorStyle}
           data-lyric-count={amllLines.length}
           lyricLines={amllLines}
           currentTime={Math.max(0, Math.round(playbackTime * 1000))}
@@ -4893,9 +4923,11 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
   isPlaying,
   onSeek,
   onResizeStart,
-  renderQuality = 'balanced'
+  renderQuality = 'balanced',
+  colorStyle
 }: LyricsSurfaceProps & {
   onResizeStart: (event: React.PointerEvent) => void
+  colorStyle?: React.CSSProperties
 }): React.ReactElement {
   const lines = React.useMemo(() => parseLyrics(track), [track])
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
@@ -4924,7 +4956,7 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
 
       {lines.length ? (
         hasTimedLyrics ? (
-          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="side" renderQuality={renderQuality} />
+          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="side" renderQuality={renderQuality} colorStyle={colorStyle} />
         ) : (
           <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="side" />
         )
@@ -4986,6 +5018,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   const artwork = trackArtwork(track, albums)
   const artworkFrame = artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]
   const pageRef = React.useRef<HTMLElement | null>(null)
+  const isSamplingBackgroundRef = React.useRef(false)
   const [pixelStretchBackground, setPixelStretchBackground] = React.useState<string | null>(null)
   const [amllColorPhase, setAmllColorPhase] = React.useState(0)
   const [activeBKThemeStyle, setActiveBKThemeStyle] = React.useState<React.CSSProperties>(bkThemeStyle)
@@ -5020,14 +5053,22 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   const sampleFullscreenBackgroundColor = React.useCallback(async (): Promise<void> => {
     const page = pageRef.current
     if (!page || !window.kmgccc?.sampleWindowColor) return
+    if (isSamplingBackgroundRef.current) return
+    isSamplingBackgroundRef.current = true
     const rect = page.getBoundingClientRect()
-    const sample = await window.kmgccc.sampleWindowColor({
-      x: rect.left + rect.width * 0.66,
-      y: rect.top + rect.height * 0.10,
-      width: rect.width * 0.22,
-      height: rect.height * 0.18
-    })
-    if (sample) onLyricToneSeedChange(sample)
+    try {
+      const sample = await window.kmgccc.sampleWindowColor({
+        x: rect.left + rect.width * 0.66,
+        y: rect.top + rect.height * 0.10,
+        width: rect.width * 0.22,
+        height: rect.height * 0.18
+      })
+      if (sample) onLyricToneSeedChange(sample)
+    } finally {
+      window.setTimeout(() => {
+        isSamplingBackgroundRef.current = false
+      }, 3200)
+    }
   }, [onLyricToneSeedChange])
 
   return (
@@ -5064,7 +5105,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       </div>
       <div className="fullscreen-lyrics-lines">
         {hasTimedLyrics ? (
-          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="fullscreen" renderQuality={renderQuality} />
+              <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="fullscreen" renderQuality={renderQuality} colorStyle={fullscreenPageStyle} />
         ) : lines.length ? (
           <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="fullscreen" />
         ) : (
@@ -5104,7 +5145,8 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   appleDynamicBackgroundEnabled,
   appleMeshSpeed,
   cassetteKmgLookEnabled,
-  onArtworkFrameAdvance
+  onArtworkFrameAdvance,
+  onLyricToneSeedChange
 }: {
   track: Track | null | undefined
   albums: Map<string, HomeAlbumCard>
@@ -5125,16 +5167,39 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   appleMeshSpeed: AppleMeshSpeed
   cassetteKmgLookEnabled: boolean
   onArtworkFrameAdvance: () => void
+  onLyricToneSeedChange: (seed: RgbColor) => void
 }): React.ReactElement {
+  const pageRef = React.useRef<HTMLElement | null>(null)
+  const isSamplingBackgroundRef = React.useRef(false)
   const artwork = trackArtwork(track, albums)
   const artworkFrame = artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]
   const showBKBackground = artBackgroundEnabled && skinID !== 'appleStyle'
+  const sampleNowPlayingBackgroundColor = React.useCallback(async (): Promise<void> => {
+    const page = pageRef.current
+    if (!page || !window.kmgccc?.sampleWindowColor) return
+    if (isSamplingBackgroundRef.current) return
+    isSamplingBackgroundRef.current = true
+    const rect = page.getBoundingClientRect()
+    try {
+      const sample = await window.kmgccc.sampleWindowColor({
+        x: rect.left + rect.width * 0.60,
+        y: rect.top + rect.height * 0.12,
+        width: rect.width * 0.24,
+        height: rect.height * 0.18
+      })
+      if (sample) onLyricToneSeedChange(sample)
+    } finally {
+      window.setTimeout(() => {
+        isSamplingBackgroundRef.current = false
+      }, 3200)
+    }
+  }, [onLyricToneSeedChange])
   return (
-    <section className={`now-playing-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} no-drag`}>
+    <section ref={pageRef} className={`now-playing-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} no-drag`}>
       {skinID === 'appleStyle' ? (
         <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
       ) : showBKBackground ? (
-        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} />
+        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onToneSeedChange={onLyricToneSeedChange} onPaintRevealComplete={sampleNowPlayingBackgroundColor} />
       ) : (
         <UnifiedMeshBackground />
       )}
@@ -5468,8 +5533,6 @@ const BKArtBackground = React.memo(function BKArtBackground({
     publishToneSeedRef.current = publishSample
     if (previousSurface) return
     publishSample()
-    const interval = window.setInterval(publishSample, 900)
-    return () => window.clearInterval(interval)
   }, [currentSurface, onToneSeedChange, previousSurface])
 
   return (

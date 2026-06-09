@@ -105,3 +105,4 @@
 - 导入补全反馈补齐：`syncTrackInfo` 增加歌手信息查询与 artist 状态，导入卡片显示歌曲信息、歌手信息、专辑信息、歌词四项的已补全/未找到/失败状态，批量导入完成文案也会明确列出未找到或失败的项目。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL BK 取色触发点修正：BK image phase 生成染色图时同步缓存平均色，歌词 seed 优先读取该平均色；刷漆过程中不再提前混色抢跑，改为 `bkPaintReveal` 动画结束后的下一帧立刻取当前已刷完背景色推给 AMLL，并在非刷漆状态低频刷新 image phase 颜色。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL 刷漆后真实窗口取色：新增 `window:sample-color` IPC，主进程用 `BrowserWindow.capturePage` 对渲染后的窗口区域取平均 RGB；全屏歌词页在 `bkPaintReveal` 结束后的下一帧采样右侧背景区域，并用真实像素色覆盖 AMLL 当前 seed，避免继续依赖 BK 内部推断色。`npm run typecheck` 与 `npm run build` 已通过。
+- AMLL 歌词颜色规则调整：全屏与窗口/侧栏歌词共用取色后的 tone seed；浅色背景下歌词整体往亮色/浅粉白靠，深色模式才把高亮歌词压暗，并在高亮字为深色时关闭 glow。Now Playing 窗口播放页也接入 BK 刷漆后真实窗口取色，确保窗口歌词和全屏歌词使用同一套颜色来源；同时撤掉调试日志和内部定时刷新，截图取色只在刷漆结束后单次触发并带 3.2s 防重复锁。`npm run typecheck` 与 `npm run build` 已通过。
