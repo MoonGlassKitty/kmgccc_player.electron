@@ -3146,8 +3146,23 @@ function App(): React.ReactElement {
     setIsFullscreenLyricsOpen((value) => !value)
   }, [])
   const toggleArtworkBpmPulse = React.useCallback(() => {
+    const trackId = currentTrack?.id
+    if (trackId) {
+      const nextCache = { ...bpmCacheRef.current }
+      delete nextCache[trackId]
+      bpmCacheRef.current = nextCache
+      setTrackBpmById((previous) => {
+        if (!previous[trackId]) return previous
+        const next = { ...previous }
+        delete next[trackId]
+        return next
+      })
+    }
+    bpmAnalyzerRef.current?.stop()
+    bpmDetectionTrackIdRef.current = null
+    artworkPulseLastBeatRef.current = null
     setIsArtworkBpmPulseEnabled((value) => !value)
-  }, [])
+  }, [currentTrack?.id])
 
   React.useEffect(() => {
     if (!isFullscreenLyricsOpen) return

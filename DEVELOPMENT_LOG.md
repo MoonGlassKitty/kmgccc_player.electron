@@ -129,3 +129,4 @@
 - 艺术封面描边改为 BPM 律动：接入 `realtime-bpm-analyzer`，复用现有 WebAudio source 分支实时检测当前歌曲 BPM 并按曲目缓存一次；切歌不再按 hash 自动切换 artwork frame。点击经典封面开启/关闭节奏律动，开启且播放中会按检测到的 BPM 推进封面描边，切歌时未缓存 BPM 的歌曲会重新检测。`npm run typecheck` 与 `npm run build` 已通过。
 - 播放页歌名块定位微调：全屏歌词页的歌名/艺人专辑块不再跟随底部状态栏左边缘，恢复到左下信息区并整体右移、上移；窗口播放页歌名块改回按左侧导航栏右边缘对齐，同时继续保持在底栏上方避免被遮挡。`npm run typecheck` 与 `npm run build` 已通过。
 - 艺术封面 BPM 律动修正：检测到的 BPM 按“超过 130 则除 2”的规则归一，并把倍速/半速候选合并后选最高分；描边推进从 `setInterval` 改为 `requestAnimationFrame` 读取 audio.currentTime 计算 beat index，减少漂移和错拍。`npm run typecheck` 与 `npm run build` 已通过。
+- 艺术封面 BPM 重新测速：点击封面时会清除当前歌曲已缓存的 BPM，并停止当前 analyzer；如果这次点击是重新开启律动，会按当前歌曲重新检测 BPM，不再永久沿用第一次测速结果。`npm run typecheck` 与 `npm run build` 已通过。
