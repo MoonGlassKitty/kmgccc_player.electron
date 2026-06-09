@@ -1571,7 +1571,11 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
     let loadedImages = new Map<string, HTMLImageElement>()
     const tintedUrlCache = new Map<string, string>()
     const resolvedColorCache = new Map<string, string>()
+    const shapeStyleCache = new Map<number, { visible: boolean; side: number; opacity: number; transform: string }>()
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const minFrameIntervalMs = 1000 / 50
+    let lastFrameAt = 0
+    let deferredFrameTimer = 0
 
     const resolveColor = (color: string): string => {
       const cached = resolvedColorCache.get(color)
@@ -1640,22 +1644,56 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
           : spec.baseRotation + clampNumber(scrollTop * spec.rotationPerPoint, -spec.rotationClamp, spec.rotationClamp)
         const drawX = baseX + scrollX
         const drawY = baseY + scrollY
+        const cached = shapeStyleCache.get(spec.id)
         if (drawX < -side || drawX > metrics.width + side || drawY < -side || drawY > metrics.height + side) {
-          element.style.visibility = 'hidden'
+          if (!cached || cached.visible) {
+            element.style.visibility = 'hidden'
+            shapeStyleCache.set(spec.id, {
+              visible: false,
+              side: cached?.side ?? 0,
+              opacity: cached?.opacity ?? 0,
+              transform: cached?.transform ?? ''
+            })
+          }
           continue
         }
 
-        element.style.visibility = 'visible'
-        element.style.width = `${side}px`
-        element.style.height = `${side}px`
-        element.style.opacity = String(spec.opacity)
-        element.style.transform = `translate3d(${drawX - side / 2}px, ${drawY - side / 2}px, 0) rotate(${rotation}deg)`
+        const transform = `translate3d(${drawX - side / 2}px, ${drawY - side / 2}px, 0) rotate(${rotation}deg)`
+        if (!cached || !cached.visible) element.style.visibility = 'visible'
+        if (!cached || Math.abs(cached.side - side) > 0.5) {
+          const sidePx = `${side}px`
+          element.style.width = sidePx
+          element.style.height = sidePx
+        }
+        if (!cached || cached.opacity !== spec.opacity) element.style.opacity = String(spec.opacity)
+        if (!cached || cached.transform !== transform) element.style.transform = transform
+        shapeStyleCache.set(spec.id, {
+          visible: true,
+          side,
+          opacity: spec.opacity,
+          transform
+        })
       }
     }
 
     const requestApply = (): void => {
       if (frame) return
-      frame = window.requestAnimationFrame(applyTransforms)
+      if (deferredFrameTimer) return
+      const elapsed = performance.now() - lastFrameAt
+      const schedule = (): void => {
+        frame = window.requestAnimationFrame((now) => {
+          lastFrameAt = now
+          applyTransforms()
+        })
+      }
+      if (elapsed >= minFrameIntervalMs) {
+        schedule()
+      } else {
+        deferredFrameTimer = window.setTimeout(() => {
+          deferredFrameTimer = 0
+          schedule()
+        }, minFrameIntervalMs - elapsed)
+      }
     }
 
     const updateLayoutMetrics = (): void => {
@@ -1690,6 +1728,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 
     const invalidateLayout = (): void => {
       updateLayoutMetrics()
+      shapeStyleCache.clear()
       requestApply()
     }
 
@@ -1724,6 +1763,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
     const themeObserver = new MutationObserver(() => {
       tintedUrlCache.clear()
       resolvedColorCache.clear()
+      shapeStyleCache.clear()
       syncShapeImages()
       requestApply()
     })
@@ -1752,6 +1792,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 
     return () => {
       window.clearTimeout(bindTimer)
+      if (deferredFrameTimer) window.clearTimeout(deferredFrameTimer)
       if (frame) window.cancelAnimationFrame(frame)
       scrollElement?.removeEventListener('scroll', handleScroll)
       themeObserver.disconnect()
@@ -2712,7 +2753,13 @@ function App(): React.ReactElement {
 
     const frequencyData = new Uint8Array(analyser.frequencyBinCount)
     let lastPublish = 0
+    let lastSample = 0
     const sample = (timestamp: number): void => {
+      if (timestamp - lastSample < 1000 / 45) {
+        ledAnimationFrameRef.current = window.requestAnimationFrame(sample)
+        return
+      }
+      lastSample = timestamp
       analyser.getByteFrequencyData(frequencyData)
       const sampleRate = context.sampleRate || 44100
       const hzPerBin = sampleRate / analyser.fftSize
@@ -5069,6 +5116,37 @@ function makeBKDotRuntimeSlot(seed: number, index: number, direction: BKDotDirec
   }
 }
 
+function bkDotWindowStyle(slot: BKDotRuntimeSlot): React.CSSProperties {
+  const point = cubicBezierPoint(slot.t, slot)
+  const scale = dotScaleAt(slot.t)
+  const opacity = slot.motion === 'idle' ? 0 : slot.t > 0.92 ? clampNumber((1 - slot.t) / 0.08, 0, 1) * 0.92 : 0.92
+  return {
+    '--dot-x': `${point.x}%`,
+    '--dot-y': `${point.y}%`,
+    '--dot-radius': `${slot.radius}vmax`,
+    '--dot-inner-radius': `${slot.radius * 0.75}vmax`,
+    '--dot-radius-scaled': `${slot.radius * scale}vmax`,
+    '--dot-inner-radius-scaled': `${slot.radius * 0.75 * scale}vmax`,
+    '--dot-big': `${slot.bigDot}px`,
+    '--dot-small': `${slot.smallDot}px`,
+    '--dot-scale': scale,
+    '--dot-opacity': opacity,
+    '--dot-tint': slot.tint
+  } as React.CSSProperties
+}
+
+function applyBKDotWindowStyle(element: HTMLElement, slot: BKDotRuntimeSlot): void {
+  const point = cubicBezierPoint(slot.t, slot)
+  const scale = dotScaleAt(slot.t)
+  const opacity = slot.motion === 'idle' ? 0 : slot.t > 0.92 ? clampNumber((1 - slot.t) / 0.08, 0, 1) * 0.92 : 0.92
+  element.style.setProperty('--dot-x', `${point.x}%`)
+  element.style.setProperty('--dot-y', `${point.y}%`)
+  element.style.setProperty('--dot-radius-scaled', `${slot.radius * scale}vmax`)
+  element.style.setProperty('--dot-inner-radius-scaled', `${slot.radius * 0.75 * scale}vmax`)
+  element.style.setProperty('--dot-scale', String(scale))
+  element.style.setProperty('--dot-opacity', String(opacity))
+}
+
 const BKDotSurface = React.memo(function BKDotSurface({
   seed,
   direction,
@@ -5083,83 +5161,86 @@ const BKDotSurface = React.memo(function BKDotSurface({
   const maxSlotCount = 2
   const slotCounterRef = React.useRef(1)
   const completedRef = React.useRef(false)
-  const [slots, setSlots] = React.useState<BKDotRuntimeSlot[]>(() => [makeBKDotRuntimeSlot(seed, 0, direction, 0, 0.88)])
+  const initialSlots = React.useMemo(() => [makeBKDotRuntimeSlot(seed, 0, direction, 0, 0.88)], [direction, seed])
+  const slotsRef = React.useRef<BKDotRuntimeSlot[]>(initialSlots)
+  const slotElementsRef = React.useRef(new Map<string, HTMLSpanElement>())
+  const onCompleteRef = React.useRef(onComplete)
+  onCompleteRef.current = onComplete
+  const [slots, setSlots] = React.useState<BKDotRuntimeSlot[]>(initialSlots)
 
   React.useEffect(() => {
+    const nextSlots = [makeBKDotRuntimeSlot(seed, 0, direction, 0, 0.88)]
     slotCounterRef.current = 1
     completedRef.current = false
-    setSlots([makeBKDotRuntimeSlot(seed, 0, direction, 0, 0.88)])
+    slotsRef.current = nextSlots
+    slotElementsRef.current.clear()
+    setSlots(nextSlots)
   }, [direction, seed])
 
   React.useEffect(() => {
     if (!isRunning) return
     const interval = window.setInterval(() => {
-      setSlots((currentSlots) => {
-        let shouldSpawnNext = false
-        let spawnSeed = seed
-        const nextSlots = currentSlots
-          .map((slot, index) => {
-            if (slot.motion === 'idle') {
-              const idleRemaining = slot.idleRemaining - 1 / 15
-              return idleRemaining <= 0 ? { ...slot, motion: 'moving' as const, idleRemaining: 0 } : { ...slot, idleRemaining }
-            }
-
-            const nextT = slot.t + (1 / 15) / slot.duration
-            if (index === currentSlots.length - 1 && !slot.spawnedNext && nextT >= slot.leadIn && currentSlots.length < 2 && slotCounterRef.current < maxSlotCount) {
-              shouldSpawnNext = true
-              spawnSeed = hashString(`${slot.endX}:${slot.endY}:${seed}`)
-            }
-            return {
-              ...slot,
-              t: Math.min(1, nextT),
-              spawnedNext: slot.spawnedNext || shouldSpawnNext
-            }
-          })
-          .filter((slot) => slot.t < 1)
-
-        if (shouldSpawnNext) {
-          const nextIndex = slotCounterRef.current
-          slotCounterRef.current += 1
-          nextSlots.push(makeBKDotRuntimeSlot(spawnSeed, nextIndex, direction))
-        }
-
-        if (!nextSlots.length) {
-          if (!completedRef.current) {
-            completedRef.current = true
-            window.setTimeout(() => onComplete?.(), 0)
+      const currentSlots = slotsRef.current
+      let shouldSpawnNext = false
+      let spawnSeed = seed
+      const nextSlots = currentSlots
+        .map((slot, index) => {
+          if (slot.motion === 'idle') {
+            const idleRemaining = slot.idleRemaining - 1 / 15
+            return idleRemaining <= 0 ? { ...slot, motion: 'moving' as const, idleRemaining: 0 } : { ...slot, idleRemaining }
           }
-        }
-        return nextSlots
-      })
+
+          const nextT = slot.t + (1 / 15) / slot.duration
+          if (index === currentSlots.length - 1 && !slot.spawnedNext && nextT >= slot.leadIn && currentSlots.length < 2 && slotCounterRef.current < maxSlotCount) {
+            shouldSpawnNext = true
+            spawnSeed = hashString(`${slot.endX}:${slot.endY}:${seed}`)
+          }
+          return {
+            ...slot,
+            t: Math.min(1, nextT),
+            spawnedNext: slot.spawnedNext || shouldSpawnNext
+          }
+        })
+        .filter((slot) => slot.t < 1)
+
+      if (shouldSpawnNext) {
+        const nextIndex = slotCounterRef.current
+        slotCounterRef.current += 1
+        nextSlots.push(makeBKDotRuntimeSlot(spawnSeed, nextIndex, direction))
+      }
+
+      const structureChanged = nextSlots.length !== currentSlots.length || nextSlots.some((slot, index) => slot.id !== currentSlots[index]?.id)
+      slotsRef.current = nextSlots
+      for (const slot of nextSlots) {
+        const element = slotElementsRef.current.get(slot.id)
+        if (element) applyBKDotWindowStyle(element, slot)
+      }
+      if (structureChanged) setSlots(nextSlots)
+
+      if (!nextSlots.length && !completedRef.current) {
+        completedRef.current = true
+        window.setTimeout(() => onCompleteRef.current?.(), 0)
+      }
     }, 1000 / 15)
     return () => window.clearInterval(interval)
-  }, [direction, isRunning, onComplete, seed])
+  }, [direction, isRunning, seed])
 
   return (
     <>
       {slots.map((slot) => {
-        const point = cubicBezierPoint(slot.t, slot)
-        const scale = dotScaleAt(slot.t)
-        const opacity = slot.motion === 'idle' ? 0 : slot.t > 0.92 ? clampNumber((1 - slot.t) / 0.08, 0, 1) * 0.92 : 0.92
         return (
           <span
             key={slot.id}
             className="bk-dot-window"
-            style={
-              {
-                '--dot-x': `${point.x}%`,
-                '--dot-y': `${point.y}%`,
-                '--dot-radius': `${slot.radius}vmax`,
-                '--dot-inner-radius': `${slot.radius * 0.75}vmax`,
-                '--dot-radius-scaled': `${slot.radius * scale}vmax`,
-                '--dot-inner-radius-scaled': `${slot.radius * 0.75 * scale}vmax`,
-                '--dot-big': `${slot.bigDot}px`,
-                '--dot-small': `${slot.smallDot}px`,
-                '--dot-scale': scale,
-                '--dot-opacity': opacity,
-                '--dot-tint': slot.tint
-              } as React.CSSProperties
-            }
+            ref={(element) => {
+              if (element) {
+                slotElementsRef.current.set(slot.id, element)
+                applyBKDotWindowStyle(element, slot)
+              } else {
+                slotElementsRef.current.delete(slot.id)
+              }
+            }}
+            style={bkDotWindowStyle(slot)}
           >
             <span className="bk-dot-grid big" />
             <span className="bk-dot-grid small" />
