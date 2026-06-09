@@ -107,3 +107,4 @@
 - AMLL 刷漆后真实窗口取色：新增 `window:sample-color` IPC，主进程用 `BrowserWindow.capturePage` 对渲染后的窗口区域取平均 RGB；全屏歌词页在 `bkPaintReveal` 结束后的下一帧采样右侧背景区域，并用真实像素色覆盖 AMLL 当前 seed，避免继续依赖 BK 内部推断色。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL 歌词颜色规则调整：全屏与窗口/侧栏歌词共用取色后的 tone seed；浅色背景下歌词整体往亮色/浅粉白靠，深色模式才把高亮歌词压暗，并在高亮字为深色时关闭 glow。Now Playing 窗口播放页也接入 BK 刷漆后真实窗口取色，确保窗口歌词和全屏歌词使用同一套颜色来源；同时撤掉调试日志和内部定时刷新，截图取色只在刷漆结束后单次触发并带 3.2s 防重复锁。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL 颜色与歌词侧栏可读性继续修正：未唱到歌词改为半透明灰色，唱到歌词降低亮度并完全关闭 glow；右侧歌词栏左右两块拼接玻璃都增加乳白垫底，主体高斯块提高乳白不透明度并直接覆盖 18px 重叠区，避免拼接处出现透明缝。`npm run typecheck` 与 `npm run build` 已通过。
+- 右侧歌词栏玻璃回退：撤掉刚加的乳白垫底，恢复左右拼接玻璃原本的透明背景与 18px mask 渐变，避免乳白垫层放大拼接接缝；保留 AMLL 歌词颜色/无 glow 调整。`npm run typecheck` 与 `npm run build` 已通过。

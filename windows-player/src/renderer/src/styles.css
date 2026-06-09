@@ -3886,13 +3886,11 @@ input {
   border-right: 0;
   border-bottom: 0;
   border-left: 0;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.38) 42%, rgba(255, 255, 255, 0.32)),
-    rgba(255, 255, 255, var(--glass-alpha));
+  background: rgba(255, 255, 255, var(--glass-alpha));
   backdrop-filter: blur(5px) saturate(126%);
   -webkit-backdrop-filter: blur(5px) saturate(126%);
-  mask-image: none;
-  -webkit-mask-image: none;
+  mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 100%);
   box-shadow: none;
   pointer-events: none;
   transform: translateZ(0);
@@ -3947,8 +3945,8 @@ input {
   width: var(--lyrics-edge-glass-width);
   border-left: 1px solid var(--glass-border);
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.30) 18%, rgba(255, 255, 255, 0.24) 58%, rgba(255, 255, 255, 0.16) 100%),
-    rgba(255, 255, 255, 0.20);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.12) 18%, rgba(255, 255, 255, 0.035) 58%, transparent 100%),
+    rgba(255, 255, 255, var(--glass-alpha));
   backdrop-filter: blur(8px) saturate(136%) var(--filter-url);
   -webkit-backdrop-filter: blur(8px) saturate(136%) var(--filter-url);
   box-shadow: none;
