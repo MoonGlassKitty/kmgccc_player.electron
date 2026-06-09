@@ -61,3 +61,4 @@
 - 歌词点按进一步改成 `pointerdown` 直跳，侧栏和全屏歌词都不再只依赖 `click`，减少偶发点按无响应。`npm run typecheck` 与 `npm run build` 已通过。
 - 歌词跳转再修正：目标时间额外前移 50ms，避免命中判定边界时落回上一句。`npm run typecheck` 与 `npm run build` 已通过。
 - 歌词点击/滚动改回 AMLL 原生事件路径：移除自定义透明命中层和 DOM 测量映射，点击直接使用 `onLyricLineClick` 返回的行索引 seek，并给 AMLL 短暂 `isSeeking` 状态；滚轮/手势不再被覆盖层吃掉，底栏时间也改回真实播放时间而非歌词提前时间。`npm run typecheck` 与 `npm run build` 已通过。
+- 歌词栏液态/磨砂背景切换修正：移除歌词侧栏 inline `--filter-url`，让 `lyrics-bg-clear/sidebar` 能真正覆盖；液态模式继续使用 `lg-sidebar` 折射滤镜，磨砂模式改为高 blur、低边缘/内阴影的普通 frosted glass。`npm run typecheck` 与 `npm run build` 已通过。

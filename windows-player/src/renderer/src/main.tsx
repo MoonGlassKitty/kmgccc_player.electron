@@ -4396,7 +4396,7 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
   const hasTimedLyrics = lines.some((line) => line.time !== null)
 
   return (
-    <aside className="lyrics-side-panel glass-panel no-drag" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
+    <aside className="lyrics-side-panel glass-panel no-drag">
       <div className="lyrics-side-resize-handle" role="separator" aria-orientation="vertical" aria-label="调整歌词侧栏宽度" onPointerDown={onResizeStart} />
       <div className="lyrics-side-head">
         <img src={artwork} alt="" decoding="async" />
