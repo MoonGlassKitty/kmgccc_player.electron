@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { LyricPlayer } from '@applemusic-like-lyrics/react'
 import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
+import { createRealtimeBpmAnalyzer, type BpmAnalyzer, type BpmCandidates } from 'realtime-bpm-analyzer'
 import {
   ArrowDownUp,
   CheckCircle2,
@@ -2169,6 +2170,7 @@ function App(): React.ReactElement {
   const [rotatingVisualizerMode, setRotatingVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.rotatingCover.visualizerMode', 'off'))
   const [cassetteVisualizerMode, setCassetteVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.kmgcccCassette.visualizerMode', 'off'))
   const [isArtworkFrameMaskEnabled, setIsArtworkFrameMaskEnabled] = React.useState(() => storedBoolean('skin.classicLED.artworkFrameMaskEnabled', true))
+  const [isArtworkBpmPulseEnabled, setIsArtworkBpmPulseEnabled] = React.useState(false)
   const [isRotatingCdMode, setIsRotatingCdMode] = React.useState(() => storedBoolean('skin.rotatingCover.cdMode', false))
   const [isAppleDynamicBackgroundEnabled, setIsAppleDynamicBackgroundEnabled] = React.useState(() => storedBoolean('skin.appleStyle.dynamicBackgroundEnabled', true))
   const [appleMeshSpeed, setAppleMeshSpeed] = React.useState<AppleMeshSpeed>(() => storedAppleMeshSpeed())
@@ -2211,6 +2213,7 @@ function App(): React.ReactElement {
   const [libraryLocationInfo, setLibraryLocationInfo] = React.useState<LibraryLocationInfo | null>(null)
   const [settingsActionStatus, setSettingsActionStatus] = React.useState<SettingsActionStatus>(null)
   const [artworkFrameIndex, setArtworkFrameIndex] = React.useState(0)
+  const [trackBpmById, setTrackBpmById] = React.useState<Record<string, number>>({})
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
@@ -2229,6 +2232,11 @@ function App(): React.ReactElement {
   const audioContextRef = React.useRef<AudioContext | null>(null)
   const audioSourceRef = React.useRef<MediaElementAudioSourceNode | null>(null)
   const audioAnalyserRef = React.useRef<AnalyserNode | null>(null)
+  const bpmAnalyzerRef = React.useRef<BpmAnalyzer | null>(null)
+  const bpmAnalyzerPromiseRef = React.useRef<Promise<BpmAnalyzer | null> | null>(null)
+  const bpmMutedGainRef = React.useRef<GainNode | null>(null)
+  const bpmDetectionTrackIdRef = React.useRef<string | null>(null)
+  const bpmCacheRef = React.useRef<Record<string, number>>({})
   const ledAnimationFrameRef = React.useRef<number | null>(null)
   const smoothedLedValuesRef = React.useRef<number[]>([])
   const lastPlaybackTimeRef = React.useRef(0)
@@ -2315,6 +2323,51 @@ function App(): React.ReactElement {
     }
     return audioAnalyserRef.current
   }, [])
+  const commitBpmCandidate = React.useCallback((data: BpmCandidates, stable: boolean): void => {
+    const trackId = bpmDetectionTrackIdRef.current
+    const candidate = data.bpm[0]
+    if (!trackId || !candidate) return
+    if (bpmCacheRef.current[trackId]) return
+    if (!stable && candidate.confidence < 0.58 && candidate.count < 8) return
+    const bpm = clampNumber(Math.round(candidate.tempo), 40, 220)
+    bpmCacheRef.current = { ...bpmCacheRef.current, [trackId]: bpm }
+    setTrackBpmById((previous) => (
+      previous[trackId] ? previous : { ...previous, [trackId]: bpm }
+    ))
+    bpmDetectionTrackIdRef.current = null
+    bpmAnalyzerRef.current?.stop()
+  }, [])
+  const ensureBpmAnalyzer = React.useCallback(async (): Promise<BpmAnalyzer | null> => {
+    if (bpmAnalyzerRef.current) return bpmAnalyzerRef.current
+    if (bpmAnalyzerPromiseRef.current) return bpmAnalyzerPromiseRef.current
+    bpmAnalyzerPromiseRef.current = (async () => {
+      const analyser = ensureAudioAnalyser()
+      const context = audioContextRef.current
+      const source = audioSourceRef.current
+      if (!analyser || !context || !source) return null
+      const analyzer = await createRealtimeBpmAnalyzer(context, {
+        continuousAnalysis: false,
+        stabilizationTime: 8000,
+        debug: false
+      })
+      const mutedGain = context.createGain()
+      mutedGain.gain.value = 0
+      source.connect(analyzer.node)
+      analyzer.node.connect(mutedGain)
+      mutedGain.connect(context.destination)
+      analyzer.on('bpmStable', (data) => commitBpmCandidate(data, true))
+      analyzer.on('bpm', (data) => commitBpmCandidate(data, false))
+      analyzer.on('error', () => {
+        bpmDetectionTrackIdRef.current = null
+      })
+      bpmAnalyzerRef.current = analyzer
+      bpmMutedGainRef.current = mutedGain
+      return analyzer
+    })().finally(() => {
+      bpmAnalyzerPromiseRef.current = null
+    })
+    return bpmAnalyzerPromiseRef.current
+  }, [commitBpmCandidate, ensureAudioAnalyser])
   const lyricPlaybackOffsetSeconds = (lyricsGlobalAdvanceMs + lookaheadMs) / 1000
   const effectiveLyricPlaybackTime = Math.max(0, playbackTime + lyricPlaybackOffsetSeconds)
   const lyricsWidth = isLyricsSidebarOpen ? lyricsSidebarWidth : 0
@@ -2376,9 +2429,43 @@ function App(): React.ReactElement {
   }, [currentArtworkUrl, currentTrack, fallbackCoverThemeStyle])
 
   React.useEffect(() => {
-    if (!currentTrack?.id) return
-    setArtworkFrameIndex(hashString(currentTrack.id) % artworkFrameAssets.length)
-  }, [currentTrack?.id])
+    if (!isArtworkBpmPulseEnabled || !isPlaying || !currentTrack?.id || !currentTrack.sourceUrl) {
+      bpmAnalyzerRef.current?.stop()
+      bpmDetectionTrackIdRef.current = null
+      return
+    }
+    const detectionTrackId = currentTrack.id
+    if (bpmCacheRef.current[detectionTrackId]) {
+      bpmAnalyzerRef.current?.stop()
+      bpmDetectionTrackIdRef.current = null
+      return
+    }
+    let cancelled = false
+    void ensureBpmAnalyzer().then((analyzer) => {
+      if (cancelled || !analyzer || bpmCacheRef.current[detectionTrackId]) return
+      const context = audioContextRef.current
+      void context?.resume().catch(() => undefined)
+      bpmDetectionTrackIdRef.current = detectionTrackId
+      analyzer.reset()
+    })
+    return () => {
+      cancelled = true
+      if (bpmDetectionTrackIdRef.current === detectionTrackId) {
+        bpmAnalyzerRef.current?.stop()
+        bpmDetectionTrackIdRef.current = null
+      }
+    }
+  }, [currentTrack?.id, currentTrack?.sourceUrl, ensureBpmAnalyzer, isArtworkBpmPulseEnabled, isPlaying])
+
+  React.useEffect(() => {
+    const bpm = currentTrack?.id ? trackBpmById[currentTrack.id] : null
+    if (!isArtworkBpmPulseEnabled || !isPlaying || !bpm) return
+    const beatMs = clampNumber(60000 / bpm, 260, 1400)
+    const timer = window.setInterval(() => {
+      setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)
+    }, beatMs)
+    return () => window.clearInterval(timer)
+  }, [currentTrack?.id, isArtworkBpmPulseEnabled, isPlaying, trackBpmById])
 
   React.useEffect(() => {
     persistSetting('globalArtworkTintEnabled', globalArtworkTintEnabled)
@@ -3010,6 +3097,9 @@ function App(): React.ReactElement {
   const toggleFullscreenLyrics = React.useCallback(() => {
     setIsFullscreenLyricsOpen((value) => !value)
   }, [])
+  const toggleArtworkBpmPulse = React.useCallback(() => {
+    setIsArtworkBpmPulseEnabled((value) => !value)
+  }, [])
 
   React.useEffect(() => {
     if (!isFullscreenLyricsOpen) return
@@ -3257,6 +3347,8 @@ function App(): React.ReactElement {
     for (const timer of entryRevealTimersRef.current) {
       window.clearTimeout(timer)
     }
+    bpmAnalyzerRef.current?.disconnect()
+    bpmMutedGainRef.current?.disconnect()
   }, [])
 
   return (
@@ -3330,7 +3422,8 @@ function App(): React.ReactElement {
               appleDynamicBackgroundEnabled={isAppleDynamicBackgroundEnabled}
               appleMeshSpeed={appleMeshSpeed}
               cassetteKmgLookEnabled={isCassetteKmgLookEnabled}
-              onArtworkFrameAdvance={() => setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)}
+              isArtworkBpmPulseEnabled={isArtworkBpmPulseEnabled}
+              onArtworkBpmPulseToggle={toggleArtworkBpmPulse}
               onLyricToneSeedChange={setLyricToneSeed}
             />
           ) : (
@@ -3541,7 +3634,8 @@ function App(): React.ReactElement {
             appleMeshSpeed={appleMeshSpeed}
             cassetteKmgLookEnabled={isCassetteKmgLookEnabled}
             onSeek={seekToLyricTime}
-            onArtworkFrameAdvance={() => setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)}
+            isArtworkBpmPulseEnabled={isArtworkBpmPulseEnabled}
+            onArtworkBpmPulseToggle={toggleArtworkBpmPulse}
             renderQuality={fullscreenLyricsRenderQuality}
             reduceHighlight={fullscreenDiscreteWordHighlightEnabled}
             lyricToneSeed={lyricToneSeed}
@@ -5157,7 +5251,8 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   appleMeshSpeed,
   cassetteKmgLookEnabled,
   onSeek,
-  onArtworkFrameAdvance,
+  isArtworkBpmPulseEnabled,
+  onArtworkBpmPulseToggle,
   renderQuality = 'balanced',
   reduceHighlight = false,
   lyricToneSeed,
@@ -5178,7 +5273,8 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   appleDynamicBackgroundEnabled: boolean
   appleMeshSpeed: AppleMeshSpeed
   cassetteKmgLookEnabled: boolean
-  onArtworkFrameAdvance: () => void
+  isArtworkBpmPulseEnabled: boolean
+  onArtworkBpmPulseToggle: () => void
   lyricToneSeed: RgbColor | null
   onLyricToneSeedChange: (seed: RgbColor) => void
 }): React.ReactElement {
@@ -5278,7 +5374,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       )}
       <div className="fullscreen-lyrics-artwork-stage">
         {nowPlayingSkinID === 'coverLed' ? (
-          <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} onArtworkFrameAdvance={onArtworkFrameAdvance} />
+          <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} isBpmPulseEnabled={isArtworkBpmPulseEnabled} onBpmPulseToggle={onArtworkBpmPulseToggle} />
         ) : nowPlayingSkinID === 'appleStyle' ? (
           <AppleStyleNowPlayingArtwork artwork={artwork} />
         ) : nowPlayingSkinID === 'rotatingCover' ? (
@@ -5336,7 +5432,8 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   appleDynamicBackgroundEnabled,
   appleMeshSpeed,
   cassetteKmgLookEnabled,
-  onArtworkFrameAdvance,
+  isArtworkBpmPulseEnabled,
+  onArtworkBpmPulseToggle,
   onLyricToneSeedChange
 }: {
   track: Track | null | undefined
@@ -5357,7 +5454,8 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   appleDynamicBackgroundEnabled: boolean
   appleMeshSpeed: AppleMeshSpeed
   cassetteKmgLookEnabled: boolean
-  onArtworkFrameAdvance: () => void
+  isArtworkBpmPulseEnabled: boolean
+  onArtworkBpmPulseToggle: () => void
   onLyricToneSeedChange: (seed: RgbColor) => void
 }): React.ReactElement {
   const pageRef = React.useRef<HTMLElement | null>(null)
@@ -5396,7 +5494,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
       )}
       <div className="now-playing-artwork-stage">
         {skinID === 'coverLed' ? (
-          <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} onArtworkFrameAdvance={onArtworkFrameAdvance} />
+          <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} isBpmPulseEnabled={isArtworkBpmPulseEnabled} onBpmPulseToggle={onArtworkBpmPulseToggle} />
         ) : skinID === 'appleStyle' ? (
           <AppleStyleNowPlayingArtwork artwork={artwork} />
         ) : skinID === 'rotatingCover' ? (
@@ -5444,19 +5542,22 @@ const ClassicCoverNowPlaying = React.memo(function ClassicCoverNowPlaying({
   artwork,
   artworkFrame,
   masked,
-  onArtworkFrameAdvance
+  isBpmPulseEnabled,
+  onBpmPulseToggle
 }: {
   artwork: string
   artworkFrame: string
   masked: boolean
-  onArtworkFrameAdvance: () => void
+  isBpmPulseEnabled: boolean
+  onBpmPulseToggle: () => void
 }): React.ReactElement {
   return (
     <button
-      className={`now-playing-cover ${masked ? 'masked' : ''}`}
+      className={`now-playing-cover ${masked ? 'masked' : ''} ${isBpmPulseEnabled ? 'bpm-pulse-enabled' : ''}`}
       type="button"
-      aria-label="切换艺术化封面边缘"
-      onClick={onArtworkFrameAdvance}
+      aria-label={isBpmPulseEnabled ? '关闭封面节奏律动' : '开启封面节奏律动'}
+      aria-pressed={isBpmPulseEnabled}
+      onClick={onBpmPulseToggle}
     >
       <img
         className="now-playing-cover-image"

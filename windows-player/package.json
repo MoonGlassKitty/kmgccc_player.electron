@@ -48,7 +48,8 @@
     "lucide-react": "^0.560.0",
     "music-metadata": "^11.12.3",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "realtime-bpm-analyzer": "^5.0.13"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
