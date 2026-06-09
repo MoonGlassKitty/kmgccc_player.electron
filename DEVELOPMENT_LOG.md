@@ -67,3 +67,4 @@
 - 主歌词界面左栏展开逻辑继续修正：全屏歌词打开期间 `isSidebarVisuallyCollapsed` 强制为 false，并让 sidebar 宽度绕过 collapsed/自适应压缩，避免从展开 Home 进入歌词后仍被关成窄栏；透明 sidebar CSS 保持不变。`npm run typecheck` 与 `npm run build` 已通过。
 - BK 艺术封面和底部状态栏对齐：Now Playing 艺术封面中心改为跟随底部状态栏中心，右歌词栏弹出时一起左移；底部状态栏、时间判定层和 `lg-mini` 滤镜同步加长。BK 背景点缀改为外层漂移、内层独立无限旋转，取消有限角度摆动，并按反馈连续两次将旋转速度降为 1/4。`npm run typecheck` 与 `npm run build` 已通过。
 - 修正 mini track/BK 播放页入口仍强制收缩左侧导航栏的问题：`openNowPlaying` 不再写入 `setIsSidebarCollapsed(true)`，主歌词/播放页入口会保留 Home 当前左栏展开状态；全屏歌词期间的透明侧栏展开逻辑保持不变。`npm run typecheck` 与 `npm run build` 已通过。
+- BK 同专辑同色切歌增加“干漆”过渡：BK 背景组件保存上一首 track/theme 快照，切歌时若 albumId 相同且 `--bk-bg-tone-1/2` 色距很小，则只把新刷入 surface 的 BK 油漆 tone 加深一档，增强单色专辑内切歌时的刷漆可见度；shape/dot tint 不受影响。`npm run typecheck` 与 `npm run build` 已通过。
