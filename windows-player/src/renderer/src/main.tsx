@@ -376,17 +376,57 @@ function parseCommaTags(value?: string): string[] {
     .filter(Boolean)
 }
 
-function createArtistPlaceholderArtwork(artistName: string): string {
+function normalizeArtistGradientColor(color: RgbColor): RgbColor {
+  const hsv = rgbToHsv(color)
+  return hsvToRgb({
+    h: hsv.h,
+    s: clampNumber(hsv.s, 0.24, 0.62),
+    v: clampNumber(hsv.v, 0.34, 0.84)
+  })
+}
+
+function deriveArtistGradientPair(color: RgbColor, artistName: string): RgbColor {
+  const hsv = rgbToHsv(color)
+  const hash = hashString(artistName)
+  return hsvToRgb({
+    h: (hsv.h + ((hash % 19) + 9)) % 360,
+    s: clampNumber(hsv.s * 0.86, 0.20, 0.56),
+    v: clampNumber(hsv.v * 1.12, 0.42, 0.90)
+  })
+}
+
+function relativeLuminance(color: RgbColor): number {
+  return (0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b) / 255
+}
+
+function suggestedArtistFontSize(name: string, canvasWidth: number): number {
+  const length = Array.from(name.trim()).length
+  if (length <= 6) return canvasWidth * 0.15
+  if (length <= 12) return canvasWidth * 0.12
+  if (length <= 18) return canvasWidth * 0.10
+  return canvasWidth * 0.08
+}
+
+function createArtistPlaceholderArtwork(artistName: string, palette: RgbColor[] = []): string {
   const name = artistName.trim() || '未知艺人'
-  let hash = 0
-  for (const char of name) hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0
-  const hue = Math.abs(hash) % 360
-  const hue2 = (hue + 58 + (name.length % 80)) % 360
+  const hash = hashString(name)
+  const startColor = palette[0]
+    ? normalizeArtistGradientColor(palette[0])
+    : hsvToRgb({ h: hash % 360, s: 0.34, v: 0.48 })
+  const endColor = palette[1]
+    ? normalizeArtistGradientColor(palette[1])
+    : palette[0]
+      ? deriveArtistGradientPair(startColor, name)
+      : hsvToRgb({ h: ((hash % 360) + 36) % 360, s: 0.26, v: 0.72 })
+  const blended = mixRgb(startColor, endColor, 0.5)
+  const textColor = relativeLuminance(blended) > 0.56 ? 'rgba(26,26,26,.95)' : 'rgba(250,250,250,.98)'
+  const angle = 20 + (hash % 55)
+  const fontSize = suggestedArtistFontSize(name, 640)
   const escapedName = name
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="hsl(${hue} 72% 58%)"/><stop offset="1" stop-color="hsl(${hue2} 68% 42%)"/></linearGradient><radialGradient id="h" cx="25%" cy="20%" r="70%"><stop stop-color="rgba(255,255,255,.24)"/><stop offset="1" stop-color="rgba(255,255,255,0)"/></radialGradient></defs><rect width="640" height="640" fill="url(#g)"/><rect width="640" height="640" fill="url(#h)"/><text x="320" y="330" text-anchor="middle" dominant-baseline="middle" fill="rgba(255,255,255,.88)" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="64" font-weight="650">${escapedName}</text></svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"><defs><linearGradient id="g" gradientTransform="rotate(${angle} .5 .5)"><stop stop-color="${hexString(startColor)}"/><stop offset="1" stop-color="${hexString(endColor)}"/></linearGradient><radialGradient id="h" cx="15%" cy="8%" r="70%"><stop stop-color="rgba(255,255,255,.08)"/><stop offset="1" stop-color="rgba(255,255,255,0)"/></radialGradient></defs><rect width="640" height="640" fill="url(#g)"/><ellipse cx="250" cy="115" rx="448" ry="448" fill="url(#h)"/><text x="320" y="330" text-anchor="middle" dominant-baseline="middle" fill="${textColor}" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="${fontSize}" font-weight="650" letter-spacing="0">${escapedName}</text></svg>`
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`
 }
 
@@ -550,6 +590,12 @@ type HslColor = {
   l: number
 }
 
+type HsvColor = {
+  h: number
+  s: number
+  v: number
+}
+
 type RgbaColor = RgbColor & {
   a: number
 }
@@ -610,6 +656,47 @@ function hslToRgb({ h, s, l }: HslColor): RgbColor {
   else if (hue < 5) [red, green, blue] = [x, 0, chroma]
   else [red, green, blue] = [chroma, 0, x]
 
+  return {
+    r: Math.round((red + match) * 255),
+    g: Math.round((green + match) * 255),
+    b: Math.round((blue + match) * 255)
+  }
+}
+
+function rgbToHsv({ r, g, b }: RgbColor): HsvColor {
+  const red = r / 255
+  const green = g / 255
+  const blue = b / 255
+  const max = Math.max(red, green, blue)
+  const min = Math.min(red, green, blue)
+  const delta = max - min
+  let hue = 0
+  if (delta !== 0) {
+    if (max === red) hue = 60 * (((green - blue) / delta) % 6)
+    else if (max === green) hue = 60 * ((blue - red) / delta + 2)
+    else hue = 60 * ((red - green) / delta + 4)
+  }
+  return {
+    h: (hue + 360) % 360,
+    s: max === 0 ? 0 : delta / max,
+    v: max
+  }
+}
+
+function hsvToRgb({ h, s, v }: HsvColor): RgbColor {
+  const chroma = v * s
+  const hue = h / 60
+  const x = chroma * (1 - Math.abs((hue % 2) - 1))
+  const match = v - chroma
+  let red = 0
+  let green = 0
+  let blue = 0
+  if (hue >= 0 && hue < 1) [red, green, blue] = [chroma, x, 0]
+  else if (hue < 2) [red, green, blue] = [x, chroma, 0]
+  else if (hue < 3) [red, green, blue] = [0, chroma, x]
+  else if (hue < 4) [red, green, blue] = [0, x, chroma]
+  else if (hue < 5) [red, green, blue] = [x, 0, chroma]
+  else [red, green, blue] = [chroma, 0, x]
   return {
     r: Math.round((red + match) * 255),
     g: Math.round((green + match) * 255),
@@ -2532,7 +2619,7 @@ function App(): React.ReactElement {
           <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={effectiveLyricPlaybackTime} isPlaying={isPlaying} onSeek={seekTo} />
         ) : null}
         {libraryDialog ? (
-          <LibraryDialog state={libraryDialog} onClose={() => setLibraryDialog(null)} onSubmit={submitLibraryDialog} />
+          <LibraryDialog state={libraryDialog} snapshot={homeSnapshot} onClose={() => setLibraryDialog(null)} onSubmit={submitLibraryDialog} />
         ) : null}
         {contextMenu ? <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} /> : null}
       </div>
@@ -2566,10 +2653,12 @@ const ContextMenu = React.memo(function ContextMenu({ state, onClose }: { state:
 
 const LibraryDialog = React.memo(function LibraryDialog({
   state,
+  snapshot,
   onClose,
   onSubmit
 }: {
   state: LibraryDialogState
+  snapshot: HomeSnapshot
   onClose: () => void
   onSubmit: (values: Record<string, string>) => void
 }): React.ReactElement {
@@ -2749,6 +2838,31 @@ const LibraryDialog = React.memo(function LibraryDialog({
     })
     return candidates.map((candidate) => candidate.artworkUrl).filter(Boolean)
   }, [state, values])
+  const albumFallbackArtworkUrl = React.useMemo(() => {
+    if (state.kind !== 'editAlbum') return ''
+    const firstTrack = snapshot.tracks.find((track) => track.albumId === state.album.id && track.artworkUrl)
+    return firstTrack?.artworkUrl || state.album.artworkUrl || ''
+  }, [snapshot.tracks, state])
+  const handleArtistArtworkGenerate = React.useCallback(async () => {
+    if (state.kind !== 'editArtist') return
+    const sources = snapshot.tracks
+      .filter((track) => track.artistId === state.artist.id)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((track) => track.artworkUrl)
+      .filter((url): url is string => Boolean(url))
+    for (const source of sources.slice(0, 3)) {
+      try {
+        const palette = await extractArtworkThemeColors(source)
+        if (palette.length) {
+          update('artworkUrl', createArtistPlaceholderArtwork(values.name ?? state.artist.name, palette.slice(0, 3)))
+          return
+        }
+      } catch {
+        // Fall back to the stable Swift-style placeholder below.
+      }
+    }
+    update('artworkUrl', createArtistPlaceholderArtwork(values.name ?? state.artist.name))
+  }, [snapshot.tracks, state, update, values.name])
 
   const title =
     state.kind === 'editTrack' ? '编辑歌曲信息'
@@ -2800,7 +2914,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
           </div>
         ) : state.kind === 'editAlbum' ? (
           <div className="library-dialog-form metadata-sheet-body">
-            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="使用歌曲封面" fallbackArtworkUrl={state.album.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={() => lookupCover('album')} />
+            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="使用歌曲封面" fallbackArtworkUrl={albumFallbackArtworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={() => lookupCover('album')} />
             <span className="metadata-divider" />
             <LibraryDialogField label="专辑名称" value={values.title ?? ''} onChange={(value) => update('title', value)} />
             <LibraryDialogField label="介绍" multiline placeholder="添加专辑介绍..." value={values.description ?? ''} onChange={(value) => update('description', value)} />
@@ -2823,7 +2937,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
           </div>
         ) : state.kind === 'editArtist' ? (
           <div className="library-dialog-form metadata-sheet-body">
-            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="生成封面" fallbackArtworkUrl={state.artist.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={() => lookupCover('artist')} onGenerateArtwork={() => update('artworkUrl', createArtistPlaceholderArtwork(values.name ?? state.artist.name))} />
+            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="生成封面" fallbackArtworkUrl={state.artist.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={() => lookupCover('artist')} onGenerateArtwork={handleArtistArtworkGenerate} />
             <span className="metadata-divider" />
             <LibraryDialogField label="艺人名称" value={values.name ?? ''} onChange={(value) => update('name', value)} />
             <LibraryDialogField label="介绍" multiline value={values.description ?? ''} onChange={(value) => update('description', value)} />
@@ -2906,7 +3020,7 @@ function MetadataArtworkSection({
   fallbackArtworkUrl?: string
   onArtworkChange: (url: string) => void
   onSearchArtwork?: () => Promise<string[]>
-  onGenerateArtwork?: () => void
+  onGenerateArtwork?: () => void | Promise<void>
 }): React.ReactElement {
   const inputRef = React.useRef<HTMLInputElement | null>(null)
   const [candidates, setCandidates] = React.useState<string[]>([])
@@ -2939,7 +3053,7 @@ function MetadataArtworkSection({
   }, [onArtworkChange, onSearchArtwork])
   const handleGenerate = React.useCallback(() => {
     if (onGenerateArtwork) {
-      onGenerateArtwork()
+      void onGenerateArtwork()
       return
     }
     onArtworkChange(fallbackArtworkUrl || '')

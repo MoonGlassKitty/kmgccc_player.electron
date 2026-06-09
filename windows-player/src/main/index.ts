@@ -171,6 +171,13 @@ type CoverLookupCandidate = {
   label?: string
 }
 
+type RawCoverLookupCandidate = CoverLookupCandidate & {
+  confidence?: number
+  matchedTitle?: string
+  matchedArtist?: string
+  matchedAlbum?: string
+}
+
 type NetEaseSongSearchResult = {
   name?: string
   id?: number
@@ -189,6 +196,56 @@ type NetEaseAlbumSearchResult = {
   picUrl?: string
   artists?: Array<{ name?: string; id?: number }>
   artist?: { name?: string; id?: number }
+}
+
+type QQMusicSearchType = 'song' | 'singer' | 'album'
+
+type QQMusicSongSearchItem = {
+  title?: string
+  name?: string
+  mid?: string
+  interval?: number
+  singer?: Array<{ name?: string; mid?: string; singerMid?: string; singerMID?: string }>
+  album?: {
+    name?: string
+    title?: string
+    mid?: string
+    albumMid?: string
+    albumMID?: string
+  }
+}
+
+type QQMusicAlbumSearchItem = {
+  title?: string
+  name?: string
+  albumName?: string
+  albumname?: string
+  mid?: string
+  albumMid?: string
+  albumMID?: string
+  singer?: Array<{ name?: string }>
+  singerName?: string
+  singer_name?: string
+  artist?: string
+  artistName?: string
+  picURL?: string
+  picUrl?: string
+  albumPic?: string
+  image?: string
+}
+
+type QQMusicSingerSearchItem = {
+  title?: string
+  name?: string
+  singerName?: string
+  mid?: string
+  singerMid?: string
+  singerMID?: string
+  singerPic?: string
+  pic?: string
+  picURL?: string
+  picUrl?: string
+  image?: string
 }
 
 type MetadataCandidate = {
@@ -504,6 +561,35 @@ function dataUrlForImage(data: Uint8Array, mimeType = 'image/jpeg'): string {
   return `data:${mimeType};base64,${Buffer.from(data).toString('base64')}`
 }
 
+function mimeTypeForImageResponse(response: Response, data: Uint8Array): string {
+  const contentType = response.headers.get('content-type')?.split(';')[0]?.trim()
+  if (contentType?.startsWith('image/')) return contentType
+  if (data[0] === 0xff && data[1] === 0xd8) return 'image/jpeg'
+  if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47) return 'image/png'
+  if (data[0] === 0x47 && data[1] === 0x49 && data[2] === 0x46) return 'image/gif'
+  if (data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46) return 'image/webp'
+  return 'image/jpeg'
+}
+
+async function dataUrlForRemoteImage(imageUrl: string): Promise<string | undefined> {
+  try {
+    const response = await fetch(imageUrl, {
+      headers: {
+        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Referer': 'https://y.qq.com/',
+        'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0'
+      },
+      signal: AbortSignal.timeout(12000)
+    })
+    if (!response.ok) return undefined
+    const data = new Uint8Array(await response.arrayBuffer())
+    if (data.length < 256) return undefined
+    return dataUrlForImage(data, mimeTypeForImageResponse(response, data))
+  } catch {
+    return undefined
+  }
+}
+
 function normalizedSlug(value: string, fallback: string): string {
   const normalized = value
     .normalize('NFKD')
@@ -782,6 +868,24 @@ function upgradeNetEaseArtworkUrl(rawUrl?: string): string | undefined {
   return httpsUrl.includes('?') ? `${httpsUrl}&param=1200y1200` : `${httpsUrl}?param=1200y1200`
 }
 
+function sanitizeQQMusicImageUrl(rawUrl?: string): string | undefined {
+  const trimmed = rawUrl?.trim()
+  if (!trimmed) return undefined
+  return trimmed.startsWith('http://') ? `https://${trimmed.slice(7)}` : trimmed
+}
+
+function qqMusicAlbumCoverUrl(albumMid?: string): string | undefined {
+  const mid = albumMid?.trim()
+  if (!mid) return undefined
+  return `https://y.gtimg.cn/music/photo_new/T002R1200x1200M000${mid}.jpg`
+}
+
+function qqMusicSingerCoverUrl(singerMid?: string): string | undefined {
+  const mid = singerMid?.trim()
+  if (!mid) return undefined
+  return `https://y.gtimg.cn/music/photo_new/T001R1200x1200M000${mid}.jpg`
+}
+
 function normalizeSearchText(value?: string): string {
   return (value ?? '')
     .toLowerCase()
@@ -797,6 +901,145 @@ function textSimilarityScore(query: string, candidate?: string): number {
   if (normalizedQuery === normalizedCandidate) return 1
   if (normalizedCandidate.includes(normalizedQuery) || normalizedQuery.includes(normalizedCandidate)) return 0.62
   return 0
+}
+
+function qqMusicSearchId(): string {
+  const e = Math.floor(Math.random() * 20) + 1
+  const t = e * 18014398509481984
+  const n = Math.floor(Math.random() * 4194305) * 4294967296
+  const r = Date.now() % (24 * 60 * 60 * 1000)
+  return String(Math.round(t + n + r))
+}
+
+function qqMusicSearchTypeValue(type: QQMusicSearchType): number {
+  if (type === 'singer') return 1
+  if (type === 'album') return 2
+  return 0
+}
+
+function qqMusicSearchResultKey(type: QQMusicSearchType): string {
+  if (type === 'singer') return 'singer'
+  if (type === 'album') return 'item_album'
+  return 'item_song'
+}
+
+async function searchQQMusicByType<T>(keyword: string, type: QQMusicSearchType, limit = 8): Promise<T[]> {
+  const query = keyword.trim()
+  if (!query) return []
+  const response = await fetch('https://u.y.qq.com/cgi-bin/musicu.fcg', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Referer': 'https://y.qq.com/',
+      'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0'
+    },
+    body: JSON.stringify({
+      comm: {
+        ct: '11',
+        cv: 13020508,
+        v: 13020508,
+        tmeAppID: 'qqmusic',
+        uid: '3931641530',
+        format: 'json',
+        inCharset: 'utf-8',
+        outCharset: 'utf-8'
+      },
+      request: {
+        module: 'music.search.SearchCgiService',
+        method: 'DoSearchForQQMusicMobile',
+        param: {
+          searchid: qqMusicSearchId(),
+          query,
+          search_type: qqMusicSearchTypeValue(type),
+          num_per_page: Math.max(1, Math.min(limit, 10)),
+          page_num: 1,
+          highlight: 0,
+          grp: 1
+        }
+      }
+    }),
+    signal: AbortSignal.timeout(12000)
+  })
+  if (!response.ok) return []
+  const payload = (await response.json()) as { request?: { data?: { body?: Record<string, unknown> } } }
+  const items = payload.request?.data?.body?.[qqMusicSearchResultKey(type)]
+  return Array.isArray(items) ? items.filter((item): item is T => Boolean(item) && typeof item === 'object') : []
+}
+
+function qqMusicSingersText(item: { singer?: Array<{ name?: string }>; singerName?: string; singer_name?: string; artist?: string; artistName?: string }): string {
+  const singers = Array.isArray(item.singer) ? item.singer.map((entry) => entry.name).filter(Boolean).join(', ') : ''
+  return singers || item.singerName || item.singer_name || item.artist || item.artistName || ''
+}
+
+function qqMusicAlbumMidFromSong(item: QQMusicSongSearchItem): string | undefined {
+  return item.album?.mid || item.album?.albumMid || item.album?.albumMID
+}
+
+function qqMusicAlbumNameFromSong(item: QQMusicSongSearchItem): string | undefined {
+  return item.album?.name || item.album?.title
+}
+
+async function fetchQQMusicCoverCandidates(track: LocalAudioImport, kind: 'track' | 'album' | 'artist'): Promise<RawCoverLookupCandidate[]> {
+  if (kind === 'artist') {
+    const term = isUnknown(track.artist) ? track.title : track.artist
+    const items = await searchQQMusicByType<QQMusicSingerSearchItem>(term, 'singer', 8)
+    return items.map((item, index) => {
+      const singerMid = item.singerMid || item.singerMID || item.mid
+      const imageUrl = sanitizeQQMusicImageUrl(item.singerPic || item.pic || item.picURL || item.picUrl || item.image) || qqMusicSingerCoverUrl(singerMid)
+      return {
+        artworkUrl: imageUrl || '',
+        source: 'qqmusic',
+        label: item.singerName || item.name || item.title || term,
+        matchedArtist: item.singerName || item.name || item.title,
+        confidence: Math.max(0.5, 0.86 - index * 0.04)
+      }
+    }).filter((candidate) => candidate.artworkUrl)
+  }
+
+  if (kind === 'album') {
+    const query = [track.album, isUnknown(track.artist) ? '' : track.artist].filter(Boolean).join(' ')
+    const items = await searchQQMusicByType<QQMusicAlbumSearchItem>(query, 'album', 8)
+    return items.map((item, index) => {
+      const albumMid = item.albumMid || item.albumMID || item.mid
+      const imageUrl = sanitizeQQMusicImageUrl(item.picURL || item.picUrl || item.albumPic || item.image) || qqMusicAlbumCoverUrl(albumMid)
+      const albumName = item.albumName || item.albumname || item.name || item.title
+      const artistName = qqMusicSingersText(item)
+      const score = textSimilarityScore(track.album, albumName) * 0.58 + textSimilarityScore(track.artist, artistName) * 0.32 + (0.86 - index * 0.04) * 0.10
+      return {
+        artworkUrl: imageUrl || '',
+        source: 'qqmusic',
+        label: albumName || track.album,
+        matchedAlbum: albumName,
+        matchedArtist: artistName,
+        confidence: score
+      }
+    }).filter((candidate) => candidate.artworkUrl && (candidate.confidence ?? 0) >= 0.32)
+  }
+
+  const query = [track.title, isUnknown(track.artist) ? '' : track.artist, isUnknown(track.album) ? '' : track.album].filter(Boolean).join(' ')
+  const items = await searchQQMusicByType<QQMusicSongSearchItem>(query, 'song', 8)
+  return items.map((item, index) => {
+    const albumMid = qqMusicAlbumMidFromSong(item)
+    const imageUrl = qqMusicAlbumCoverUrl(albumMid)
+    const title = item.title || item.name
+    const artist = qqMusicSingersText(item)
+    const album = qqMusicAlbumNameFromSong(item)
+    const duration = typeof item.interval === 'number' ? item.interval : undefined
+    let score = textSimilarityScore(track.title, title) * 0.46 + textSimilarityScore(track.artist, artist) * 0.28 + textSimilarityScore(track.album, album) * 0.08 + (0.86 - index * 0.04) * 0.04
+    if (track.duration > 0 && duration) {
+      const delta = Math.abs(track.duration - duration)
+      score += delta <= 3 ? 0.14 : delta <= 12 ? 0.08 : delta > 45 ? -0.2 : 0
+    }
+    return {
+      artworkUrl: imageUrl || '',
+      source: 'qqmusic',
+      label: title || track.title,
+      matchedTitle: title,
+      matchedArtist: artist,
+      matchedAlbum: album,
+      confidence: score
+    }
+  }).filter((candidate) => candidate.artworkUrl && (candidate.confidence ?? 0) >= 0.38)
 }
 
 function scoreItunesCandidate(track: LocalAudioImport, candidate: ItunesSearchResult): number {
@@ -904,9 +1147,13 @@ async function fetchNetEaseSongMetadata(track: LocalAudioImport): Promise<Metada
 }
 
 async function fetchNetEaseAlbumArtwork(track: LocalAudioImport): Promise<string | undefined> {
+  return (await fetchNetEaseAlbumArtworkCandidates(track))[0]?.artworkUrl
+}
+
+async function fetchNetEaseAlbumArtworkCandidates(track: LocalAudioImport): Promise<RawCoverLookupCandidate[]> {
   const queryParts = [isUnknown(track.artist) ? '' : track.artist, isUnknown(track.album) ? '' : track.album]
   const term = queryParts.join(' ').trim()
-  if (!term) return undefined
+  if (!term) return []
 
   const url = new URL('https://music.163.com/api/search/get/web')
   url.searchParams.set('type', '10')
@@ -919,25 +1166,30 @@ async function fetchNetEaseAlbumArtwork(track: LocalAudioImport): Promise<string
     },
     signal: AbortSignal.timeout(12000)
   })
-  if (!response.ok) return undefined
+  if (!response.ok) return []
 
   const payload = (await response.json()) as { result?: { albums?: NetEaseAlbumSearchResult[] } }
   const albums = payload.result?.albums ?? []
-  const selected = albums
-    .map((album) => {
-      const artist = album.artists?.map((item) => item.name).filter(Boolean).join(', ') || album.artist?.name
-      return {
-        artworkUrl: upgradeNetEaseArtworkUrl(album.picUrl),
-        score: scoreMetadataCandidate(track, {
-          album: album.name,
-          artist
-        })
-      }
+  const candidates: RawCoverLookupCandidate[] = []
+  for (const album of albums) {
+    const artworkUrl = upgradeNetEaseArtworkUrl(album.picUrl)
+    const artist = album.artists?.map((item) => item.name).filter(Boolean).join(', ') || album.artist?.name
+    const confidence = scoreMetadataCandidate(track, {
+      album: album.name,
+      artist
     })
-    .filter((album) => album.artworkUrl && album.score >= 2)
-    .sort((a, b) => b.score - a.score)[0]
-
-  return selected?.artworkUrl
+    if (artworkUrl && confidence >= 2) {
+      candidates.push({
+        artworkUrl,
+        source: 'netease',
+        label: album.name || track.album,
+        matchedAlbum: album.name,
+        matchedArtist: artist,
+        confidence
+      })
+    }
+  }
+  return candidates.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
 }
 
 async function fetchItunesMetadata(track: LocalAudioImport): Promise<ItunesSearchResult | null> {
@@ -1027,13 +1279,32 @@ async function lookupArtistMetadata(values: Record<string, unknown>): Promise<Re
   }
 }
 
-function uniqueCoverCandidates(candidates: CoverLookupCandidate[]): CoverLookupCandidate[] {
+function uniqueCoverCandidates<T extends CoverLookupCandidate>(candidates: T[]): T[] {
   const seen = new Set<string>()
   return candidates.filter((candidate) => {
     if (!candidate.artworkUrl || seen.has(candidate.artworkUrl)) return false
     seen.add(candidate.artworkUrl)
     return true
   })
+}
+
+async function materializeCoverCandidates(candidates: RawCoverLookupCandidate[]): Promise<CoverLookupCandidate[]> {
+  const unique = uniqueCoverCandidates(candidates)
+    .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+    .slice(0, 8)
+  const materialized: CoverLookupCandidate[] = []
+  for (const candidate of unique) {
+    const artworkUrl = candidate.artworkUrl.startsWith('data:')
+      ? candidate.artworkUrl
+      : await dataUrlForRemoteImage(candidate.artworkUrl)
+    if (!artworkUrl) continue
+    materialized.push({
+      artworkUrl,
+      source: candidate.source,
+      label: candidate.label
+    })
+  }
+  return uniqueCoverCandidates(materialized)
 }
 
 async function lookupCoverCandidates(values: Record<string, unknown>): Promise<CoverLookupCandidate[]> {
@@ -1054,33 +1325,60 @@ async function lookupCoverCandidates(values: Record<string, unknown>): Promise<C
     sourcePath: '',
     sourceUrl: ''
   }
-  const candidates: CoverLookupCandidate[] = []
+  const candidates: RawCoverLookupCandidate[] = []
 
   if (kind === 'artist') {
     const term = artist || title
     if (!term) return []
-    const url = new URL('https://music.163.com/api/search/get/web')
-    url.searchParams.set('type', '100')
-    url.searchParams.set('s', term)
-    url.searchParams.set('limit', '8')
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0' },
-      signal: AbortSignal.timeout(12000)
-    })
-    if (response.ok) {
-      const payload = (await response.json()) as { result?: { artists?: NetEaseArtistSearchResult[] } }
-      for (const item of payload.result?.artists ?? []) {
-        const artworkUrl = upgradeNetEaseArtworkUrl(item.picUrl || item.img1v1Url)
-        if (artworkUrl) candidates.push({ artworkUrl, source: 'netease', label: item.name })
+    const [qqmusicArtists, neteaseArtists] = await Promise.allSettled([
+      fetchQQMusicCoverCandidates(track, 'artist'),
+      (async (): Promise<RawCoverLookupCandidate[]> => {
+        const url = new URL('https://music.163.com/api/search/get/web')
+        url.searchParams.set('type', '100')
+        url.searchParams.set('s', term)
+        url.searchParams.set('limit', '8')
+        const response = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0' },
+          signal: AbortSignal.timeout(12000)
+        })
+        if (!response.ok) return []
+        const payload = (await response.json()) as { result?: { artists?: NetEaseArtistSearchResult[] } }
+        return (payload.result?.artists ?? []).map((item, index) => ({
+          artworkUrl: upgradeNetEaseArtworkUrl(item.picUrl || item.img1v1Url) || '',
+          source: 'netease',
+          label: item.name,
+          matchedArtist: item.name,
+          confidence: textSimilarityScore(term, item.name) + Math.max(0, 0.18 - index * 0.02)
+        })).filter((candidate) => candidate.artworkUrl)
+      })()
+    ])
+    if (qqmusicArtists.status === 'fulfilled') candidates.push(...qqmusicArtists.value)
+    if (neteaseArtists.status === 'fulfilled') {
+      for (const candidate of neteaseArtists.value) {
+        candidates.push({ ...candidate, confidence: (candidate.confidence ?? 0) * 0.82 })
       }
     }
-    return uniqueCoverCandidates(candidates)
+    return materializeCoverCandidates(candidates)
   }
 
-  const netease = kind === 'album'
-    ? await fetchNetEaseAlbumArtwork(track)
-    : (await fetchNetEaseSongMetadata(track))?.artworkUrl || await fetchNetEaseAlbumArtwork(track)
-  if (netease) candidates.push({ artworkUrl: netease, source: 'netease', label: kind === 'album' ? album : title })
+  const [qqmusic, neteaseAlbum, neteaseSong] = await Promise.allSettled([
+    fetchQQMusicCoverCandidates(track, kind === 'album' ? 'album' : 'track'),
+    fetchNetEaseAlbumArtworkCandidates(track),
+    kind === 'track' ? fetchNetEaseSongMetadata(track) : Promise.resolve(null)
+  ])
+  if (qqmusic.status === 'fulfilled') candidates.push(...qqmusic.value)
+  if (neteaseAlbum.status === 'fulfilled') candidates.push(...neteaseAlbum.value.map((candidate) => ({ ...candidate, confidence: (candidate.confidence ?? 0) * 0.12 })))
+  if (neteaseSong.status === 'fulfilled' && neteaseSong.value?.artworkUrl) {
+    candidates.push({
+      artworkUrl: neteaseSong.value.artworkUrl,
+      source: 'netease',
+      label: neteaseSong.value.title || title,
+      matchedTitle: neteaseSong.value.title,
+      matchedArtist: neteaseSong.value.artist,
+      matchedAlbum: neteaseSong.value.album,
+      confidence: neteaseSong.value.score * 0.12
+    })
+  }
 
   let itunesArtwork: string | undefined
   if (kind === 'album') {
@@ -1090,9 +1388,9 @@ async function lookupCoverCandidates(values: Record<string, unknown>): Promise<C
     const itunesTrack = await fetchItunesMetadata(track)
     itunesArtwork = upgradeArtworkUrl(itunesTrack?.artworkUrl100)
   }
-  if (itunesArtwork) candidates.push({ artworkUrl: itunesArtwork, source: 'itunes', label: kind === 'album' ? album : title })
+  if (itunesArtwork) candidates.push({ artworkUrl: itunesArtwork, source: 'itunes', label: kind === 'album' ? album : title, confidence: 0.25 })
 
-  return uniqueCoverCandidates(candidates)
+  return materializeCoverCandidates(candidates)
 }
 
 function scoreLyricsCandidate(track: LocalAudioImport, candidate: LrcLibResult): number {
