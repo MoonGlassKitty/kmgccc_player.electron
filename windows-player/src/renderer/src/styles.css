@@ -610,12 +610,12 @@ input {
   height: 46px;
   padding: 0 16px;
   border-radius: 999px;
-  --glass-alpha: 0.055;
-  --glass-shadow: rgba(16, 36, 52, 0.035);
-  background: rgba(255, 255, 255, 0.025);
+  --glass-alpha: 0.025;
+  --glass-shadow: rgba(16, 36, 52, 0.026);
+  background: rgba(255, 255, 255, 0.008);
   box-shadow:
-    0 10px 24px rgba(16, 36, 52, 0.035),
-    0 0 0 1px rgba(255, 255, 255, 0.16) inset;
+    0 8px 20px rgba(16, 36, 52, 0.026),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
 }
 
 .now-playing-status-led,
