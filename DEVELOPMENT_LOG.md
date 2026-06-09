@@ -111,3 +111,4 @@
 - 右侧歌词栏乳白垫层改为单层整体底垫：不再分别给左右两个拼接玻璃块加乳白，而是在 `.lyrics-side-panel` 本体底层铺一整块 `rgba(255,255,255,0.22)`，左右玻璃伪元素保持原折射/高斯参数，避免接缝被分块垫层放大。`npm run typecheck` 与 `npm run build` 已通过。
 - 夜间模式接入主界面和两套歌词：系统跟随深色现在会写入实际 `appearance-dark` class，并让歌词字重按有效深浅色切换；主界面导航、Home 卡片、底栏玻璃、设置页和右侧歌词栏补夜间底色/文字色；侧栏 AMLL 与全屏 AMLL 直接覆盖 core lyric 节点颜色，避免只改到外层变量。`npm run typecheck` 与 `npm run build` 已通过。
 - Home/窗口播放/全屏播放进入态增加统一 loading reveal：从其他页面进入这些重资源页面时先显示短暂转圈，目标页面和 Home 点缀透明挂载后再渐入/轻微弹出，避免元素资源未就绪时瞬间跳出。`npm run typecheck` 与 `npm run build` 已通过。
+- 深色模式继续收口：BK 背景、dot、点缀元素在暗色下单独降饱和、降亮度并偏灰；底部状态栏改为显式黑色硅胶底和更暗的内阴影；Home 的 hover、solid、frosted 与音乐足迹分块补深色覆盖，避免继续露出白底。`npm run typecheck` 与 `npm run build` 已通过。

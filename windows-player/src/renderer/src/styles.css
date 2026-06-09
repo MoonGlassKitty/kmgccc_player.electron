@@ -5537,6 +5537,61 @@ input {
     0 1px 8px rgba(0, 0, 0, 0.08);
 }
 
+.appearance-dark .bk-art-background {
+  background:
+    radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 46%, rgba(50, 56, 60, 0.42)), transparent 38%),
+    radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 42%, rgba(42, 48, 52, 0.38)), transparent 46%),
+    linear-gradient(135deg, color-mix(in srgb, var(--bk-bg-tone-1) 40%, #30363a), color-mix(in srgb, var(--bk-bg-tone-2) 34%, #1f2529));
+  filter: saturate(0.48) brightness(0.82) contrast(0.96);
+}
+
+.appearance-dark .bk-art-surface {
+  background:
+    radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 44%, rgba(50, 56, 60, 0.40)), transparent 38%),
+    radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 40%, rgba(42, 48, 52, 0.36)), transparent 46%),
+    radial-gradient(circle at 52% 44%, color-mix(in srgb, var(--bk-bg-tone-3, var(--bk-bg-tone-2)) 28%, rgba(58, 62, 66, 0.28)), transparent 58%),
+    linear-gradient(135deg, color-mix(in srgb, var(--bk-bg-tone-1) 38%, #30363a), color-mix(in srgb, var(--bk-bg-tone-2) 32%, #1f2529));
+}
+
+.appearance-dark .bk-image-phase {
+  filter: contrast(0.96) saturate(0.52) brightness(0.78);
+  opacity: 0.62;
+}
+
+.appearance-dark .bk-image-surface::after {
+  background:
+    linear-gradient(90deg, rgba(22, 25, 28, 0.36), transparent 34%, rgba(0, 0, 0, 0.28)),
+    radial-gradient(circle at 52% 50%, rgba(28, 32, 35, 0.06) 0 30%, rgba(0, 0, 0, 0.34) 76%);
+}
+
+.appearance-dark .bk-dot-surface {
+  background: color-mix(in srgb, var(--bk-bg-tone-1) 38%, #2f3538);
+}
+
+.appearance-dark .bk-dot-gradient {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bk-bg-tone-1) 42%, #32383b), color-mix(in srgb, var(--bk-bg-tone-2) 34%, #252b2f));
+  opacity: 0.10;
+  filter: saturate(0.58);
+}
+
+.appearance-dark .bk-dot-grid {
+  opacity: 0.70;
+  filter: blur(0.1px) saturate(0.58) contrast(0.98) brightness(0.9);
+}
+
+.appearance-dark .bk-dot-grid.small {
+  opacity: 0.44;
+}
+
+.appearance-dark .bk-shape {
+  opacity: 0.58;
+  filter:
+    drop-shadow(0 18px 30px rgba(0, 0, 0, 0.20))
+    saturate(0.42)
+    brightness(0.78);
+  mix-blend-mode: normal;
+}
+
 .appearance-dark .home-hero-copy span,
 .appearance-dark .home-hero-copy p,
 .appearance-dark .home-section-heading button,
@@ -5580,11 +5635,26 @@ input {
   background-color: rgba(16, 22, 28, var(--glass-alpha));
 }
 
+.appearance-dark .home-liquid-card:hover,
+.appearance-dark .home-stats-block .home-liquid-card:hover {
+  background-color: rgba(18, 24, 30, 0.22);
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.14),
+    0 8px 22px rgba(0, 0, 0, 0.08);
+}
+
 .appearance-dark .app-shell.home-material-frostedGlass .home-liquid-card {
   background-color: rgba(16, 22, 28, 0.22);
   box-shadow:
     0 14px 32px rgba(0, 0, 0, 0.14),
     0 0 0 1px rgba(255, 255, 255, 0.10) inset;
+}
+
+.appearance-dark .app-shell.home-material-solid .home-liquid-card {
+  background-color: rgba(18, 24, 30, 0.58);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.07) inset;
 }
 
 .appearance-dark .home-liquid-card::before {
@@ -5612,6 +5682,16 @@ input {
   background-color: rgba(16, 22, 28, var(--glass-alpha));
   box-shadow:
     0 18px 46px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+.appearance-dark .app-shell.home-material-frostedGlass .home-stats-block .home-rank-panel::before,
+.appearance-dark .app-shell.home-material-frostedGlass .home-stats-block .home-rank-panel::after,
+.appearance-dark .app-shell.home-material-frostedGlass .home-stats-block .home-calendar-panel::before,
+.appearance-dark .app-shell.home-material-frostedGlass .home-stats-block .home-calendar-panel::after {
+  background-color: rgba(16, 22, 28, 0.22);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.14),
     0 0 0 1px rgba(255, 255, 255, 0.08) inset;
 }
 
@@ -5732,11 +5812,16 @@ input {
 }
 
 .appearance-dark .mini-player {
-  --glass-alpha: 0.16;
-  --glass-border: rgba(255, 255, 255, 0.18);
-  --glass-shadow: rgba(0, 0, 0, 0.10);
-  --glass-inner-shadow: rgba(0, 0, 0, 0.04);
-  --glass-inner-highlight: rgba(255, 255, 255, 0.045);
+  --glass-alpha: 0;
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-shadow: rgba(0, 0, 0, 0.16);
+  --glass-inner-shadow: rgba(0, 0, 0, 0.18);
+  --glass-inner-highlight: rgba(255, 255, 255, 0.025);
+  background-color: rgba(5, 8, 11, 0.66);
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.24),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 1px 16px rgba(0, 0, 0, 0.20) inset;
 }
 
 .appearance-dark .mini-track strong,
@@ -5778,7 +5863,7 @@ input {
 .appearance-dark .mini-queue-button.active,
 .appearance-dark .mini-queue-row.current,
 .appearance-dark .track-row.current {
-  background: color-mix(in srgb, var(--cover-accent) 70%, rgba(255, 255, 255, 0.08));
+  background: color-mix(in srgb, var(--cover-accent) 48%, rgba(8, 12, 16, 0.46));
 }
 
 .appearance-dark .liquid-slider-track {
