@@ -2438,8 +2438,7 @@ input {
   padding-left: 30px;
 }
 
-.playlist-icon,
-.playlist-cover {
+.playlist-icon {
   display: grid;
   width: 30px;
   height: 30px;
@@ -2451,7 +2450,23 @@ input {
 
 .playlist-cover {
   display: block;
+  width: 30px;
+  height: 30px;
+}
+
+.playlist-cover.logo {
+  object-fit: contain;
+}
+
+.playlist-cover.generated {
+  border-radius: 7px;
   object-fit: cover;
+  filter:
+    sepia(1)
+    saturate(var(--playlist-cover-saturation, 2.1))
+    hue-rotate(var(--playlist-cover-hue, 0deg))
+    brightness(var(--playlist-cover-brightness, 1))
+    contrast(var(--playlist-cover-contrast, 1.08));
   box-shadow:
     0 2px 7px rgba(16, 48, 68, 0.11),
     0 0 0 1px rgba(255, 255, 255, 0.28) inset;
@@ -3195,11 +3210,25 @@ input {
 .home-playlist-artwork {
   width: 66px;
   height: 66px;
-  border-radius: 10px;
 }
 
 .home-playlist-artwork {
   flex: 0 0 66px;
+}
+
+.home-playlist-artwork.logo {
+  object-fit: contain;
+}
+
+.home-playlist-artwork.generated {
+  border-radius: 10px;
+  object-fit: cover;
+  filter:
+    sepia(1)
+    saturate(var(--playlist-cover-saturation, 2.1))
+    hue-rotate(var(--playlist-cover-hue, 0deg))
+    brightness(var(--playlist-cover-brightness, 1))
+    contrast(var(--playlist-cover-contrast, 1.08));
   box-shadow:
     0 10px 20px rgba(18, 48, 64, 0.13),
     0 0 0 1px rgba(255, 255, 255, 0.32) inset;
@@ -3805,6 +3834,15 @@ input {
   height: 100%;
   display: block;
   object-fit: cover;
+}
+
+.artist-image-frame img.playlist-generated-artwork {
+  filter:
+    sepia(1)
+    saturate(var(--playlist-cover-saturation, 2.1))
+    hue-rotate(var(--playlist-cover-hue, 0deg))
+    brightness(var(--playlist-cover-brightness, 1))
+    contrast(var(--playlist-cover-contrast, 1.08));
 }
 
 .artist-copy {

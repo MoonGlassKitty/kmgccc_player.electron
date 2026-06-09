@@ -458,7 +458,7 @@ function playlistStableHash(value: string): number {
 }
 
 const playlistLogoArtwork = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"><defs><linearGradient id="g" x1="96" y1="96" x2="544" y2="544" gradientUnits="userSpaceOnUse"><stop stop-color="#d96a78"/><stop offset="1" stop-color="#72cbe6"/></linearGradient><radialGradient id="h" cx="180" cy="140" r="430" gradientUnits="userSpaceOnUse"><stop stop-color="rgba(255,255,255,.22)"/><stop offset="1" stop-color="rgba(255,255,255,0)"/></radialGradient></defs><rect width="640" height="640" rx="92" fill="url(#g)"/><rect width="640" height="640" rx="92" fill="url(#h)"/><path d="M202 217h164M202 303h164M202 389h116" fill="none" stroke="rgba(255,255,255,.88)" stroke-width="38" stroke-linecap="round"/><path d="M426 206v211c0 38-34 66-77 66-36 0-64-20-64-49 0-32 34-54 75-54 13 0 25 2 36 6V226c0-14 9-26 23-30l86-24c16-4 32 8 32 25v38c0 14-9 26-23 30l-88 25" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+  `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"><path d="M142 186h240M142 286h240M142 386h164" fill="none" stroke="#1f85ad" stroke-width="46" stroke-linecap="round"/><path d="M448 174v250c0 45-40 78-91 78-43 0-76-24-76-58 0-38 40-64 89-64 15 0 29 3 42 7V198c0-17 11-31 27-36l102-28c19-5 38 9 38 29v45c0 17-11 31-27 36l-104 30" fill="none" stroke="#1f85ad" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/></svg>`
 )))}`
 
 function isImportedPlaylist(playlist?: Pick<HomePlaylistCard, 'id' | 'name'> | null): boolean {
@@ -470,6 +470,17 @@ function playlistArtworkFor(playlist?: Pick<HomePlaylistCard, 'id' | 'name' | 'a
   if (!isImportedPlaylist(playlist)) return playlistLogoArtwork
   const hash = playlistStableHash(playlist?.id ?? 'playlist-library')
   return playlistCoverBases[hash % playlistCoverBases.length]
+}
+
+function playlistArtworkStyle(playlist?: Pick<HomePlaylistCard, 'id' | 'name'> | null): React.CSSProperties | undefined {
+  if (!isImportedPlaylist(playlist)) return undefined
+  const hash = playlistStableHash(playlist?.id ?? 'playlist-local-imports')
+  return {
+    '--playlist-cover-hue': `${hash % 360}deg`,
+    '--playlist-cover-saturation': `${1.65 + ((hash >>> 8) % 95) / 100}`,
+    '--playlist-cover-brightness': `${0.94 + ((hash >>> 16) % 20) / 100}`,
+    '--playlist-cover-contrast': `${1.04 + ((hash >>> 24) % 18) / 100}`
+  } as React.CSSProperties
 }
 
 function storedBoolean(key: string, fallback: boolean): boolean {
@@ -3369,12 +3380,12 @@ const Sidebar = React.memo(function Sidebar({
                 ])
               ])}
             >
-              <img className="playlist-cover" src={playlistArtworkFor(playlist)} alt="" decoding="async" />
+              <img className={`playlist-cover ${isImportedPlaylist(playlist) ? 'generated' : 'logo'}`} src={playlistArtworkFor(playlist)} style={playlistArtworkStyle(playlist)} alt="" decoding="async" />
               <span>{playlist.name}</span>
             </button>
           )) : (
             <button className="playlist-row muted" type="button" onClick={onCreatePlaylist}>
-              <img className="playlist-cover" src={playlistArtworkFor(null)} alt="" decoding="async" />
+              <img className="playlist-cover logo" src={playlistArtworkFor(null)} alt="" decoding="async" />
               <span>新建播放列表</span>
             </button>
           )}
@@ -3661,7 +3672,7 @@ const HomePage = React.memo(function HomePage({
                 type="button"
                 onClick={() => onNavigate({ name: 'playlistDetail', id: playlist.id, title: playlist.name })}
               >
-                <img className="home-playlist-artwork" src={playlistArtworkFor(playlist)} alt="" decoding="async" />
+                <img className={`home-playlist-artwork ${isImportedPlaylist(playlist) ? 'generated' : 'logo'}`} src={playlistArtworkFor(playlist)} style={playlistArtworkStyle(playlist)} alt="" decoding="async" />
                 <span>
                   <strong>{playlist.name}</strong>
                   <small>{playlist.trackCount} 首</small>
@@ -5809,6 +5820,7 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
   const isArtistIndex = route.name === 'artistDetail' && route.id === 'all-artists'
   const isAlbumIndex = route.name === 'albumDetail' && route.id === 'all-albums'
   const artworkShape = route.name === 'artistDetail' && route.id !== 'all-artists' ? 'artist' : 'square'
+  const headerPlaylist = route.name === 'playlistDetail' ? snapshot.playlists.find((entry) => entry.id === route.id) : undefined
   const headerContextItems = React.useMemo((): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [
       { label: '播放', onSelect: () => onPlayRoute(route) }
@@ -5836,7 +5848,13 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
       >
         <header className="artist-header" onContextMenu={(event) => onOpenContextMenu(event, headerContextItems)}>
           <div className={`artist-image-frame ${artworkShape === 'square' ? 'square-artwork' : ''}`}>
-            <img src={detailArtwork(route, snapshot, albums)} alt="" decoding="async" />
+            <img
+              className={headerPlaylist && isImportedPlaylist(headerPlaylist) ? 'playlist-generated-artwork' : ''}
+              src={detailArtwork(route, snapshot, albums)}
+              style={playlistArtworkStyle(headerPlaylist)}
+              alt=""
+              decoding="async"
+            />
           </div>
           <div className="artist-copy">
             <h1>{route.name === 'allTracks' ? '所有歌曲' : route.title}</h1>
