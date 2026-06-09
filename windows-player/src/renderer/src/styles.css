@@ -3351,6 +3351,10 @@ input {
 }
 
 .home-card-grid {
+  --home-shared-glass-alpha: 0.28;
+  --home-shared-glass-border: rgba(255, 255, 255, 0.38);
+  --home-shared-glass-shadow: rgba(25, 58, 80, 0.036);
+  --filter-url: url(#lg-home-liquid);
   display: flex;
   gap: 16px;
   width: 100vw;
@@ -3365,8 +3369,18 @@ input {
   scrollbar-width: none;
   scroll-padding-inline: calc(var(--sidebar-width) + 44px) calc(var(--lyrics-width) + 44px);
   overscroll-behavior-x: contain;
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
+  border: 1px solid var(--home-shared-glass-border);
+  border-radius: 22px;
+  background-color: rgba(255, 255, 255, var(--home-shared-glass-alpha));
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  backdrop-filter: var(--filter-url);
+  -webkit-backdrop-filter: var(--filter-url);
+  box-shadow:
+    0 20px 54px var(--home-shared-glass-shadow),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+  contain: layout paint style;
+  isolation: isolate;
 }
 
 .home-card-grid::-webkit-scrollbar {
@@ -3477,6 +3491,34 @@ input {
   box-shadow:
     0 10px 22px rgba(20, 33, 40, 0.08),
     0 0 0 1px rgba(20, 33, 40, 0.06) inset;
+}
+
+.app-shell.home-material-frostedGlass .home-card-grid,
+.app-shell.home-material-frostedGlass .home-playlist-grid {
+  --home-shared-glass-alpha: 0.30;
+  --home-shared-glass-border: rgba(255, 255, 255, 0.34);
+  --home-shared-glass-shadow: rgba(20, 33, 40, 0.075);
+  backdrop-filter: blur(22px) saturate(1.08);
+  -webkit-backdrop-filter: blur(22px) saturate(1.08);
+}
+
+.app-shell.home-material-solid .home-card-grid,
+.app-shell.home-material-solid .home-playlist-grid {
+  --home-shared-glass-alpha: 0.18;
+  --home-shared-glass-border: rgba(20, 33, 40, 0.05);
+  --home-shared-glass-shadow: rgba(20, 33, 40, 0.055);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.app-shell .home-card-grid > .home-liquid-card,
+.app-shell .home-playlist-grid > .home-liquid-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-color: rgba(255, 255, 255, 0.30);
+  box-shadow:
+    0 12px 28px rgba(25, 58, 80, 0.038),
+    0 0 0 1px rgba(255, 255, 255, 0.30) inset;
 }
 
 .home-liquid-card::before {
@@ -3598,8 +3640,26 @@ input {
 }
 
 .home-playlist-grid {
+  --home-shared-glass-alpha: 0.28;
+  --home-shared-glass-border: rgba(255, 255, 255, 0.38);
+  --home-shared-glass-shadow: rgba(25, 58, 80, 0.036);
+  --filter-url: url(#lg-home-liquid);
   display: grid;
   grid-template-columns: minmax(260px, 480px);
+  width: min(520px, 100%);
+  padding: 12px;
+  border: 1px solid var(--home-shared-glass-border);
+  border-radius: 22px;
+  background-color: rgba(255, 255, 255, var(--home-shared-glass-alpha));
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  backdrop-filter: var(--filter-url);
+  -webkit-backdrop-filter: var(--filter-url);
+  box-shadow:
+    0 20px 54px var(--home-shared-glass-shadow),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+  contain: layout paint style;
+  isolation: isolate;
 }
 
 .home-playlist-card {

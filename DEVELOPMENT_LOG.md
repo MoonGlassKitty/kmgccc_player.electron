@@ -74,3 +74,4 @@
 - 修正 Home 背景点缀跟手延迟：撤掉 50fps 延迟合帧，滚动后仍在下一帧立即响应；保留点缀 DOM 写入缓存、BK dot DOM 变量直写和 LED 45fps 采样优化。`npm run typecheck` 与 `npm run build` 已通过。
 - 省电模式性能优化继续推进：新增 renderer 侧封面缩略图生成与缓存，Home 艺人/专辑/播放列表、详情集合、曲目行、侧栏、歌词侧栏、底栏和队列小图改用低分辨率缩略图，保留全屏/Now Playing 大图和主题取色原图；缓存限制为 240 项避免长期堆积。`npm run typecheck`、`npm run build` 和 `npm run preview` 启动 smoke test 已通过。
 - Home 默认材质调整：左右侧栏共用大玻璃 DPR 从 0.2 降到 0.05；主页卡片默认改为磨砂玻璃，并在设置里标注“液态玻璃（试验品）”，增加一次性迁移避免旧默认值继续停留在液态玻璃。Home 卡片不再使用 `content-visibility` 按需卸载，主页卡片图片改为 eager，并修复缩略图缓存已存在时仍闪回原图的问题。`npm run typecheck` 与 `npm run build` 已通过。
+- Home 共享玻璃试改：按原作者“多个卡片打包成一个 view”的思路，把 Home 艺人/专辑横向卡片排和播放列表排改为外层 grid 共享一个玻璃/backdrop 层，内部单张卡片只保留半透明壳、高光、边界和阴影，不再每张卡片各自计算 backdrop。`npm run typecheck`、`npm run build` 与 `npm run preview` 启动 smoke test 已通过。
