@@ -70,6 +70,10 @@ import tapePaper from './assets/xc-assets/tapepaper.png'
 import tapeOutline from './assets/xc-assets/tapeoutline.png'
 import tapeMask from './assets/xc-assets/tapemask.png'
 import kmgLook from './assets/xc-assets/kmglook.png'
+import playlistCover1 from './assets/xc-assets/cov1.png'
+import playlistCover2 from './assets/xc-assets/cov2.png'
+import playlistCover3 from './assets/xc-assets/cov3.png'
+import playlistCover4 from './assets/xc-assets/cov4.png'
 import './styles.css'
 
 type Track = {
@@ -354,6 +358,7 @@ type LibraryDialogState =
 const bkShapeAssets = [shape1, shape2, shape3, shape4, shape5, shape6, shape7, shape8, shape9, shape10, shape11]
 const bkBackgroundAssets = [bkBackground1, bkBackground2]
 const artworkFrameAssets = [artworkFrame1, artworkFrame2, artworkFrame3, artworkFrame4]
+const playlistCoverBases = [playlistCover1, playlistCover2, playlistCover3, playlistCover4]
 
 const nowPlayingSkinOptions: Array<{ id: NowPlayingSkinID; name: string; detail: string }> = [
   { id: 'coverLed', name: '经典封面', detail: '方形封面与 LED/频谱' },
@@ -441,6 +446,30 @@ function trackArtwork(track: HomeTrack | Track | null | undefined, albums: Map<s
 
 function albumArtworkFor(album?: Pick<HomeAlbumCard, 'artworkUrl'> | null): string {
   return album?.artworkUrl || albumArtwork
+}
+
+function playlistStableHash(value: string): number {
+  let hash = 5381
+  const bytes = new TextEncoder().encode(value)
+  bytes.forEach((byte) => {
+    hash = Math.imul(hash, 33) ^ byte
+  })
+  return hash >>> 0
+}
+
+const playlistLogoArtwork = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"><defs><linearGradient id="g" x1="96" y1="96" x2="544" y2="544" gradientUnits="userSpaceOnUse"><stop stop-color="#d96a78"/><stop offset="1" stop-color="#72cbe6"/></linearGradient><radialGradient id="h" cx="180" cy="140" r="430" gradientUnits="userSpaceOnUse"><stop stop-color="rgba(255,255,255,.22)"/><stop offset="1" stop-color="rgba(255,255,255,0)"/></radialGradient></defs><rect width="640" height="640" rx="92" fill="url(#g)"/><rect width="640" height="640" rx="92" fill="url(#h)"/><path d="M202 217h164M202 303h164M202 389h116" fill="none" stroke="rgba(255,255,255,.88)" stroke-width="38" stroke-linecap="round"/><path d="M426 206v211c0 38-34 66-77 66-36 0-64-20-64-49 0-32 34-54 75-54 13 0 25 2 36 6V226c0-14 9-26 23-30l86-24c16-4 32 8 32 25v38c0 14-9 26-23 30l-88 25" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+)))}`
+
+function isImportedPlaylist(playlist?: Pick<HomePlaylistCard, 'id' | 'name'> | null): boolean {
+  if (!playlist) return false
+  return playlist.id === 'playlist-local-imports' || playlist.name.startsWith('导入于') || playlist.name === '本地导入'
+}
+
+function playlistArtworkFor(playlist?: Pick<HomePlaylistCard, 'id' | 'name' | 'artworkUrl'> | null): string {
+  if (!isImportedPlaylist(playlist)) return playlistLogoArtwork
+  const hash = playlistStableHash(playlist?.id ?? 'playlist-library')
+  return playlistCoverBases[hash % playlistCoverBases.length]
 }
 
 function storedBoolean(key: string, fallback: boolean): boolean {
@@ -1264,7 +1293,6 @@ function snapshotWithImportedTrack(snapshot: HomeSnapshot, importedTrack: LocalA
       {
         id: 'playlist-local-imports',
         name: '本地导入',
-        artworkUrl: importedTrack.artworkUrl,
         trackCount: importedTrackIds.length,
         trackIds: importedTrackIds
       },
@@ -1399,7 +1427,7 @@ function detailArtwork(route: DetailRoute, snapshot: HomeSnapshot, albums: Map<s
   }
   if (route.name === 'playlistDetail') {
     const playlist = snapshot.playlists.find((entry) => entry.id === route.id)
-    return playlist?.artworkUrl || trackArtwork(tracksForRoute(route, snapshot)[0], albums)
+    return playlistArtworkFor(playlist)
   }
   return trackArtwork(snapshot.heroTrack, albums)
 }
@@ -3341,14 +3369,12 @@ const Sidebar = React.memo(function Sidebar({
                 ])
               ])}
             >
-              <span className="playlist-icon">
-                <Music2 size={18} />
-              </span>
+              <img className="playlist-cover" src={playlistArtworkFor(playlist)} alt="" decoding="async" />
               <span>{playlist.name}</span>
             </button>
           )) : (
             <button className="playlist-row muted" type="button" onClick={onCreatePlaylist}>
-              <span className="playlist-icon"><Music2 size={18} /></span>
+              <img className="playlist-cover" src={playlistArtworkFor(null)} alt="" decoding="async" />
               <span>新建播放列表</span>
             </button>
           )}
@@ -3635,9 +3661,7 @@ const HomePage = React.memo(function HomePage({
                 type="button"
                 onClick={() => onNavigate({ name: 'playlistDetail', id: playlist.id, title: playlist.name })}
               >
-                <span className="playlist-icon large">
-                  <Music2 size={28} />
-                </span>
+                <img className="home-playlist-artwork" src={playlistArtworkFor(playlist)} alt="" decoding="async" />
                 <span>
                   <strong>{playlist.name}</strong>
                   <small>{playlist.trackCount} 首</small>

@@ -512,7 +512,6 @@ function playlistsForTracks(tracks: LocalAudioImport[], persistedPlaylists: Pers
     ? [{
       id: 'playlist-library',
       name: '资料库',
-      artworkUrl: tracks[0]?.artworkUrl,
       trackCount: tracks.length,
       trackIds: tracks.map((track) => track.id)
     }]
@@ -521,10 +520,8 @@ function playlistsForTracks(tracks: LocalAudioImport[], persistedPlaylists: Pers
     .filter((playlist) => playlist.id !== 'playlist-library')
     .map((playlist) => {
       const validTrackIds = playlist.trackIds.filter((id) => trackIds.has(id))
-      const firstTrack = tracks.find((track) => track.id === validTrackIds[0])
       return {
         ...playlist,
-        artworkUrl: playlist.artworkUrl || firstTrack?.artworkUrl,
         trackCount: validTrackIds.length,
         trackIds: validTrackIds
       }

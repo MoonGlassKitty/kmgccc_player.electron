@@ -45,3 +45,4 @@
 - BK image/油漆状态染色调整：tinted background 的色阶从浅第一主题色改为深一些的第一主题色到第二主题色，增强刷漆时的色彩分层，dot 状态不受影响。
 - 底部时间条性能隔离：播放进度动画从连续 linear 改为低频 steps，时间条层使用独立 3D 合成和 isolation，普通播放时 React playbackTime 刷新从 8s 降到 30s，减少与 BK shape/dot 动画抢帧。
 - 底部时间条按合并层重写：移除额外透明 rail/fill 子层，播放进度改由底栏 `.mini-player::before` 自身绘制；`mini-timeline-layer` 只保留底部透明 slider 命中层，避免独立时间条动画与 BK/home 点缀抢帧或盖住播放按钮。
+- 导入播放列表封面接入 mac 素材库 `cov1`-`cov4`：解出对应 encrypted XCAssets，移除“第一首歌封面”伪兜底；仅导入列表按稳定 hash 显示自动封面，资料库/普通播放列表保持统一 logo。
