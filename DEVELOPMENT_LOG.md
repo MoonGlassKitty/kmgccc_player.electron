@@ -119,3 +119,4 @@
 - 全屏歌词背后增加柔和散景垫层：只在右侧全屏歌词列添加不参与交互的模糊光斑 underlay，位于歌词下方/BK 上方，降低滚珠和背景点缀经过时对歌词可读性的影响。`npm run typecheck` 与 `npm run build` 已通过。
 - 右歌词栏和左侧栏开关动画：右侧歌词栏关闭时保留节点与宽度，先整体向右滑出后再卸载释放布局；打开时从右侧滑入。左侧栏收起增加 grid/侧栏/标题栏过渡，文字与播放源从透明压缩到 0，不再直接 `display:none` 瞬切。`npm run typecheck` 与 `npm run build` 已通过。
 - 全屏 BK 改为专用滚珠态：全屏歌词页的 BK 不再进入普通 image/dot 随机状态机，只循环 dot surface；底层保留现有两主题色染色油漆纹理作为非单色背景，并提高全屏 BK/dot 饱和度。全屏 AMLL 在 dot 循环和曲目切换后继续触发可见背景取色，歌词列下方再叠一层柔和模糊垫子，降低滚珠经过时对歌词可读性的干扰。`npm run typecheck` 与 `npm run build` 已通过。
+- 磁带皮肤按 Swift 补齐素材层：从 `EncryptedArtAssets/XCAssets` 解出 `lighthole/darkhole` 并导入 Electron；磁带外壳现在浅/深色分别使用 `tape/tapedark`，按 Swift 坐标叠加旋转孔位和 9 根主题色波形胶囊，保留原 shell/artwork mask/gray/paper/outline 层级。`npm run typecheck` 与 `npm run build` 已通过。

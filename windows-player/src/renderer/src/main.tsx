@@ -74,6 +74,8 @@ import tapePaper from './assets/xc-assets/tapepaper.png'
 import tapeOutline from './assets/xc-assets/tapeoutline.png'
 import tapeMask from './assets/xc-assets/tapemask.png'
 import kmgLook from './assets/xc-assets/kmglook.png'
+import lightHole from './assets/xc-assets/lighthole.png'
+import darkHole from './assets/xc-assets/darkhole.png'
 import playlistCover1 from './assets/xc-assets/cov1.png'
 import playlistCover2 from './assets/xc-assets/cov2.png'
 import playlistCover3 from './assets/xc-assets/cov3.png'
@@ -5283,7 +5285,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
         ) : nowPlayingSkinID === 'rotatingCover' ? (
           <RotatingCoverNowPlaying artwork={artwork} isPlaying={isPlaying} cdMode={rotatingCdMode} />
         ) : (
-          <CassetteNowPlayingArtwork artwork={artwork} showKmgLook={cassetteKmgLookEnabled} />
+          <CassetteNowPlayingArtwork artwork={artwork} isPlaying={isPlaying} ledValues={ledValues} showKmgLook={cassetteKmgLookEnabled} />
         )}
         {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} ledCount={ledCount} brightnessLevels={ledBrightnessLevels} ledSpeed={ledSpeed} ledValues={ledValues} /> : null}
         {visualizerMode === 'spectrum' ? <NowPlayingSpectrum isPlaying={isPlaying} /> : null}
@@ -5401,7 +5403,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
         ) : skinID === 'rotatingCover' ? (
           <RotatingCoverNowPlaying artwork={artwork} isPlaying={isPlaying} cdMode={rotatingCdMode} />
         ) : (
-          <CassetteNowPlayingArtwork artwork={artwork} showKmgLook={cassetteKmgLookEnabled} />
+          <CassetteNowPlayingArtwork artwork={artwork} isPlaying={isPlaying} ledValues={ledValues} showKmgLook={cassetteKmgLookEnabled} />
         )}
         {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} ledCount={ledCount} brightnessLevels={ledBrightnessLevels} ledSpeed={ledSpeed} ledValues={ledValues} /> : null}
         {visualizerMode === 'spectrum' ? <NowPlayingSpectrum isPlaying={isPlaying} /> : null}
@@ -5563,14 +5565,27 @@ const RotatingCoverNowPlaying = React.memo(function RotatingCoverNowPlaying({
 
 const CassetteNowPlayingArtwork = React.memo(function CassetteNowPlayingArtwork({
   artwork,
+  isPlaying,
+  ledValues,
   showKmgLook
 }: {
   artwork: string
+  isPlaying: boolean
+  ledValues: number[]
   showKmgLook: boolean
 }): React.ReactElement {
+  const capsuleValues = React.useMemo(() => {
+    const source = ledValues.length ? ledValues : [0.18, 0.42, 0.28, 0.55, 0.82, 0.34, 0.48, 0.62, 0.40]
+    return Array.from({ length: 9 }, (_, index) => {
+      const value = source[index % source.length] ?? 0
+      return isPlaying ? clampNumber(value, 0.12, 1) : 0.08
+    })
+  }, [isPlaying, ledValues])
+
   return (
     <div className="cassette-artwork">
-      <img className="cassette-layer cassette-shell" src={tapeShell} alt="" decoding="async" />
+      <img className="cassette-layer cassette-shell cassette-shell-light" src={tapeShell} alt="" decoding="async" />
+      <img className="cassette-layer cassette-shell cassette-shell-dark" src={tapeDarkShell} alt="" decoding="async" />
       <img
         className="cassette-art"
         src={artwork}
@@ -5586,6 +5601,32 @@ const CassetteNowPlayingArtwork = React.memo(function CassetteNowPlayingArtwork(
       <img className="cassette-layer cassette-gray" src={tapeGray} alt="" decoding="async" />
       <img className="cassette-layer cassette-paper" src={tapePaper} alt="" decoding="async" />
       <img className="cassette-layer cassette-outline" src={tapeOutline} alt="" decoding="async" />
+      <div className={`cassette-holes ${isPlaying ? 'spinning' : ''}`}>
+        <span className="cassette-hole cassette-hole-left">
+          <img className="cassette-hole-image cassette-hole-light" src={lightHole} alt="" decoding="async" />
+          <img className="cassette-hole-image cassette-hole-dark" src={darkHole} alt="" decoding="async" />
+        </span>
+        <span className="cassette-hole cassette-hole-right">
+          <img className="cassette-hole-image cassette-hole-light" src={lightHole} alt="" decoding="async" />
+          <img className="cassette-hole-image cassette-hole-dark" src={darkHole} alt="" decoding="async" />
+        </span>
+      </div>
+      <div className="cassette-waveform" aria-hidden="true">
+        {capsuleValues.map((value, index) => (
+          <span
+            key={index}
+            className="cassette-waveform-bar"
+            style={
+              {
+                '--cassette-wave-index': index,
+                '--cassette-wave-value': value,
+                '--cassette-wave-primary': `${100 - index * 6}%`,
+                '--cassette-wave-secondary': `${index * 6}%`
+              } as React.CSSProperties
+            }
+          />
+        ))}
+      </div>
       {showKmgLook ? <img className="cassette-kmglook" src={kmgLook} alt="" decoding="async" /> : null}
     </div>
   )

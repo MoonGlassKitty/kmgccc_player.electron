@@ -634,12 +634,33 @@ input {
 }
 
 .cassette-layer,
-.cassette-art {
+.cassette-art,
+.cassette-holes,
+.cassette-waveform {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.cassette-layer,
+.cassette-art {
   object-fit: contain;
+}
+
+.cassette-shell-dark,
+.cassette-hole-dark {
+  display: none;
+}
+
+.appearance-dark .cassette-shell-light,
+.appearance-dark .cassette-hole-light {
+  display: none;
+}
+
+.appearance-dark .cassette-shell-dark,
+.appearance-dark .cassette-hole-dark {
+  display: block;
 }
 
 .cassette-art {
@@ -661,7 +682,74 @@ input {
 }
 
 .cassette-outline {
-  opacity: 0.72;
+  opacity: 0.8;
+}
+
+.appearance-dark .cassette-outline {
+  opacity: 0.2;
+}
+
+.cassette-holes,
+.cassette-waveform {
+  z-index: 6;
+  pointer-events: none;
+}
+
+.cassette-hole {
+  position: absolute;
+  top: 54.24%;
+  width: 10.2%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+}
+
+.cassette-hole-left {
+  left: 29.6%;
+}
+
+.cassette-hole-right {
+  left: 70.66%;
+}
+
+.cassette-hole-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform-origin: 50% 50%;
+}
+
+.cassette-holes.spinning .cassette-hole-image {
+  animation: cassetteHoleSpin 8s linear infinite;
+}
+
+.cassette-waveform {
+  left: 50.1%;
+  top: 54.2%;
+  width: 20.6%;
+  height: 14%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8.1%;
+}
+
+.cassette-waveform-bar {
+  width: 4.85%;
+  height: max(7.2%, calc(100% * var(--cassette-wave-value)));
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--cover-accent) var(--cassette-wave-primary),
+    var(--cover-accent-secondary) var(--cassette-wave-secondary)
+  );
+  opacity: 0.85;
+  filter: saturate(0.92) brightness(0.72);
+}
+
+.appearance-dark .cassette-waveform-bar {
+  opacity: 0.8;
+  filter: saturate(0.82) brightness(0.22);
 }
 
 .cassette-kmglook {
@@ -671,6 +759,12 @@ input {
   width: clamp(60px, 14vw, 120px);
   transform: scale(1.5);
   filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.2));
+}
+
+@keyframes cassetteHoleSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .now-playing-led-pill,
