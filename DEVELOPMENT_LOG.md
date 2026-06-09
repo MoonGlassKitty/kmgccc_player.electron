@@ -56,3 +56,4 @@
 - LED 默认态再次微调：压低外层液态玻璃乳白底，未点亮灯不再实心发灰，只保留极淡白色轮廓；播放/预览点亮时才填入主题色。`npm run typecheck` 与 `npm run build` 已通过。
 - LED 默认态按反馈改为灰色实心灯底，点亮时混入主题色；外层底部液态玻璃乳白底进一步压低到几乎没有，只保留很淡轮廓。`npm run typecheck` 与 `npm run build` 已通过。
 - LED 外层玻璃乳白继续降低：背景 alpha 从 0.025 降到 0.008，内轮廓和阴影同步压低，只保留近乎透明的玻璃边界。`npm run typecheck` 与 `npm run build` 已通过。
+- LED 外层玻璃继续压低白色 tint，并单独覆盖 `glass-panel` 边框/内高光/内阴影变量；底部状态栏提高乳白 alpha 但削弱边框、内高光和阴影，降低浮雕感。`npm run typecheck` 与 `npm run build` 已通过。
