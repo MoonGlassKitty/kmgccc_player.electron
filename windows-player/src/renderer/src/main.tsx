@@ -805,17 +805,17 @@ function harmonizedDotTints(colors: RgbColor[]): [string, string, string] {
   const avgS = (firstHsl.s + secondHsl.s + thirdHsl.s) / 3
   if (avgS < 0.18) {
     return [
-      hsbCss(8, 0.28, 0.95, 0.84),
-      hsbCss(205, 0.24, 0.97, 0.80),
-      hsbCss(292, 0.22, 0.95, 0.76)
+      hsbCss(200, 0.22, 0.97, 0.82),
+      hsbCss(204, 0.19, 0.98, 0.78),
+      hsbCss(196, 0.17, 0.96, 0.74)
     ]
   }
 
-  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.28 + 0.18, 0.30, 0.52)
+  const baseSaturation = clampNumber(firstHsl.s * 0.24 + 0.16, 0.24, 0.42)
   return [
-    hsbCss(firstHsl.h + 180, baseSaturation, 0.96, 0.84),
-    hsbCss(secondHsl.h + 184, clampNumber(baseSaturation + 0.015, 0, 0.54), 0.96, 0.80),
-    hsbCss(thirdHsl.h + 176, clampNumber(baseSaturation * 0.84, 0.26, 0.48), 0.94, 0.76)
+    hsbCss(firstHsl.h + 2, baseSaturation, 0.98, 0.82),
+    hsbCss(firstHsl.h + 7, clampNumber(baseSaturation * 0.92, 0.20, 0.38), 0.98, 0.78),
+    hsbCss(firstHsl.h - 5, clampNumber(baseSaturation * 0.80, 0.18, 0.34), 0.96, 0.74)
   ]
 }
 
@@ -4951,7 +4951,7 @@ function makeBKDotPlan(seed: number, direction: BKDotDirection): BKDotPlan[] {
   return Array.from({ length: 2 }, (_, index) => {
     const angle = random() * Math.PI * 2
     const center = { x: 34 + random() * 32, y: 34 + random() * 32 }
-    const travel = 118
+    const travel = 104
     const dx = Math.cos(angle) * travel
     const dy = Math.sin(angle) * travel
     const start = { x: center.x - dx, y: center.y - dy }
@@ -4962,7 +4962,7 @@ function makeBKDotPlan(seed: number, direction: BKDotDirection): BKDotPlan[] {
     const directedEnd = direction === 'reverse' ? start : end
     const directedCp1 = direction === 'reverse' ? cp2 : cp1
     const directedCp2 = direction === 'reverse' ? cp1 : cp2
-    const duration = 12 + random() * 5
+    const duration = 14 + random() * 6
     const leadIn = index === 0 ? 0.88 : 0.55 + random() * 0.2
     const idleDelay = 0.1 + random() * 0.35
     const delay = cumulativeDelay + idleDelay
@@ -4977,7 +4977,7 @@ function makeBKDotPlan(seed: number, direction: BKDotDirection): BKDotPlan[] {
       cp2Y: directedCp2.y,
       endX: directedEnd.x,
       endY: directedEnd.y,
-      radius: 26 + random() * 8,
+      radius: 24 + random() * 7,
       bigDot: 5 + random() * 1.2,
       smallDot: 3 + random(),
       duration,
