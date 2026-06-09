@@ -7427,7 +7427,14 @@ const MiniPlayer = React.memo(function MiniPlayer({
     event.stopPropagation()
     isProgressPressedRef.current = true
     event.currentTarget.setPointerCapture(event.pointerId)
-  }, [])
+    seekFromProgressClientX(event.clientX)
+  }, [seekFromProgressClientX])
+  const handleProgressPointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isProgressPressedRef.current) return
+    event.preventDefault()
+    event.stopPropagation()
+    seekFromProgressClientX(event.clientX)
+  }, [seekFromProgressClientX])
   const handleProgressPointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!isProgressPressedRef.current) return
     event.preventDefault()
@@ -7459,6 +7466,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
         aria-valuenow={Math.min(playbackTime, safePlaybackDuration)}
         tabIndex={0}
         onPointerDown={handleProgressPointerDown}
+        onPointerMove={handleProgressPointerMove}
         onPointerUp={handleProgressPointerUp}
         onPointerCancel={handleProgressPointerCancel}
       >
