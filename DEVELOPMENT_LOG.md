@@ -116,3 +116,4 @@
 - 左侧导航栏底部三个圆按钮补动画和统一外观：设置/外观/全屏按钮增加入场、hover 和按压动画；外观按钮接入真实点击事件，点击后关闭跟随系统并在手动深/浅色之间切换。深色模式下三个按钮统一为暗色硅胶/月光边缘，中间外观按钮显示月亮图标并稍强柔光，避免单独突兀。`npm run typecheck` 与 `npm run build` 已通过。
 - 深色模式 BK 饱和度微调：保持现有亮度/透明度不变，只提高深色 BK 背景、image phase、dot 和点缀元素的主题色混入比例与 saturate 数值，让颜色更饱和但不变亮。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL 逐词/逐字演唱数据接入：歌词解析新增 TTML `<p>/<span begin/end>` 支持和增强 LRC 内嵌 `<timestamp>` 逐词标签解析；AMLL line 现在在有 word timing 时传入多个 `words`，没有逐词时间时才回退整行 word。逐字节点显式继承当前歌词颜色；“减弱高亮(beta)”接入侧栏/全屏歌词，开启后关闭 AMLL 和普通歌词高亮 glow。`npm run typecheck` 与 `npm run build` 已通过。
+- 全屏歌词背后增加柔和散景垫层：只在右侧全屏歌词列添加不参与交互的模糊光斑 underlay，位于歌词下方/BK 上方，降低滚珠和背景点缀经过时对歌词可读性的影响。`npm run typecheck` 与 `npm run build` 已通过。
