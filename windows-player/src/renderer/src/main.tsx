@@ -2302,7 +2302,6 @@ function App(): React.ReactElement {
   }, [])
   const openNowPlaying = React.useCallback(() => {
     setRoute({ name: 'nowPlaying' })
-    setIsSidebarCollapsed(true)
   }, [])
   const openSettings = React.useCallback(() => {
     setSettingsCategory('nowPlaying')
