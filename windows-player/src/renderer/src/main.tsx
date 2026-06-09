@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { LyricPlayer } from '@applemusic-like-lyrics/react'
-import type { LyricLine } from '@applemusic-like-lyrics/core'
+import type { LyricLine, LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
 import {
   ArrowDownUp,
   CheckCircle2,
@@ -2229,7 +2229,7 @@ function App(): React.ReactElement {
     setPlaybackTime(nextTime)
   }, [currentTrack?.duration, currentTrack?.sourceUrl, writeMiniProgressRatio])
   const seekToLyricTime = React.useCallback((seconds: number) => {
-    seekTo(Math.max(0, seconds - lyricPlaybackOffsetSeconds))
+    seekTo(Math.max(0, seconds - lyricPlaybackOffsetSeconds + 0.22))
   }, [lyricPlaybackOffsetSeconds, seekTo])
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
@@ -2861,7 +2861,7 @@ function App(): React.ReactElement {
                 isPlaying={isPlaying}
                 isShuffleEnabled={isShuffleEnabled}
                 volume={volume}
-                playbackTime={effectiveLyricPlaybackTime}
+                playbackTime={playbackTime}
                 playbackDuration={playbackDuration || currentTrack.duration}
                 onPlayPause={togglePlayback}
                 onPrevious={playPreviousTrack}
@@ -4244,16 +4244,6 @@ type LyricsSurfaceProps = {
   onSeek: (seconds: number) => void
 }
 
-type FullscreenLyricHitTarget = {
-  index: number
-  text: string
-  startTime: number
-  top: number
-  left: number
-  width: number
-  height: number
-}
-
 const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   lines,
   track,
@@ -4270,84 +4260,66 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   variant: 'side' | 'fullscreen'
 }): React.ReactElement {
   const amllLines = React.useMemo(() => amllLyricLinesFromParsed(lines, track?.duration ?? 0), [lines, track?.duration])
-  const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
   const amllShellRef = React.useRef<HTMLDivElement | null>(null)
-  const [amllHitTargets, setAmllHitTargets] = React.useState<FullscreenLyricHitTarget[]>([])
   const [isLyricHovering, setIsLyricHovering] = React.useState(false)
+  const isLyricHoveringRef = React.useRef(false)
+  const [isSeekingLyric, setIsSeekingLyric] = React.useState(false)
+  const seekingTimerRef = React.useRef<number | null>(null)
   const amllOptimizeOptions = React.useMemo(() => ({ resetLineTimestamps: false }), [])
   const amllBottomLine = React.useMemo(
     () => variant === 'fullscreen' ? <span className="fullscreen-amll-bottom">{track ? `${track.artist} · ${track.album}` : ''}</span> : undefined,
     [track, variant]
   )
 
-  React.useLayoutEffect(() => {
-    const shell = amllShellRef.current
-    if (!shell) return
-    let frameId = 0
-    const timeoutIds: number[] = []
+  React.useEffect(() => () => {
+    if (seekingTimerRef.current !== null) window.clearTimeout(seekingTimerRef.current)
+  }, [])
 
-    const measureLyricRows = (): void => {
-      const shellRect = shell.getBoundingClientRect()
-      const lineElements = Array.from(shell.querySelectorAll<HTMLElement>('[class*="_lyricLine"]'))
-        .filter((element) => {
-          const classNames = Array.from(element.classList)
-          return (
-            classNames.some((className) => className.includes('_lyricLine')) &&
-            !classNames.some((className) => className.includes('_lyricLineWrapper') || className.includes('_bottomLine'))
-          )
-        })
-        .slice(0, amllLines.length)
+  const handleLyricLineClick = React.useCallback((event: LyricLineMouseEvent): void => {
+    event.preventDefault()
+    event.stopPropagation()
+    const line = amllLines[event.lineIndex]
+    if (!line) return
+    setIsSeekingLyric(true)
+    if (seekingTimerRef.current !== null) window.clearTimeout(seekingTimerRef.current)
+    seekingTimerRef.current = window.setTimeout(() => {
+      setIsSeekingLyric(false)
+      seekingTimerRef.current = null
+    }, 320)
+    onSeek(line.startTime / 1000)
+  }, [amllLines, onSeek])
 
-      const nextTargets = lineElements
-        .map((element, index): FullscreenLyricHitTarget | null => {
-          const line = amllLines[index]
-          if (!line) return null
-          const rect = element.getBoundingClientRect()
-          if (rect.width <= 0 || rect.height <= 0) return null
-          return {
-            index,
-            text: line.words.map((word) => word.word).join(''),
-            startTime: line.startTime,
-            top: Math.max(0, rect.top - shellRect.top - 10),
-            left: Math.max(0, rect.left - shellRect.left - 12),
-            width: Math.min(shellRect.width, rect.width + 24),
-            height: Math.min(shellRect.height, rect.height + 20)
-          }
-        })
-        .filter((target): target is FullscreenLyricHitTarget => target !== null)
-
-      setAmllHitTargets(nextTargets)
+  const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    const target = event.target instanceof HTMLElement ? event.target : null
+    const lyricLine = target?.closest<HTMLElement>('[class*="_lyricLine"]')
+    const isMainLyricLine = !!lyricLine && !Array.from(lyricLine.classList).some((className) => (
+      className.includes('_lyricLineWrapper') || className.includes('_bottomLine')
+    ))
+    if (isLyricHoveringRef.current !== isMainLyricLine) {
+      isLyricHoveringRef.current = isMainLyricLine
+      setIsLyricHovering(isMainLyricLine)
     }
+  }, [])
 
-    const scheduleMeasure = (): void => {
-      window.cancelAnimationFrame(frameId)
-      frameId = window.requestAnimationFrame(measureLyricRows)
-    }
-
-    scheduleMeasure()
-    ;[80, 240, 720].forEach((delay) => {
-      timeoutIds.push(window.setTimeout(scheduleMeasure, delay))
-    })
-    const mutationObserver = new MutationObserver(scheduleMeasure)
-    mutationObserver.observe(shell, { childList: true, subtree: true })
-    window.addEventListener('resize', scheduleMeasure)
-
-    return () => {
-      window.cancelAnimationFrame(frameId)
-      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId))
-      mutationObserver.disconnect()
-      window.removeEventListener('resize', scheduleMeasure)
-    }
-  }, [amllLines, currentLineIndex, track?.id])
+  const handlePointerLeave = React.useCallback((): void => {
+    isLyricHoveringRef.current = false
+    setIsLyricHovering(false)
+  }, [])
 
   return (
-    <div className={`amll-lyrics-surface ${variant === 'fullscreen' ? 'fullscreen-amll-shell' : 'side-amll-shell'} ${variant}`} ref={amllShellRef}>
+    <div
+      className={`amll-lyrics-surface ${variant === 'fullscreen' ? 'fullscreen-amll-shell' : 'side-amll-shell'} ${variant}`}
+      ref={amllShellRef}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
+    >
       <LyricPlayer
         key={`${variant}-${track?.id ?? 'empty'}`}
         className={`fullscreen-amll-player amll-lyrics-player ${variant}`}
         data-lyric-count={amllLines.length}
         lyricLines={amllLines}
         currentTime={Math.max(0, Math.round(playbackTime * 1000))}
+        isSeeking={isSeekingLyric}
         playing={isPlaying}
         alignAnchor="center"
         alignPosition={0.18}
@@ -4357,37 +4329,8 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
         wordFadeWidth={0.5}
         optimizeOptions={amllOptimizeOptions}
         bottomLine={amllBottomLine}
+        onLyricLineClick={handleLyricLineClick}
       />
-      <div className="fullscreen-amll-hit-layer" aria-hidden={!amllHitTargets.length}>
-        {amllHitTargets.map((target) => (
-          <button
-            key={`${target.index}-${target.startTime}`}
-            className="fullscreen-amll-hit-row"
-            type="button"
-            aria-label={`跳转到 ${target.text}`}
-            data-seek-time={target.startTime / 1000}
-            style={{
-              top: target.top,
-              left: target.left,
-              width: target.width,
-              height: target.height
-            }}
-            onPointerDown={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              onSeek(target.startTime / 1000)
-            }}
-            onPointerEnter={() => setIsLyricHovering(true)}
-            onPointerLeave={() => setIsLyricHovering(false)}
-            onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-          >
-            {target.text}
-          </button>
-        ))}
-      </div>
     </div>
   )
 })
@@ -4419,7 +4362,16 @@ const LyricsLineList = React.memo(function LyricsLineList({
           ref={index === currentLineIndex ? activeLineRef : undefined}
           type="button"
           disabled={line.time === null}
-          onClick={() => line.time !== null && onSeek(line.time)}
+          onPointerDown={(event) => {
+            if (line.time === null) return
+            event.preventDefault()
+            event.stopPropagation()
+            onSeek(line.time)
+          }}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+          }}
         >
           {line.text}
         </button>

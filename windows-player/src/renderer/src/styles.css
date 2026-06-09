@@ -3921,34 +3921,6 @@ input {
   mix-blend-mode: normal;
 }
 
-.fullscreen-amll-hit-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  pointer-events: none;
-}
-
-.fullscreen-amll-hit-row {
-  position: absolute;
-  display: block;
-  min-width: 160px;
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  border-radius: 16px;
-  background: transparent;
-  color: transparent;
-  font-size: 1px;
-  text-align: left;
-  text-indent: -9999px;
-  cursor: pointer;
-  pointer-events: auto;
-}
-
-.fullscreen-amll-hit-row:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
 .fullscreen-amll-bottom {
   display: block;
   color: rgba(255, 255, 255, 0.46);

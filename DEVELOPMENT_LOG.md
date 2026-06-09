@@ -58,3 +58,6 @@
 - LED 外层玻璃乳白继续降低：背景 alpha 从 0.025 降到 0.008，内轮廓和阴影同步压低，只保留近乎透明的玻璃边界。`npm run typecheck` 与 `npm run build` 已通过。
 - LED 外层玻璃继续压低白色 tint，并单独覆盖 `glass-panel` 边框/内高光/内阴影变量；底部状态栏提高乳白 alpha 但削弱边框、内高光和阴影，降低浮雕感。`npm run typecheck` 与 `npm run build` 已通过。
 - 歌词交互修正：歌词点击现在走扣除当前显示提前量后的专用 seek，避免跳到错误位置；鼠标移到歌词行时临时关闭 AMLL blur；歌词渲染质量改为只记录精度档位 `0.45 / 0.55 / 0.75`，不再参与字号缩放。`npm run typecheck` 与 `npm run build` 已通过。
+- 歌词点按进一步改成 `pointerdown` 直跳，侧栏和全屏歌词都不再只依赖 `click`，减少偶发点按无响应。`npm run typecheck` 与 `npm run build` 已通过。
+- 歌词跳转再修正：目标时间额外前移 50ms，避免命中判定边界时落回上一句。`npm run typecheck` 与 `npm run build` 已通过。
+- 歌词点击/滚动改回 AMLL 原生事件路径：移除自定义透明命中层和 DOM 测量映射，点击直接使用 `onLyricLineClick` 返回的行索引 seek，并给 AMLL 短暂 `isSeeking` 状态；滚轮/手势不再被覆盖层吃掉，底栏时间也改回真实播放时间而非歌词提前时间。`npm run typecheck` 与 `npm run build` 已通过。
