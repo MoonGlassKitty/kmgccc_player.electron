@@ -4985,6 +4985,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   const hasTimedLyrics = lines.some((line) => line.time !== null)
   const artwork = trackArtwork(track, albums)
   const artworkFrame = artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]
+  const pageRef = React.useRef<HTMLElement | null>(null)
   const [pixelStretchBackground, setPixelStretchBackground] = React.useState<string | null>(null)
   const [amllColorPhase, setAmllColorPhase] = React.useState(0)
   const [activeBKThemeStyle, setActiveBKThemeStyle] = React.useState<React.CSSProperties>(bkThemeStyle)
@@ -5016,8 +5017,21 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
     setActiveBKThemeStyle(bkThemeStyle)
   }, [bkThemeStyle, track?.id])
 
+  const sampleFullscreenBackgroundColor = React.useCallback(async (): Promise<void> => {
+    const page = pageRef.current
+    if (!page || !window.kmgccc?.sampleWindowColor) return
+    const rect = page.getBoundingClientRect()
+    const sample = await window.kmgccc.sampleWindowColor({
+      x: rect.left + rect.width * 0.66,
+      y: rect.top + rect.height * 0.10,
+      width: rect.width * 0.22,
+      height: rect.height * 0.18
+    })
+    if (sample) onLyricToneSeedChange(sample)
+  }, [onLyricToneSeedChange])
+
   return (
-    <section className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} amll-color-phase-${amllColorPhase % 2} no-drag`} style={fullscreenPageStyle}>
+    <section ref={pageRef} className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} amll-color-phase-${amllColorPhase % 2} no-drag`} style={fullscreenPageStyle}>
       {useCoverGradientBlur ? (
         <>
           {pixelStretchBackground ? <img className="fullscreen-lyrics-stretch-bg" src={pixelStretchBackground} alt="" decoding="async" /> : null}
@@ -5026,7 +5040,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       ) : nowPlayingSkinID === 'appleStyle' ? (
         <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
       ) : showBKBackground ? (
-        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onColorPhaseChange={setAmllColorPhase} onColorThemeChange={setActiveBKThemeStyle} onToneSeedChange={onLyricToneSeedChange} />
+        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onColorPhaseChange={setAmllColorPhase} onColorThemeChange={setActiveBKThemeStyle} onToneSeedChange={onLyricToneSeedChange} onPaintRevealComplete={sampleFullscreenBackgroundColor} />
       ) : (
         <UnifiedMeshBackground />
       )}
@@ -5328,7 +5342,8 @@ const BKArtBackground = React.memo(function BKArtBackground({
   themeStyle,
   onColorPhaseChange,
   onColorThemeChange,
-  onToneSeedChange
+  onToneSeedChange,
+  onPaintRevealComplete
 }: {
   track: Track | null | undefined
   isPlaying: boolean
@@ -5336,6 +5351,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   onColorPhaseChange?: (phase: number) => void
   onColorThemeChange?: (themeStyle: React.CSSProperties) => void
   onToneSeedChange?: (seed: RgbColor) => void
+  onPaintRevealComplete?: () => void
 }): React.ReactElement {
   const trackSeed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
   const transitionSeedRef = React.useRef(0)
@@ -5421,8 +5437,11 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const handleRevealEnd = React.useCallback(() => {
     setPreviousSurface(null)
     setIsRevealing(false)
-    window.requestAnimationFrame(() => publishToneSeedRef.current())
-  }, [])
+    window.requestAnimationFrame(() => {
+      onPaintRevealComplete?.()
+      publishToneSeedRef.current()
+    })
+  }, [onPaintRevealComplete])
   const handleDotComplete = React.useCallback(() => {
     transitionSeedRef.current += 1
     setPreviousSurface(freezeBKSurfaceForTransition(currentSurface))

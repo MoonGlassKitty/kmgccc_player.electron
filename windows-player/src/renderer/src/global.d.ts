@@ -195,6 +195,7 @@ declare global {
       clearIndexCache: () => Promise<HomeSnapshot>
       clearExternalPlaybackCache: () => Promise<boolean>
       completeLibraryMetadata: () => Promise<{ completed: number; snapshot: HomeSnapshot }>
+      sampleWindowColor: (rect: { x: number; y: number; width: number; height: number }) => Promise<{ r: number; g: number; b: number } | null>
       getWallpaperTint: () => Promise<WallpaperTint>
     }
   }

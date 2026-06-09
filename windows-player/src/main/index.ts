@@ -32,6 +32,19 @@ type WallpaperTint = {
   wallpaperDataUrl?: string
 }
 
+type WindowColorSampleRect = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+type WindowColorSample = {
+  r: number
+  g: number
+  b: number
+}
+
 type LocalAudioImport = {
   id: string
   title: string
@@ -1707,6 +1720,39 @@ function getWallpaperTint(): WallpaperTint {
   }
 }
 
+async function sampleWindowColor(owner: BrowserWindow, rect: WindowColorSampleRect): Promise<WindowColorSample | null> {
+  const bounds = owner.getContentBounds()
+  const sampleRect = {
+    x: Math.max(0, Math.floor(rect.x)),
+    y: Math.max(0, Math.floor(rect.y)),
+    width: Math.max(1, Math.min(bounds.width, Math.floor(rect.width))),
+    height: Math.max(1, Math.min(bounds.height, Math.floor(rect.height)))
+  }
+  sampleRect.width = Math.max(1, Math.min(sampleRect.width, bounds.width - sampleRect.x))
+  sampleRect.height = Math.max(1, Math.min(sampleRect.height, bounds.height - sampleRect.y))
+  const image = await owner.capturePage(sampleRect)
+  if (image.isEmpty()) return null
+  const bitmap = image.getBitmap()
+  let red = 0
+  let green = 0
+  let blue = 0
+  let count = 0
+  for (let index = 0; index < bitmap.length; index += 16) {
+    const alpha = bitmap[index + 3] ?? 255
+    if (alpha < 16) continue
+    blue += bitmap[index] ?? 0
+    green += bitmap[index + 1] ?? 0
+    red += bitmap[index + 2] ?? 0
+    count += 1
+  }
+  if (!count) return null
+  return {
+    r: Math.round(red / count),
+    g: Math.round(green / count),
+    b: Math.round(blue / count)
+  }
+}
+
 function getHomeSnapshot() {
   const library = loadPersistedLibrary()
   const tracks = mergeTrackList(library.tracks)
@@ -1806,6 +1852,11 @@ ipcMain.on('window:close', (event) => {
 
 ipcMain.handle('library:get-home-snapshot', () => getHomeSnapshot())
 ipcMain.handle('system:get-wallpaper-tint', () => getWallpaperTint())
+ipcMain.handle('window:sample-color', async (event, rect: WindowColorSampleRect) => {
+  const owner = BrowserWindow.fromWebContents(event.sender)
+  if (!owner) return null
+  return sampleWindowColor(owner, rect)
+})
 ipcMain.handle('settings:get-library-location', () => libraryLocationInfo())
 ipcMain.handle('settings:choose-library-location', async (event) => {
   const owner = BrowserWindow.fromWebContents(event.sender)
