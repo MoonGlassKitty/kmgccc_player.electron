@@ -5354,6 +5354,349 @@ input {
   }
 }
 
+.appearance-dark {
+  color-scheme: dark;
+  color: rgba(238, 244, 248, 0.9);
+  background:
+    radial-gradient(circle at 18% 14%, color-mix(in srgb, var(--cover-accent-text) 22%, transparent), transparent 32%),
+    linear-gradient(135deg, #11171d, #1b2228 48%, #101419);
+}
+
+.appearance-dark .app-shell::before {
+  background:
+    radial-gradient(circle at 16% 18%, color-mix(in srgb, var(--wallpaper-tint-primary) 72%, rgba(34, 48, 58, 0.28)), transparent 34%),
+    radial-gradient(circle at 78% 8%, color-mix(in srgb, var(--wallpaper-tint-secondary) 68%, rgba(42, 36, 58, 0.22)), transparent 32%),
+    linear-gradient(180deg, rgba(18, 24, 30, 0.98), rgba(12, 16, 20, 0.99));
+}
+
+.appearance-dark .glass-panel {
+  --glass-border: rgba(255, 255, 255, 0.22);
+  --glass-shadow: rgba(0, 0, 0, 0.10);
+  --glass-inner-shadow: rgba(0, 0, 0, 0.075);
+  --glass-inner-highlight: rgba(255, 255, 255, 0.075);
+}
+
+.appearance-dark .sidebar {
+  --glass-alpha: 0.18;
+  --glass-border: rgba(255, 255, 255, 0.24);
+  --glass-inner-highlight: rgba(255, 255, 255, 0.08);
+}
+
+.appearance-dark .lyrics-side-panel {
+  --glass-border: rgba(255, 255, 255, 0.22);
+  background: rgba(12, 16, 20, 0.20);
+  color: rgba(238, 244, 248, 0.88);
+}
+
+.appearance-dark .lyrics-side-panel::before {
+  background: rgba(12, 16, 20, 0.10);
+}
+
+.appearance-dark .lyrics-side-panel::after {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.035) 18%, rgba(255, 255, 255, 0.012) 58%, transparent 100%),
+    rgba(12, 16, 20, 0.10);
+}
+
+.appearance-dark .sidebar-source {
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+}
+
+.appearance-dark .sidebar-source button,
+.appearance-dark .nav-row,
+.appearance-dark .playlist-row,
+.appearance-dark .sidebar-label,
+.appearance-dark .sidebar-toggle,
+.appearance-dark .toolbar-pill button,
+.appearance-dark .toolbar-circle,
+.appearance-dark .window-controls,
+.appearance-dark .search-field {
+  color: rgba(236, 242, 246, 0.74);
+}
+
+.appearance-dark .nav-row.active,
+.appearance-dark .playlist-row.active,
+.appearance-dark .sidebar-source .active {
+  color: color-mix(in srgb, var(--cover-accent-text) 50%, rgba(245, 249, 252, 0.92));
+  background: color-mix(in srgb, var(--cover-accent) 82%, rgba(10, 14, 18, 0.42));
+}
+
+.appearance-dark .nav-row.active:hover,
+.appearance-dark .playlist-row.active:hover {
+  background-color: color-mix(in srgb, var(--cover-accent) 76%, rgba(255, 255, 255, 0.10));
+}
+
+.appearance-dark .toolbar-pill,
+.appearance-dark .toolbar-circle,
+.appearance-dark .search-field {
+  --glass-alpha: 0.18;
+  --glass-border: rgba(255, 255, 255, 0.22);
+}
+
+.appearance-dark .toolbar-liquid-pad {
+  --glass-alpha: 0.22;
+  --glass-border: rgba(255, 255, 255, 0.22);
+  background-color: rgba(18, 24, 30, 0.22);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 1px 8px rgba(0, 0, 0, 0.08);
+}
+
+.appearance-dark .home-hero-copy span,
+.appearance-dark .home-hero-copy p,
+.appearance-dark .home-section-heading button,
+.appearance-dark .home-album-card span,
+.appearance-dark .home-playlist-card small,
+.appearance-dark .home-stat-card span,
+.appearance-dark .home-stat-card small,
+.appearance-dark .lyrics-side-head span,
+.appearance-dark .lyrics-side-head small,
+.appearance-dark .lyrics-panel-head span,
+.appearance-dark .lyrics-panel-head time {
+  color: rgba(220, 228, 234, 0.58);
+}
+
+.appearance-dark .home-hero-copy h1,
+.appearance-dark .home-section-heading h2,
+.appearance-dark .home-person-card strong,
+.appearance-dark .home-album-card strong,
+.appearance-dark .home-playlist-card strong,
+.appearance-dark .home-stat-card strong,
+.appearance-dark .lyrics-side-head strong,
+.appearance-dark .lyrics-panel-head strong {
+  color: rgba(244, 248, 250, 0.9);
+}
+
+.appearance-dark .home-person-card,
+.appearance-dark .home-album-card,
+.appearance-dark .home-playlist-card,
+.appearance-dark .home-stat-card,
+.appearance-dark .home-rank-panel,
+.appearance-dark .home-calendar-panel {
+  background: rgba(16, 22, 28, 0.54);
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.14),
+    0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.appearance-dark .home-liquid-card {
+  --glass-alpha: 0.16;
+  --glass-shadow: rgba(0, 0, 0, 0.12);
+  background-color: rgba(16, 22, 28, var(--glass-alpha));
+}
+
+.appearance-dark .app-shell.home-material-frostedGlass .home-liquid-card {
+  background-color: rgba(16, 22, 28, 0.22);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.14),
+    0 0 0 1px rgba(255, 255, 255, 0.10) inset;
+}
+
+.appearance-dark .home-liquid-card::before {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07), transparent 24%, transparent 80%, rgba(255, 255, 255, 0.05)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 38%);
+  opacity: 0.62;
+}
+
+.appearance-dark .home-liquid-card::after {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.appearance-dark .home-stats-block .home-stat-grid .home-stat-card {
+  background: rgba(18, 24, 30, 0.46);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.10),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+.appearance-dark .home-stats-block .home-rank-panel::before,
+.appearance-dark .home-stats-block .home-rank-panel::after,
+.appearance-dark .home-stats-block .home-calendar-panel::before,
+.appearance-dark .home-stats-block .home-calendar-panel::after {
+  background-color: rgba(16, 22, 28, var(--glass-alpha));
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+.appearance-dark .settings-window {
+  background: #1f262c;
+}
+
+.appearance-dark .settings-sidebar {
+  background: #252d33;
+}
+
+.appearance-dark .settings-detail,
+.appearance-dark .settings-sidebar,
+.appearance-dark .settings-sidebar button,
+.appearance-dark .settings-card-section,
+.appearance-dark .settings-switch-row,
+.appearance-dark .settings-range-row,
+.appearance-dark .settings-segment-row,
+.appearance-dark .settings-select-row {
+  color: rgba(246, 250, 252, 0.88);
+}
+
+.appearance-dark .settings-sidebar::before,
+.appearance-dark .settings-header-label,
+.appearance-dark .settings-card-section > strong,
+.appearance-dark .settings-section > header > strong {
+  color: rgba(250, 252, 253, 0.94);
+}
+
+.appearance-dark .settings-card-section,
+.appearance-dark .settings-tabs,
+.appearance-dark .settings-segment-row > div,
+.appearance-dark .settings-skin-row,
+.appearance-dark .settings-order-list {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.appearance-dark .settings-description,
+.appearance-dark .settings-switch-row small,
+.appearance-dark .settings-range-row small,
+.appearance-dark .settings-path-label,
+.appearance-dark .settings-empty {
+  color: rgba(246, 250, 252, 0.56);
+}
+
+.appearance-dark .settings-select-row select,
+.appearance-dark .settings-path-label {
+  color: rgba(246, 250, 252, 0.82);
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.appearance-dark .settings-tabs button,
+.appearance-dark .settings-segment-row button {
+  color: rgba(246, 250, 252, 0.58);
+}
+
+.appearance-dark .settings-sidebar button.active,
+.appearance-dark .settings-tabs button.active,
+.appearance-dark .settings-segment-row button.active {
+  color: color-mix(in srgb, var(--cover-accent-text) 50%, rgba(246, 250, 252, 0.92));
+  background: color-mix(in srgb, var(--cover-accent) 76%, rgba(255, 255, 255, 0.10));
+}
+
+.appearance-dark .settings-order-row,
+.appearance-dark .settings-order-row.floating {
+  color: rgba(246, 250, 252, 0.86);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.appearance-dark .fullscreen-amll-player,
+.appearance-dark .fullscreen-amll-player .amll-lyric-player {
+  --amll-lp-color: color-mix(in srgb, var(--amll-fullscreen-active-color, rgba(238, 244, 248, 0.92)) 72%, rgba(238, 244, 248, 0.86));
+  --amll-lp-hover-bg-color: rgba(255, 255, 255, 0.08);
+  color: var(--amll-lp-color);
+  text-shadow: none;
+  mix-blend-mode: normal;
+}
+
+.appearance-dark .fullscreen-amll-player .FmKaba_lyricBgLine {
+  color: rgba(178, 186, 194, 0.52);
+  opacity: 0.62;
+}
+
+.appearance-dark .fullscreen-amll-player .FmKaba_lyricSubLine {
+  color: rgba(220, 226, 232, 0.68);
+  opacity: 0.56;
+}
+
+.appearance-dark .fullscreen-amll-player .FmKaba_lyricBgLine .FmKaba_lyricSubLine {
+  color: rgba(178, 186, 194, 0.42);
+  opacity: 0.48;
+}
+
+.appearance-dark .amll-lyrics-player.side,
+.appearance-dark .amll-lyrics-player.side .amll-lyric-player {
+  --amll-lp-color: color-mix(in srgb, var(--amll-side-active-color, rgba(238, 244, 248, 0.90)) 68%, rgba(238, 244, 248, 0.84));
+  --amll-lp-hover-bg-color: rgba(255, 255, 255, 0.08);
+  color: var(--amll-lp-color);
+  text-shadow: none;
+}
+
+.appearance-dark .amll-lyrics-player.side .FmKaba_lyricBgLine {
+  color: rgba(178, 186, 194, 0.48);
+  opacity: 0.62;
+}
+
+.appearance-dark .amll-lyrics-player.side .FmKaba_lyricSubLine {
+  color: rgba(220, 226, 232, 0.60);
+}
+
+.appearance-dark .lyrics-line {
+  color: rgba(178, 186, 194, 0.50);
+}
+
+.appearance-dark .lyrics-line.active {
+  color: rgba(238, 244, 248, 0.88);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.appearance-dark .mini-player {
+  --glass-alpha: 0.16;
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-shadow: rgba(0, 0, 0, 0.10);
+  --glass-inner-shadow: rgba(0, 0, 0, 0.04);
+  --glass-inner-highlight: rgba(255, 255, 255, 0.045);
+}
+
+.appearance-dark .mini-track strong,
+.appearance-dark .mini-queue-head span,
+.appearance-dark .mini-queue-row,
+.appearance-dark .track-title,
+.appearance-dark .artist-copy h1 {
+  color: rgba(242, 247, 250, 0.88);
+}
+
+.appearance-dark .mini-track span,
+.appearance-dark .mini-queue-head strong,
+.appearance-dark .mini-queue-row small,
+.appearance-dark .mini-queue-row time,
+.appearance-dark .volume-track,
+.appearance-dark .track-artist,
+.appearance-dark .track-duration,
+.appearance-dark .artist-meta,
+.appearance-dark .artist-description {
+  color: rgba(220, 228, 234, 0.56);
+}
+
+.appearance-dark .mini-fullscreen-actions button,
+.appearance-dark .mini-queue-button {
+  color: color-mix(in srgb, var(--cover-accent-text) 58%, rgba(238, 244, 248, 0.86));
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.10) inset,
+    0 2px 7px rgba(0, 0, 0, 0.06);
+}
+
+.appearance-dark .mini-controls button,
+.appearance-dark .mode-button,
+.appearance-dark .liquid-slider {
+  color: color-mix(in srgb, var(--cover-accent-text) 62%, rgba(238, 244, 248, 0.82));
+}
+
+.appearance-dark .mode-button,
+.appearance-dark .mini-queue-button.active,
+.appearance-dark .mini-queue-row.current,
+.appearance-dark .track-row.current {
+  background: color-mix(in srgb, var(--cover-accent) 70%, rgba(255, 255, 255, 0.08));
+}
+
+.appearance-dark .liquid-slider-track {
+  background-color: rgba(255, 255, 255, 0.13);
+}
+
+.appearance-dark .liquid-slider-thumb {
+  background-color: rgba(238, 244, 248, 0.58);
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--lyrics-width);

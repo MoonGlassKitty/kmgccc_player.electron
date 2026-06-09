@@ -2147,6 +2147,9 @@ function App(): React.ReactElement {
   const [dockProgressVisible, setDockProgressVisible] = React.useState(() => storedBoolean('dockProgressVisible', true))
   const [followSystemAppearance, setFollowSystemAppearance] = React.useState(() => storedBoolean('followSystemAppearance', true))
   const [manualAppearance, setManualAppearance] = React.useState<ManualAppearanceMode>(() => storedString('manualAppearance', 'dark', ['light', 'dark']))
+  const [isSystemDarkAppearance, setIsSystemDarkAppearance] = React.useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+  ))
   const [lyricsBackgroundMode, setLyricsBackgroundMode] = React.useState<LyricsBackgroundMode>(() => storedString('lyricsBackgroundMode', 'sidebar', ['clear', 'sidebar']))
   const [homeCardMaterialMode, setHomeCardMaterialMode] = React.useState<HomeCardMaterialMode>(() => storedHomeCardMaterialMode())
   const [homeSectionOrder, setHomeSectionOrder] = React.useState<HomeSectionID[]>(() => storedHomeSectionOrder())
@@ -2238,14 +2241,15 @@ function App(): React.ReactElement {
   const currentArtworkUrl = React.useMemo(() => currentTrack ? trackArtwork(currentTrack, albums) : '', [albums, currentTrack])
   const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
   const effectiveCoverThemeStyle = globalArtworkTintEnabled ? coverThemeStyle : coverThemeFor(null, albums)
+  const effectiveAppearance = followSystemAppearance ? (isSystemDarkAppearance ? 'dark' : 'light') : manualAppearance
   const lyricColorStyle = React.useMemo(() => fullscreenLyricColorStyleFromTheme(effectiveCoverThemeStyle, 0, lyricToneSeed), [effectiveCoverThemeStyle, lyricToneSeed])
   const lyricFontStyle = React.useMemo(() => ({
     '--lyrics-main-font-family': cssFontFamily(lyricsFontNameZh, lyricsFontNameEn),
     '--lyrics-english-font-family': cssFontFamily(lyricsFontNameEn),
     '--lyrics-translation-font-family': cssFontFamily(lyricsTranslationFontName),
-    '--lyrics-main-font-weight': String(followSystemAppearance || manualAppearance === 'light' ? lyricsFontWeightLight : lyricsFontWeightDark),
-    '--lyrics-translation-font-weight': String(followSystemAppearance || manualAppearance === 'light' ? lyricsTranslationFontWeightLight : lyricsTranslationFontWeightDark)
-  }) as React.CSSProperties, [followSystemAppearance, lyricsFontNameEn, lyricsFontNameZh, lyricsFontWeightDark, lyricsFontWeightLight, lyricsTranslationFontName, lyricsTranslationFontWeightDark, lyricsTranslationFontWeightLight, manualAppearance])
+    '--lyrics-main-font-weight': String(effectiveAppearance === 'light' ? lyricsFontWeightLight : lyricsFontWeightDark),
+    '--lyrics-translation-font-weight': String(effectiveAppearance === 'light' ? lyricsTranslationFontWeightLight : lyricsTranslationFontWeightDark)
+  }) as React.CSSProperties, [effectiveAppearance, lyricsFontNameEn, lyricsFontNameZh, lyricsFontWeightDark, lyricsFontWeightLight, lyricsTranslationFontName, lyricsTranslationFontWeightDark, lyricsTranslationFontWeightLight])
   const desktopStyle = React.useMemo(() => ({
     ...effectiveCoverThemeStyle,
     ...lyricColorStyle,
@@ -2380,6 +2384,14 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     persistSetting('manualAppearance', manualAppearance)
   }, [manualAppearance])
+
+  React.useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (): void => setIsSystemDarkAppearance(media.matches)
+    handleChange()
+    media.addEventListener('change', handleChange)
+    return () => media.removeEventListener('change', handleChange)
+  }, [])
 
   React.useEffect(() => {
     persistSetting('lyricsBackgroundMode', lyricsBackgroundMode)
@@ -3205,7 +3217,7 @@ function App(): React.ReactElement {
 
   return (
     <div
-      className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''} lyrics-bg-${lyricsBackgroundMode} ${followSystemAppearance ? 'appearance-system' : `appearance-manual appearance-${manualAppearance}`}`}
+      className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''} lyrics-bg-${lyricsBackgroundMode} ${followSystemAppearance ? 'appearance-system' : 'appearance-manual'} appearance-${effectiveAppearance}`}
       style={desktopStyle}
     >
       <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
