@@ -509,6 +509,21 @@ input {
   mask-mode: alpha;
 }
 
+.now-playing-cover-image.frame-layer,
+.now-playing-cover-mask-edge.frame-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  will-change: opacity;
+  transition: opacity 90ms linear;
+  backface-visibility: hidden;
+}
+
+.now-playing-cover-image.frame-layer.active,
+.now-playing-cover-mask-edge.frame-layer.active {
+  opacity: 1;
+}
+
 .now-playing-cover.masked .now-playing-cover-image {
   transform: scale(1.08);
 }
@@ -531,6 +546,14 @@ input {
   -webkit-mask-mode: alpha;
   mask-mode: alpha;
   mix-blend-mode: screen;
+  opacity: 0.58;
+}
+
+.now-playing-cover-mask-edge.frame-layer {
+  opacity: 0;
+}
+
+.now-playing-cover-mask-edge.frame-layer.active {
   opacity: 0.58;
 }
 

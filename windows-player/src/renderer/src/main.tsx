@@ -2371,6 +2371,15 @@ function App(): React.ReactElement {
   }, [])
 
   React.useEffect(() => {
+    for (const source of artworkFrameAssets) {
+      const image = new Image()
+      image.decoding = 'async'
+      image.src = source
+      void image.decode?.().catch(() => undefined)
+    }
+  }, [])
+
+  React.useEffect(() => {
     if (!contextMenu) return
     const close = () => setContextMenu(null)
     window.addEventListener('click', close)
@@ -5560,6 +5569,7 @@ const ClassicCoverNowPlaying = React.memo(function ClassicCoverNowPlaying({
   isBpmPulseEnabled: boolean
   onBpmPulseToggle: () => void
 }): React.ReactElement {
+  const activeFrameIndex = Math.max(0, artworkFrameAssets.indexOf(artworkFrame))
   return (
     <button
       className={`now-playing-cover ${masked ? 'masked' : ''} ${isBpmPulseEnabled ? 'bpm-pulse-enabled' : ''}`}
@@ -5568,31 +5578,39 @@ const ClassicCoverNowPlaying = React.memo(function ClassicCoverNowPlaying({
       aria-pressed={isBpmPulseEnabled}
       onClick={onBpmPulseToggle}
     >
-      <img
-        className="now-playing-cover-image"
-        src={artwork}
-        alt=""
-        decoding="async"
-        style={
-          masked
-            ? {
-                WebkitMaskImage: `url(${artworkFrame})`,
-                maskImage: `url(${artworkFrame})`
-              }
-            : undefined
-        }
-      />
       {masked ? (
-        <span
-          className="now-playing-cover-mask-edge"
-          style={
-            {
-              WebkitMaskImage: `url(${artworkFrame})`,
-              maskImage: `url(${artworkFrame})`
-            } as React.CSSProperties
-          }
-        />
-      ) : null}
+        <>
+          {artworkFrameAssets.map((frame, index) => (
+            <img
+              className={`now-playing-cover-image frame-layer ${index === activeFrameIndex ? 'active' : ''}`}
+              key={frame}
+              src={artwork}
+              alt=""
+              decoding="async"
+              style={
+                {
+                  WebkitMaskImage: `url(${frame})`,
+                  maskImage: `url(${frame})`
+                } as React.CSSProperties
+              }
+            />
+          ))}
+          {artworkFrameAssets.map((frame, index) => (
+            <span
+              className={`now-playing-cover-mask-edge frame-layer ${index === activeFrameIndex ? 'active' : ''}`}
+              key={`edge-${frame}`}
+              style={
+                {
+                  WebkitMaskImage: `url(${frame})`,
+                  maskImage: `url(${frame})`
+                } as React.CSSProperties
+              }
+            />
+          ))}
+        </>
+      ) : (
+        <img className="now-playing-cover-image" src={artwork} alt="" decoding="async" />
+      )}
     </button>
   )
 })
