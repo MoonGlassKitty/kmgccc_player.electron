@@ -1059,34 +1059,24 @@ function amllLyricToneSet(seed: RgbColor): {
   const isLightBackground = relativeLuminance(seed) >= 0.56
   const tunedSaturation = clampNumber(hsl.s * 1.06 + 0.10, 0.30, 0.78)
   const activeLightness = isLightBackground
-    ? clampNumber(hsl.l * 0.34 + 0.62, 0.74, 0.92)
-    : clampNumber(hsl.l * 0.40, 0.16, 0.36)
-  const inactiveTint = hslToRgb({
-    h: hsl.h,
-    s: clampNumber(tunedSaturation * 0.30, 0.06, 0.22),
-    l: isLightBackground ? 0.88 : 0.72
-  })
-  const subInactiveTint = hslToRgb({
-    h: hsl.h,
-    s: clampNumber(tunedSaturation * 0.24, 0.05, 0.18),
-    l: isLightBackground ? 0.91 : 0.76
-  })
+    ? clampNumber(hsl.l * 0.48, 0.32, 0.54)
+    : clampNumber(hsl.l * 0.44 + 0.34, 0.42, 0.66)
   const active = hslToRgb({ h: hsl.h, s: tunedSaturation, l: activeLightness })
   const subActive = hslToRgb({
     h: hsl.h,
     s: clampNumber(tunedSaturation * 0.82, 0.22, 0.62),
-    l: isLightBackground ? clampNumber(activeLightness - 0.08, 0.64, 0.84) : clampNumber(activeLightness + 0.08, 0.24, 0.46)
+    l: isLightBackground ? clampNumber(activeLightness + 0.06, 0.38, 0.60) : clampNumber(activeLightness + 0.08, 0.46, 0.72)
   })
   const wash = hslToRgb({
     h: hsl.h,
     s: clampNumber(tunedSaturation * 0.84, 0.16, 0.58),
-    l: isLightBackground ? clampNumber(activeLightness * 0.72, 0.54, 0.72) : clampNumber(activeLightness * 0.56, 0.12, 0.26)
+    l: isLightBackground ? clampNumber(activeLightness * 0.74, 0.24, 0.40) : clampNumber(activeLightness * 0.56, 0.16, 0.30)
   })
   return {
     active,
-    inactive: mixRgb(inactiveTint, { r: 255, g: 255, b: 255 }, isLightBackground ? 0.20 : 0.10),
+    inactive: isLightBackground ? { r: 184, g: 184, b: 184 } : { r: 164, g: 164, b: 164 },
     subActive,
-    subInactive: mixRgb(subInactiveTint, { r: 255, g: 255, b: 255 }, isLightBackground ? 0.24 : 0.14),
+    subInactive: isLightBackground ? { r: 198, g: 198, b: 198 } : { r: 178, g: 178, b: 178 },
     wash
   }
 }
@@ -1105,28 +1095,25 @@ function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties, ton
   const primary = amllLyricToneSet(primarySeed)
   const secondary = amllLyricToneSet(secondarySeed)
   const blended = amllLyricToneSet(currentSeed)
-  const glowAlpha = relativeLuminance(blended.active) < 0.48 ? 0 : 0.42
-  const primaryGlowAlpha = relativeLuminance(primary.active) < 0.48 ? 0 : 0.42
-  const secondaryGlowAlpha = relativeLuminance(secondary.active) < 0.48 ? 0 : 0.42
   return {
     '--amll-fullscreen-active-color': rgbaString(blended.active, 1),
-    '--amll-fullscreen-inactive-color': rgbaString(blended.inactive, 1),
+    '--amll-fullscreen-inactive-color': rgbaString(blended.inactive, 0.72),
     '--amll-fullscreen-sub-active-color': rgbaString(blended.subActive, 1),
-    '--amll-fullscreen-sub-inactive-color': rgbaString(blended.subInactive, 1),
+    '--amll-fullscreen-sub-inactive-color': rgbaString(blended.subInactive, 0.64),
     '--amll-fullscreen-bg-color': rgbaString(blended.wash, 0.18),
-    '--amll-fullscreen-glow-color': rgbaString(blended.wash, glowAlpha),
+    '--amll-fullscreen-glow-color': rgbaString(blended.wash, 0),
     '--amll-fullscreen-active-color-a': rgbaString(primary.active, 1),
-    '--amll-fullscreen-inactive-color-a': rgbaString(primary.inactive, 1),
+    '--amll-fullscreen-inactive-color-a': rgbaString(primary.inactive, 0.72),
     '--amll-fullscreen-sub-active-color-a': rgbaString(primary.subActive, 1),
-    '--amll-fullscreen-sub-inactive-color-a': rgbaString(primary.subInactive, 1),
+    '--amll-fullscreen-sub-inactive-color-a': rgbaString(primary.subInactive, 0.64),
     '--amll-fullscreen-bg-color-a': rgbaString(primary.wash, 0.18),
-    '--amll-fullscreen-glow-color-a': rgbaString(primary.wash, primaryGlowAlpha),
+    '--amll-fullscreen-glow-color-a': rgbaString(primary.wash, 0),
     '--amll-fullscreen-active-color-b': rgbaString(secondary.active, 1),
-    '--amll-fullscreen-inactive-color-b': rgbaString(secondary.inactive, 1),
+    '--amll-fullscreen-inactive-color-b': rgbaString(secondary.inactive, 0.72),
     '--amll-fullscreen-sub-active-color-b': rgbaString(secondary.subActive, 1),
-    '--amll-fullscreen-sub-inactive-color-b': rgbaString(secondary.subInactive, 1),
+    '--amll-fullscreen-sub-inactive-color-b': rgbaString(secondary.subInactive, 0.64),
     '--amll-fullscreen-bg-color-b': rgbaString(secondary.wash, 0.18),
-    '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, secondaryGlowAlpha),
+    '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, 0),
     '--amll-side-active-color': rgbaString(blended.active, 0.94),
     '--amll-side-inactive-color': rgbaString(blended.inactive, 0.58),
     '--amll-side-active-color-a': rgbaString(primary.active, 0.94),
@@ -1145,29 +1132,26 @@ function fullscreenLyricColorStyleFromBKTheme(themeStyle: React.CSSProperties, t
   const primary = amllLyricToneSet(backgroundSeed)
   const secondary = amllLyricToneSet(secondarySeed)
   const blended = amllLyricToneSet(toneSeed ?? mixRgb(backgroundSeed, secondarySeed, toneBlend))
-  const glowAlpha = relativeLuminance(blended.active) < 0.48 ? 0 : 0.42
-  const primaryGlowAlpha = relativeLuminance(primary.active) < 0.48 ? 0 : 0.42
-  const secondaryGlowAlpha = relativeLuminance(secondary.active) < 0.48 ? 0 : 0.42
   return {
     ...fullscreenLyricColorStyleFromTheme(themeStyle, toneBlend, toneSeed),
     '--amll-fullscreen-active-color': rgbaString(blended.active, 1),
-    '--amll-fullscreen-inactive-color': rgbaString(blended.inactive, 1),
+    '--amll-fullscreen-inactive-color': rgbaString(blended.inactive, 0.72),
     '--amll-fullscreen-sub-active-color': rgbaString(blended.subActive, 1),
-    '--amll-fullscreen-sub-inactive-color': rgbaString(blended.subInactive, 1),
+    '--amll-fullscreen-sub-inactive-color': rgbaString(blended.subInactive, 0.64),
     '--amll-fullscreen-bg-color': rgbaString(blended.wash, 0.18),
-    '--amll-fullscreen-glow-color': rgbaString(blended.wash, glowAlpha),
+    '--amll-fullscreen-glow-color': rgbaString(blended.wash, 0),
     '--amll-fullscreen-active-color-a': rgbaString(primary.active, 1),
-    '--amll-fullscreen-inactive-color-a': rgbaString(primary.inactive, 1),
+    '--amll-fullscreen-inactive-color-a': rgbaString(primary.inactive, 0.72),
     '--amll-fullscreen-sub-active-color-a': rgbaString(primary.subActive, 1),
-    '--amll-fullscreen-sub-inactive-color-a': rgbaString(primary.subInactive, 1),
+    '--amll-fullscreen-sub-inactive-color-a': rgbaString(primary.subInactive, 0.64),
     '--amll-fullscreen-bg-color-a': rgbaString(primary.wash, 0.18),
-    '--amll-fullscreen-glow-color-a': rgbaString(primary.wash, primaryGlowAlpha),
+    '--amll-fullscreen-glow-color-a': rgbaString(primary.wash, 0),
     '--amll-fullscreen-active-color-b': rgbaString(secondary.active, 1),
-    '--amll-fullscreen-inactive-color-b': rgbaString(secondary.inactive, 1),
+    '--amll-fullscreen-inactive-color-b': rgbaString(secondary.inactive, 0.72),
     '--amll-fullscreen-sub-active-color-b': rgbaString(secondary.subActive, 1),
-    '--amll-fullscreen-sub-inactive-color-b': rgbaString(secondary.subInactive, 1),
+    '--amll-fullscreen-sub-inactive-color-b': rgbaString(secondary.subInactive, 0.64),
     '--amll-fullscreen-bg-color-b': rgbaString(secondary.wash, 0.18),
-    '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, secondaryGlowAlpha)
+    '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, 0)
   } as React.CSSProperties
 }
 
