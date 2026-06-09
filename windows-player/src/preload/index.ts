@@ -25,5 +25,12 @@ contextBridge.exposeInMainWorld('kmgccc', {
   deletePlaylist: (playlistId: string) => ipcRenderer.invoke('library:delete-playlist', playlistId),
   addTrackToPlaylist: (playlistId: string, trackId: string) => ipcRenderer.invoke('library:add-track-to-playlist', playlistId, trackId),
   removeTrackFromPlaylist: (playlistId: string, trackId: string) => ipcRenderer.invoke('library:remove-track-from-playlist', playlistId, trackId),
+  getLibraryLocation: () => ipcRenderer.invoke('settings:get-library-location'),
+  chooseLibraryLocation: () => ipcRenderer.invoke('settings:choose-library-location'),
+  showLibraryLocation: () => ipcRenderer.invoke('settings:show-library-location'),
+  resetLibraryLocation: () => ipcRenderer.invoke('settings:reset-library-location'),
+  clearIndexCache: () => ipcRenderer.invoke('settings:clear-index-cache'),
+  clearExternalPlaybackCache: () => ipcRenderer.invoke('settings:clear-external-playback-cache'),
+  completeLibraryMetadata: () => ipcRenderer.invoke('settings:complete-library-metadata'),
   getWallpaperTint: () => ipcRenderer.invoke('system:get-wallpaper-tint')
 })

@@ -131,6 +131,11 @@ declare global {
     wallpaperDataUrl?: string
   }
 
+  type LibraryLocationInfo = {
+    currentPath: string
+    isDefault: boolean
+  }
+
   type LocalAudioImport = HomeTrack & {
     sourcePath: string
     sourceUrl: string
@@ -182,6 +187,13 @@ declare global {
       deletePlaylist: (playlistId: string) => Promise<HomeSnapshot>
       addTrackToPlaylist: (playlistId: string, trackId: string) => Promise<HomeSnapshot>
       removeTrackFromPlaylist: (playlistId: string, trackId: string) => Promise<HomeSnapshot>
+      getLibraryLocation: () => Promise<LibraryLocationInfo>
+      chooseLibraryLocation: () => Promise<LibraryLocationInfo>
+      showLibraryLocation: () => Promise<LibraryLocationInfo>
+      resetLibraryLocation: () => Promise<LibraryLocationInfo>
+      clearIndexCache: () => Promise<HomeSnapshot>
+      clearExternalPlaybackCache: () => Promise<boolean>
+      completeLibraryMetadata: () => Promise<{ completed: number; snapshot: HomeSnapshot }>
       getWallpaperTint: () => Promise<WallpaperTint>
     }
   }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol, shell } from 'electron'
 import { execFileSync } from 'node:child_process'
 import { createDecipheriv, createHash } from 'node:crypto'
 import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -294,7 +294,45 @@ function mimeTypeForAudioPath(audioPath: string): string {
 }
 
 function libraryStorePath(): string {
-  return join(app.getPath('userData'), 'library-store.json')
+  return join(activeLibraryRootPath(), 'library-store.json')
+}
+
+function libraryLocationConfigPath(): string {
+  return join(app.getPath('userData'), 'library-location.json')
+}
+
+function defaultLibraryRootPath(): string {
+  return app.getPath('userData')
+}
+
+function activeLibraryRootPath(): string {
+  try {
+    const raw = readFileSync(libraryLocationConfigPath(), 'utf8')
+    const parsed = JSON.parse(raw) as { rootPath?: unknown }
+    if (typeof parsed.rootPath === 'string' && parsed.rootPath.trim()) return parsed.rootPath
+  } catch {
+    return defaultLibraryRootPath()
+  }
+  return defaultLibraryRootPath()
+}
+
+function saveLibraryRootPath(rootPath: string): void {
+  const configPath = libraryLocationConfigPath()
+  mkdirSync(dirname(configPath), { recursive: true })
+  writeFileSync(configPath, JSON.stringify({ rootPath }, null, 2), 'utf8')
+}
+
+function libraryLocationInfo(): { currentPath: string; isDefault: boolean } {
+  const currentPath = activeLibraryRootPath()
+  return {
+    currentPath,
+    isDefault: currentPath === defaultLibraryRootPath()
+  }
+}
+
+function resolvedLibraryRootFromSelection(selectedPath: string): string {
+  if (basename(selectedPath) === 'kmgccc_player Library') return selectedPath
+  return join(selectedPath, 'kmgccc_player Library')
 }
 
 function isPersistableTrack(value: unknown): value is LocalAudioImport {
@@ -1740,6 +1778,46 @@ ipcMain.on('window:close', (event) => {
 
 ipcMain.handle('library:get-home-snapshot', () => getHomeSnapshot())
 ipcMain.handle('system:get-wallpaper-tint', () => getWallpaperTint())
+ipcMain.handle('settings:get-library-location', () => libraryLocationInfo())
+ipcMain.handle('settings:choose-library-location', async (event) => {
+  const owner = BrowserWindow.fromWebContents(event.sender)
+  const options: Electron.OpenDialogOptions = {
+    title: '选择音乐资料库的存放位置',
+    properties: ['openDirectory', 'createDirectory']
+  }
+  const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
+  if (result.canceled || !result.filePaths[0]) return libraryLocationInfo()
+  const nextRoot = resolvedLibraryRootFromSelection(result.filePaths[0])
+  mkdirSync(nextRoot, { recursive: true })
+  saveLibraryRootPath(nextRoot)
+  return libraryLocationInfo()
+})
+ipcMain.handle('settings:show-library-location', async () => {
+  const rootPath = activeLibraryRootPath()
+  mkdirSync(rootPath, { recursive: true })
+  await shell.openPath(rootPath)
+  return libraryLocationInfo()
+})
+ipcMain.handle('settings:reset-library-location', () => {
+  saveLibraryRootPath(defaultLibraryRootPath())
+  return libraryLocationInfo()
+})
+ipcMain.handle('settings:clear-index-cache', () => getHomeSnapshot())
+ipcMain.handle('settings:clear-external-playback-cache', () => true)
+ipcMain.handle('settings:complete-library-metadata', async (): Promise<{ completed: number; snapshot: ReturnType<typeof getHomeSnapshot> }> => {
+  const library = loadPersistedLibrary()
+  let completed = 0
+  for (const track of library.tracks) {
+    try {
+      const result = await syncTrackInfo(track)
+      upsertPersistedTrack(result.track)
+      completed += 1
+    } catch {
+      // Keep the batch going; the settings action mirrors Swift's best-effort completion.
+    }
+  }
+  return { completed, snapshot: getHomeSnapshot() }
+})
 ipcMain.handle('library:import-audio-file', async (event): Promise<LocalAudioImport | null> => {
   const owner = BrowserWindow.fromWebContents(event.sender)
   const options: Electron.OpenDialogOptions = {

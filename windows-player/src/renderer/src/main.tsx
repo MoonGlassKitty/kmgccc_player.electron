@@ -335,6 +335,17 @@ type NowPlayingSettingsTab = 'general' | 'lyrics' | 'led'
 type NowPlayingSkinID = 'coverLed' | 'appleStyle' | 'rotatingCover' | 'kmgccc.cassette'
 type VisualizerMode = 'off' | 'led' | 'spectrum'
 type AppleMeshSpeed = 'slow' | 'standard' | 'fast'
+type LyricsBackgroundMode = 'clear' | 'sidebar'
+type HomeCardMaterialMode = 'liquidGlass' | 'frostedGlass' | 'solid'
+type HomeSectionID = 'featured' | 'artists' | 'albums' | 'playlists' | 'stats'
+type LibraryLocationInfo = {
+  currentPath: string
+  isDefault: boolean
+}
+type SettingsActionStatus = {
+  label: string
+  tone?: 'normal' | 'danger'
+} | null
 type ContextMenuItem = {
   label: string
   danger?: boolean
@@ -367,6 +378,15 @@ const nowPlayingSkinOptions: Array<{ id: NowPlayingSkinID; name: string; detail:
   { id: 'rotatingCover', name: '旋转封面', detail: '黑胶/CD 旋转封面' },
   { id: 'kmgccc.cassette', name: 'kmgccc 磁带', detail: '磁带主体与 KMG 标识' }
 ]
+
+const homeSectionOptions: Array<{ id: HomeSectionID; title: string }> = [
+  { id: 'featured', title: '精选' },
+  { id: 'artists', title: '艺人' },
+  { id: 'albums', title: '专辑' },
+  { id: 'playlists', title: '播放列表' },
+  { id: 'stats', title: '音乐足迹' }
+]
+const defaultHomeSectionOrder: HomeSectionID[] = homeSectionOptions.map((section) => section.id)
 
 function formatDuration(seconds: number): string {
   const safeSeconds = Math.max(0, Math.round(seconds))
@@ -548,9 +568,30 @@ function storedAppleMeshSpeed(): AppleMeshSpeed {
   return 'standard'
 }
 
+function storedHomeSectionOrder(): HomeSectionID[] {
+  try {
+    const rawValue = window.localStorage.getItem('homeSectionOrder')
+    const parsed = rawValue ? JSON.parse(rawValue) : []
+    if (!Array.isArray(parsed)) return defaultHomeSectionOrder
+    const normalized = parsed.filter((value): value is HomeSectionID => defaultHomeSectionOrder.includes(value as HomeSectionID))
+    const missing = defaultHomeSectionOrder.filter((value) => !normalized.includes(value))
+    return [...normalized, ...missing]
+  } catch {
+    return defaultHomeSectionOrder
+  }
+}
+
 function persistSetting(key: string, value: string | boolean | number): void {
   try {
     window.localStorage.setItem(key, String(value))
+  } catch {
+    // Settings still work for the current session if localStorage is unavailable.
+  }
+}
+
+function persistJsonSetting(key: string, value: unknown): void {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value))
   } catch {
     // Settings still work for the current session if localStorage is unavailable.
   }
@@ -1713,6 +1754,13 @@ function App(): React.ReactElement {
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [settingsCategory, setSettingsCategory] = React.useState<SettingsCategoryKey>('appearance')
   const [nowPlayingSettingsTab, setNowPlayingSettingsTab] = React.useState<NowPlayingSettingsTab>('general')
+  const [fullscreenSettingsTab, setFullscreenSettingsTab] = React.useState<NowPlayingSettingsTab>('general')
+  const [globalArtworkTintEnabled, setGlobalArtworkTintEnabled] = React.useState(() => storedBoolean('globalArtworkTintEnabled', true))
+  const [dockProgressVisible, setDockProgressVisible] = React.useState(() => storedBoolean('dockProgressVisible', true))
+  const [followSystemAppearance, setFollowSystemAppearance] = React.useState(() => storedBoolean('followSystemAppearance', true))
+  const [lyricsBackgroundMode, setLyricsBackgroundMode] = React.useState<LyricsBackgroundMode>(() => storedString('lyricsBackgroundMode', 'sidebar', ['clear', 'sidebar']))
+  const [homeCardMaterialMode, setHomeCardMaterialMode] = React.useState<HomeCardMaterialMode>(() => storedString('homeCardMaterialMode', 'liquidGlass', ['liquidGlass', 'frostedGlass', 'solid']))
+  const [homeSectionOrder, setHomeSectionOrder] = React.useState<HomeSectionID[]>(() => storedHomeSectionOrder())
   const [selectedNowPlayingSkin, setSelectedNowPlayingSkin] = React.useState<NowPlayingSkinID>(() => storedNowPlayingSkin())
   const [isNowPlayingArtBackgroundEnabled, setIsNowPlayingArtBackgroundEnabled] = React.useState(() => storedBoolean('nowPlayingArtBackgroundEnabled', true))
   const [classicVisualizerMode, setClassicVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerMode())
@@ -1742,6 +1790,22 @@ function App(): React.ReactElement {
   const [ledBrightnessLevels, setLedBrightnessLevels] = React.useState(() => storedNumber('ledBrightnessLevels', 5))
   const [ledCutoffHz, setLedCutoffHz] = React.useState(() => storedNumber('ledCutoffHz', 1200))
   const [ledSpeed, setLedSpeed] = React.useState(() => storedNumber('ledSpeed', 1))
+  const [selectedFullscreenSkin, setSelectedFullscreenSkin] = React.useState<NowPlayingSkinID>(() => storedString('fullscreenSkin', 'kmgccc.cassette', ['coverLed', 'appleStyle', 'rotatingCover', 'kmgccc.cassette']))
+  const [isFullscreenArtBackgroundEnabled, setIsFullscreenArtBackgroundEnabled] = React.useState(() => storedBoolean('fullscreenArtBackgroundEnabled', true))
+  const [fullscreenClassicVisualizerMode, setFullscreenClassicVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.classicLED.fullscreen.visualizerMode', 'led'))
+  const [fullscreenAppleVisualizerMode, setFullscreenAppleVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.appleStyle.fullscreen.visualizerMode', 'led'))
+  const [fullscreenRotatingVisualizerMode, setFullscreenRotatingVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.rotatingCover.fullscreen.visualizerMode', 'off'))
+  const [fullscreenCassetteVisualizerMode, setFullscreenCassetteVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.kmgcccCassette.fullscreen.visualizerMode', 'off'))
+  const [fullscreenLyricsRenderQuality, setFullscreenLyricsRenderQuality] = React.useState<'performance' | 'balanced' | 'quality'>(() => storedString('fullscreen.amllLyricsRenderQuality', 'balanced', ['performance', 'balanced', 'quality']))
+  const [fullscreenDiscreteWordHighlightEnabled, setFullscreenDiscreteWordHighlightEnabled] = React.useState(() => storedBoolean('fullscreen.amllDiscreteWordHighlightEnabled', false))
+  const [fullscreenLyricsFontSize, setFullscreenLyricsFontSize] = React.useState(() => clampNumber(storedNumber('fullscreen.lyricsFontSize', 30), 16, 56))
+  const [fullscreenLyricsTranslationFontSize, setFullscreenLyricsTranslationFontSize] = React.useState(() => clampNumber(storedNumber('fullscreen.lyricsTranslationFontSize', 18), 12, 40))
+  const [fullscreenLyricsGlobalAdvanceMs, setFullscreenLyricsGlobalAdvanceMs] = React.useState(() => clampNumber(storedNumber('fullscreen.lyricsGlobalAdvanceMs', 0), -1000, 1000))
+  const [lookaheadMs, setLookaheadMs] = React.useState(() => clampNumber(storedNumber('lookaheadMs', 200), 0, 200))
+  const [deferImportEnrichment, setDeferImportEnrichment] = React.useState(() => storedBoolean('deferImportEnrichment', false))
+  const [telemetryEnabled, setTelemetryEnabled] = React.useState(() => storedBoolean('telemetry.anonymousUsageEnabled', false))
+  const [libraryLocationInfo, setLibraryLocationInfo] = React.useState<LibraryLocationInfo | null>(null)
+  const [settingsActionStatus, setSettingsActionStatus] = React.useState<SettingsActionStatus>(null)
   const [artworkFrameIndex, setArtworkFrameIndex] = React.useState(0)
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
@@ -1773,12 +1837,13 @@ function App(): React.ReactElement {
   const fallbackCoverThemeStyle = React.useMemo(() => coverThemeFor(currentTrack, albums), [albums, currentTrack])
   const currentArtworkUrl = React.useMemo(() => currentTrack ? trackArtwork(currentTrack, albums) : '', [albums, currentTrack])
   const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
+  const effectiveCoverThemeStyle = globalArtworkTintEnabled ? coverThemeStyle : coverThemeFor(null, albums)
   const desktopStyle = React.useMemo(() => ({
-    ...coverThemeStyle,
+    ...effectiveCoverThemeStyle,
     '--lyrics-font-size': `${lyricsFontSize}px`,
     '--lyrics-translation-font-size': `${lyricsTranslationFontSize}px`,
     '--amll-quality-scale': lyricsRenderQuality === 'performance' ? 0.78 : lyricsRenderQuality === 'quality' ? 1.18 : 1
-  }) as React.CSSProperties, [coverThemeStyle, lyricsFontSize, lyricsRenderQuality, lyricsTranslationFontSize])
+  }) as React.CSSProperties, [effectiveCoverThemeStyle, lyricsFontSize, lyricsRenderQuality, lyricsTranslationFontSize])
   const selectedVisualizerMode = selectedNowPlayingSkin === 'coverLed'
     ? classicVisualizerMode
     : selectedNowPlayingSkin === 'appleStyle'
@@ -1786,7 +1851,7 @@ function App(): React.ReactElement {
       : selectedNowPlayingSkin === 'rotatingCover'
         ? rotatingVisualizerMode
         : cassetteVisualizerMode
-  const effectiveLyricPlaybackTime = Math.max(0, playbackTime + lyricsGlobalAdvanceMs / 1000)
+  const effectiveLyricPlaybackTime = Math.max(0, playbackTime + (lyricsGlobalAdvanceMs + lookaheadMs) / 1000)
   const lyricsWidth = isLyricsSidebarOpen ? lyricsSidebarWidth : 0
   const adaptiveSidebarWidth = React.useMemo(() => {
     if (isSidebarCollapsed) return COLLAPSED_SIDEBAR_WIDTH
@@ -1848,6 +1913,30 @@ function App(): React.ReactElement {
     if (!currentTrack?.id) return
     setArtworkFrameIndex(hashString(currentTrack.id) % artworkFrameAssets.length)
   }, [currentTrack?.id])
+
+  React.useEffect(() => {
+    persistSetting('globalArtworkTintEnabled', globalArtworkTintEnabled)
+  }, [globalArtworkTintEnabled])
+
+  React.useEffect(() => {
+    persistSetting('dockProgressVisible', dockProgressVisible)
+  }, [dockProgressVisible])
+
+  React.useEffect(() => {
+    persistSetting('followSystemAppearance', followSystemAppearance)
+  }, [followSystemAppearance])
+
+  React.useEffect(() => {
+    persistSetting('lyricsBackgroundMode', lyricsBackgroundMode)
+  }, [lyricsBackgroundMode])
+
+  React.useEffect(() => {
+    persistSetting('homeCardMaterialMode', homeCardMaterialMode)
+  }, [homeCardMaterialMode])
+
+  React.useEffect(() => {
+    persistJsonSetting('homeSectionOrder', homeSectionOrder)
+  }, [homeSectionOrder])
 
   React.useEffect(() => {
     persistSetting('nowPlayingArtBackgroundEnabled', isNowPlayingArtBackgroundEnabled)
@@ -1964,6 +2053,68 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     persistSetting('ledSpeed', ledSpeed)
   }, [ledSpeed])
+
+  React.useEffect(() => {
+    persistSetting('fullscreenSkin', selectedFullscreenSkin)
+  }, [selectedFullscreenSkin])
+
+  React.useEffect(() => {
+    persistSetting('fullscreenArtBackgroundEnabled', isFullscreenArtBackgroundEnabled)
+  }, [isFullscreenArtBackgroundEnabled])
+
+  React.useEffect(() => {
+    persistSetting('skin.classicLED.fullscreen.visualizerMode', fullscreenClassicVisualizerMode)
+  }, [fullscreenClassicVisualizerMode])
+
+  React.useEffect(() => {
+    persistSetting('skin.appleStyle.fullscreen.visualizerMode', fullscreenAppleVisualizerMode)
+  }, [fullscreenAppleVisualizerMode])
+
+  React.useEffect(() => {
+    persistSetting('skin.rotatingCover.fullscreen.visualizerMode', fullscreenRotatingVisualizerMode)
+  }, [fullscreenRotatingVisualizerMode])
+
+  React.useEffect(() => {
+    persistSetting('skin.kmgcccCassette.fullscreen.visualizerMode', fullscreenCassetteVisualizerMode)
+  }, [fullscreenCassetteVisualizerMode])
+
+  React.useEffect(() => {
+    persistSetting('fullscreen.amllLyricsRenderQuality', fullscreenLyricsRenderQuality)
+  }, [fullscreenLyricsRenderQuality])
+
+  React.useEffect(() => {
+    persistSetting('fullscreen.amllDiscreteWordHighlightEnabled', fullscreenDiscreteWordHighlightEnabled)
+  }, [fullscreenDiscreteWordHighlightEnabled])
+
+  React.useEffect(() => {
+    persistSetting('fullscreen.lyricsFontSize', fullscreenLyricsFontSize)
+  }, [fullscreenLyricsFontSize])
+
+  React.useEffect(() => {
+    persistSetting('fullscreen.lyricsTranslationFontSize', fullscreenLyricsTranslationFontSize)
+  }, [fullscreenLyricsTranslationFontSize])
+
+  React.useEffect(() => {
+    persistSetting('fullscreen.lyricsGlobalAdvanceMs', fullscreenLyricsGlobalAdvanceMs)
+  }, [fullscreenLyricsGlobalAdvanceMs])
+
+  React.useEffect(() => {
+    persistSetting('lookaheadMs', lookaheadMs)
+  }, [lookaheadMs])
+
+  React.useEffect(() => {
+    persistSetting('deferImportEnrichment', deferImportEnrichment)
+  }, [deferImportEnrichment])
+
+  React.useEffect(() => {
+    persistSetting('telemetry.anonymousUsageEnabled', telemetryEnabled)
+  }, [telemetryEnabled])
+
+  React.useEffect(() => {
+    window.kmgccc?.getLibraryLocation().then((info) => {
+      if (info) setLibraryLocationInfo(info)
+    }).catch(() => {})
+  }, [])
 
   React.useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth)
@@ -2134,6 +2285,20 @@ function App(): React.ReactElement {
     setPlaybackDuration(0)
     setIsPlaying(false)
 
+    if (deferImportEnrichment) {
+      setImportSyncState({
+        title: importedTracks.length === 1 ? importedTracks[0].title : `已导入 ${importedTracks.length} 首歌曲`,
+        artist: importedTracks.length === 1 ? importedTracks[0].artist : '',
+        detail: '已先保留到资料库，歌词、封面和元数据可在数据设置里手动补全',
+        status: 'completed',
+        progress: 1,
+        processedCount: importedTracks.length,
+        totalCount: importedTracks.length
+      })
+      window.setTimeout(() => setImportSyncState(null), 1400)
+      return
+    }
+
     let completedCount = 0
     try {
       for (const [index, importedTrack] of importedTracks.entries()) {
@@ -2177,7 +2342,7 @@ function App(): React.ReactElement {
         totalCount: importedTracks.length
       })
     }
-  }, [applyHomeSnapshot])
+  }, [applyHomeSnapshot, deferImportEnrichment])
   const toggleSidebar = React.useCallback(() => {
     setIsSidebarCollapsed((value) => {
       const next = !value
@@ -2482,11 +2647,14 @@ function App(): React.ReactElement {
   }, [homeSnapshot.tracks.length, playNextTrack])
 
   return (
-    <div className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''}`} style={desktopStyle}>
+    <div
+      className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''} lyrics-bg-${lyricsBackgroundMode} ${followSystemAppearance ? 'appearance-system' : 'appearance-manual'}`}
+      style={desktopStyle}
+    >
       <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
       <LiquidGlassFilters />
       <div
-        className={`app-shell ${isSidebarVisuallyCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''} ${route.name === 'nowPlaying' ? 'now-playing-route' : ''}`}
+        className={`app-shell ${isSidebarVisuallyCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''} ${route.name === 'nowPlaying' ? 'now-playing-route' : ''} ${dockProgressVisible ? 'dock-progress-visible' : 'dock-progress-hidden'} home-material-${homeCardMaterialMode}`}
         style={
           {
             '--sidebar-width': `${isSidebarVisuallyCollapsed ? COLLAPSED_SIDEBAR_WIDTH : adaptiveSidebarWidth}px`,
@@ -2525,12 +2693,12 @@ function App(): React.ReactElement {
             isLyricsSidebarOpen={isLyricsSidebarOpen}
           />
           {route.name === 'home' ? (
-            <HomePage snapshot={homeSnapshot} albums={albums} onNavigate={setRoute} onPlayTrack={playHomeTrack} />
+            <HomePage snapshot={homeSnapshot} albums={albums} sectionOrder={homeSectionOrder} onNavigate={setRoute} onPlayTrack={playHomeTrack} />
           ) : route.name === 'nowPlaying' ? (
             <NowPlayingPage
               track={currentTrack}
               albums={albums}
-              bkThemeStyle={coverThemeStyle}
+              bkThemeStyle={effectiveCoverThemeStyle}
               isPlaying={isPlaying}
               volume={volume}
               ledCount={ledCount}
@@ -2612,6 +2780,18 @@ function App(): React.ReactElement {
             selectedCategory={settingsCategory}
             onSelectCategory={setSettingsCategory}
             onClose={() => setIsSettingsOpen(false)}
+            globalArtworkTintEnabled={globalArtworkTintEnabled}
+            onGlobalArtworkTintEnabledChange={setGlobalArtworkTintEnabled}
+            dockProgressVisible={dockProgressVisible}
+            onDockProgressVisibleChange={setDockProgressVisible}
+            followSystemAppearance={followSystemAppearance}
+            onFollowSystemAppearanceChange={setFollowSystemAppearance}
+            lyricsBackgroundMode={lyricsBackgroundMode}
+            onLyricsBackgroundModeChange={setLyricsBackgroundMode}
+            homeCardMaterialMode={homeCardMaterialMode}
+            onHomeCardMaterialModeChange={setHomeCardMaterialMode}
+            homeSectionOrder={homeSectionOrder}
+            onHomeSectionOrderChange={setHomeSectionOrder}
             selectedNowPlayingTab={nowPlayingSettingsTab}
             onSelectNowPlayingTab={setNowPlayingSettingsTab}
             selectedNowPlayingSkin={selectedNowPlayingSkin}
@@ -2672,6 +2852,41 @@ function App(): React.ReactElement {
             onLedCutoffHzChange={setLedCutoffHz}
             ledSpeed={ledSpeed}
             onLedSpeedChange={setLedSpeed}
+            selectedFullscreenTab={fullscreenSettingsTab}
+            onSelectFullscreenTab={setFullscreenSettingsTab}
+            selectedFullscreenSkin={selectedFullscreenSkin}
+            onSelectedFullscreenSkinChange={setSelectedFullscreenSkin}
+            fullscreenArtBackgroundEnabled={isFullscreenArtBackgroundEnabled}
+            onFullscreenArtBackgroundEnabledChange={setIsFullscreenArtBackgroundEnabled}
+            fullscreenClassicVisualizerMode={fullscreenClassicVisualizerMode}
+            onFullscreenClassicVisualizerModeChange={setFullscreenClassicVisualizerMode}
+            fullscreenAppleVisualizerMode={fullscreenAppleVisualizerMode}
+            onFullscreenAppleVisualizerModeChange={setFullscreenAppleVisualizerMode}
+            fullscreenRotatingVisualizerMode={fullscreenRotatingVisualizerMode}
+            onFullscreenRotatingVisualizerModeChange={setFullscreenRotatingVisualizerMode}
+            fullscreenCassetteVisualizerMode={fullscreenCassetteVisualizerMode}
+            onFullscreenCassetteVisualizerModeChange={setFullscreenCassetteVisualizerMode}
+            fullscreenLyricsRenderQuality={fullscreenLyricsRenderQuality}
+            onFullscreenLyricsRenderQualityChange={setFullscreenLyricsRenderQuality}
+            fullscreenDiscreteWordHighlightEnabled={fullscreenDiscreteWordHighlightEnabled}
+            onFullscreenDiscreteWordHighlightEnabledChange={setFullscreenDiscreteWordHighlightEnabled}
+            fullscreenLyricsFontSize={fullscreenLyricsFontSize}
+            onFullscreenLyricsFontSizeChange={setFullscreenLyricsFontSize}
+            fullscreenLyricsTranslationFontSize={fullscreenLyricsTranslationFontSize}
+            onFullscreenLyricsTranslationFontSizeChange={setFullscreenLyricsTranslationFontSize}
+            fullscreenLyricsGlobalAdvanceMs={fullscreenLyricsGlobalAdvanceMs}
+            onFullscreenLyricsGlobalAdvanceMsChange={setFullscreenLyricsGlobalAdvanceMs}
+            lookaheadMs={lookaheadMs}
+            onLookaheadMsChange={setLookaheadMs}
+            deferImportEnrichment={deferImportEnrichment}
+            onDeferImportEnrichmentChange={setDeferImportEnrichment}
+            telemetryEnabled={telemetryEnabled}
+            onTelemetryEnabledChange={setTelemetryEnabled}
+            libraryLocationInfo={libraryLocationInfo}
+            onLibraryLocationInfoChange={setLibraryLocationInfo}
+            settingsActionStatus={settingsActionStatus}
+            onSettingsActionStatusChange={setSettingsActionStatus}
+            onRefreshLibrarySnapshot={refreshLibrarySnapshot}
           />
         ) : null}
         {isFullscreenLyricsOpen ? (
@@ -3609,28 +3824,25 @@ const Toolbar = React.memo(function Toolbar({
 const HomePage = React.memo(function HomePage({
   snapshot,
   albums,
+  sectionOrder,
   onNavigate,
   onPlayTrack
 }: {
   snapshot: HomeSnapshot
   albums: Map<string, HomeAlbumCard>
+  sectionOrder: HomeSectionID[]
   onNavigate: (route: AppRoute) => void
   onPlayTrack: (trackId: string) => void
 }): React.ReactElement {
   const homeScroll = useElasticScroll<HTMLElement>()
   const heroTrack = snapshot.heroTrack ?? snapshot.tracks[0] ?? null
-
-  return (
-    <section className={`home-page ${homeScroll.isScrolling ? 'is-scrolling' : ''}`} ref={homeScroll.scrollRef} onWheel={homeScroll.onWheel} onScroll={homeScroll.onScroll}>
-      <div
-        className={`home-scroll-content ${homeScroll.elasticOffset !== 0 ? 'elastic-active' : ''} ${
-          homeScroll.isSettling ? 'settling' : ''
-        }`}
-        style={{ transform: `translate3d(0, ${homeScroll.elasticOffset}px, 0)` }}
-      >
-        {heroTrack ? <HomeHero track={heroTrack} albums={albums} onPlay={() => onPlayTrack(heroTrack.id)} /> : null}
-
-        <HomeSectionBlock title="艺人" onShowAll={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
+  const renderSection = (section: HomeSectionID): React.ReactNode => {
+    if (section === 'featured') {
+      return heroTrack ? <HomeHero key={section} track={heroTrack} albums={albums} onPlay={() => onPlayTrack(heroTrack.id)} /> : null
+    }
+    if (section === 'artists') {
+      return (
+        <HomeSectionBlock key={section} title="艺人" onShowAll={() => onNavigate({ name: 'artistDetail', id: 'all-artists', title: '所有艺人' })}>
           <div className="home-card-grid compact">
             {snapshot.artists.map((artist) => (
               <button
@@ -3649,8 +3861,11 @@ const HomePage = React.memo(function HomePage({
             ))}
           </div>
         </HomeSectionBlock>
-
-        <HomeSectionBlock title="专辑" onShowAll={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
+      )
+    }
+    if (section === 'albums') {
+      return (
+        <HomeSectionBlock key={section} title="专辑" onShowAll={() => onNavigate({ name: 'albumDetail', id: 'all-albums', title: '所有专辑' })}>
           <div className="home-card-grid">
             {snapshot.albums.map((album) => (
               <button
@@ -3666,8 +3881,11 @@ const HomePage = React.memo(function HomePage({
             ))}
           </div>
         </HomeSectionBlock>
-
-        <HomeSectionBlock title="播放列表">
+      )
+    }
+    if (section === 'playlists') {
+      return (
+        <HomeSectionBlock key={section} title="播放列表">
           <div className="home-playlist-grid">
             {snapshot.playlists.map((playlist) => (
               <button
@@ -3685,8 +3903,20 @@ const HomePage = React.memo(function HomePage({
             ))}
           </div>
         </HomeSectionBlock>
+      )
+    }
+    return <HomeStatsSection key={section} stats={snapshot.stats} />
+  }
 
-        <HomeStatsSection stats={snapshot.stats} />
+  return (
+    <section className={`home-page ${homeScroll.isScrolling ? 'is-scrolling' : ''}`} ref={homeScroll.scrollRef} onWheel={homeScroll.onWheel} onScroll={homeScroll.onScroll}>
+      <div
+        className={`home-scroll-content ${homeScroll.elasticOffset !== 0 ? 'elastic-active' : ''} ${
+          homeScroll.isSettling ? 'settling' : ''
+        }`}
+        style={{ transform: `translate3d(0, ${homeScroll.elasticOffset}px, 0)` }}
+      >
+        {sectionOrder.map(renderSection)}
       </div>
     </section>
   )
@@ -5103,9 +5333,9 @@ const NowPlayingSpectrum = React.memo(function NowPlayingSpectrum({ isPlaying }:
 const settingsCategories: Array<{ key: SettingsCategoryKey; title: string; detail: string }> = [
   { key: 'appearance', title: '外观', detail: '主题、玻璃与窗口' },
   { key: 'nowPlaying', title: '窗口播放', detail: '皮肤、歌词、LED' },
-  { key: 'fullscreen', title: '全屏播放', detail: '待翻译' },
-  { key: 'externalPlayback', title: '外部播放', detail: '待翻译' },
-  { key: 'data', title: '数据', detail: '待翻译' },
+  { key: 'fullscreen', title: '全屏播放', detail: '皮肤、歌词、LED' },
+  { key: 'externalPlayback', title: '音频', detail: '延迟与补偿' },
+  { key: 'data', title: '数据', detail: '资料库、导入与缓存' },
   { key: 'about', title: '关于', detail: '待翻译' }
 ]
 
@@ -5113,6 +5343,18 @@ const SettingsPanel = React.memo(function SettingsPanel({
   selectedCategory,
   onSelectCategory,
   onClose,
+  globalArtworkTintEnabled,
+  onGlobalArtworkTintEnabledChange,
+  dockProgressVisible,
+  onDockProgressVisibleChange,
+  followSystemAppearance,
+  onFollowSystemAppearanceChange,
+  lyricsBackgroundMode,
+  onLyricsBackgroundModeChange,
+  homeCardMaterialMode,
+  onHomeCardMaterialModeChange,
+  homeSectionOrder,
+  onHomeSectionOrderChange,
   selectedNowPlayingTab,
   onSelectNowPlayingTab,
   selectedNowPlayingSkin,
@@ -5172,11 +5414,58 @@ const SettingsPanel = React.memo(function SettingsPanel({
   ledCutoffHz,
   onLedCutoffHzChange,
   ledSpeed,
-  onLedSpeedChange
+  onLedSpeedChange,
+  selectedFullscreenTab,
+  onSelectFullscreenTab,
+  selectedFullscreenSkin,
+  onSelectedFullscreenSkinChange,
+  fullscreenArtBackgroundEnabled,
+  onFullscreenArtBackgroundEnabledChange,
+  fullscreenClassicVisualizerMode,
+  onFullscreenClassicVisualizerModeChange,
+  fullscreenAppleVisualizerMode,
+  onFullscreenAppleVisualizerModeChange,
+  fullscreenRotatingVisualizerMode,
+  onFullscreenRotatingVisualizerModeChange,
+  fullscreenCassetteVisualizerMode,
+  onFullscreenCassetteVisualizerModeChange,
+  fullscreenLyricsRenderQuality,
+  onFullscreenLyricsRenderQualityChange,
+  fullscreenDiscreteWordHighlightEnabled,
+  onFullscreenDiscreteWordHighlightEnabledChange,
+  fullscreenLyricsFontSize,
+  onFullscreenLyricsFontSizeChange,
+  fullscreenLyricsTranslationFontSize,
+  onFullscreenLyricsTranslationFontSizeChange,
+  fullscreenLyricsGlobalAdvanceMs,
+  onFullscreenLyricsGlobalAdvanceMsChange,
+  lookaheadMs,
+  onLookaheadMsChange,
+  deferImportEnrichment,
+  onDeferImportEnrichmentChange,
+  telemetryEnabled,
+  onTelemetryEnabledChange,
+  libraryLocationInfo,
+  onLibraryLocationInfoChange,
+  settingsActionStatus,
+  onSettingsActionStatusChange,
+  onRefreshLibrarySnapshot
 }: {
   selectedCategory: SettingsCategoryKey
   onSelectCategory: (category: SettingsCategoryKey) => void
   onClose: () => void
+  globalArtworkTintEnabled: boolean
+  onGlobalArtworkTintEnabledChange: (enabled: boolean) => void
+  dockProgressVisible: boolean
+  onDockProgressVisibleChange: (enabled: boolean) => void
+  followSystemAppearance: boolean
+  onFollowSystemAppearanceChange: (enabled: boolean) => void
+  lyricsBackgroundMode: LyricsBackgroundMode
+  onLyricsBackgroundModeChange: (mode: LyricsBackgroundMode) => void
+  homeCardMaterialMode: HomeCardMaterialMode
+  onHomeCardMaterialModeChange: (mode: HomeCardMaterialMode) => void
+  homeSectionOrder: HomeSectionID[]
+  onHomeSectionOrderChange: (order: HomeSectionID[]) => void
   selectedNowPlayingTab: NowPlayingSettingsTab
   onSelectNowPlayingTab: (tab: NowPlayingSettingsTab) => void
   selectedNowPlayingSkin: NowPlayingSkinID
@@ -5237,6 +5526,41 @@ const SettingsPanel = React.memo(function SettingsPanel({
   onLedCutoffHzChange: (value: number) => void
   ledSpeed: number
   onLedSpeedChange: (value: number) => void
+  selectedFullscreenTab: NowPlayingSettingsTab
+  onSelectFullscreenTab: (tab: NowPlayingSettingsTab) => void
+  selectedFullscreenSkin: NowPlayingSkinID
+  onSelectedFullscreenSkinChange: (skin: NowPlayingSkinID) => void
+  fullscreenArtBackgroundEnabled: boolean
+  onFullscreenArtBackgroundEnabledChange: (enabled: boolean) => void
+  fullscreenClassicVisualizerMode: VisualizerMode
+  onFullscreenClassicVisualizerModeChange: (mode: VisualizerMode) => void
+  fullscreenAppleVisualizerMode: VisualizerMode
+  onFullscreenAppleVisualizerModeChange: (mode: VisualizerMode) => void
+  fullscreenRotatingVisualizerMode: VisualizerMode
+  onFullscreenRotatingVisualizerModeChange: (mode: VisualizerMode) => void
+  fullscreenCassetteVisualizerMode: VisualizerMode
+  onFullscreenCassetteVisualizerModeChange: (mode: VisualizerMode) => void
+  fullscreenLyricsRenderQuality: 'performance' | 'balanced' | 'quality'
+  onFullscreenLyricsRenderQualityChange: (quality: 'performance' | 'balanced' | 'quality') => void
+  fullscreenDiscreteWordHighlightEnabled: boolean
+  onFullscreenDiscreteWordHighlightEnabledChange: (enabled: boolean) => void
+  fullscreenLyricsFontSize: number
+  onFullscreenLyricsFontSizeChange: (value: number) => void
+  fullscreenLyricsTranslationFontSize: number
+  onFullscreenLyricsTranslationFontSizeChange: (value: number) => void
+  fullscreenLyricsGlobalAdvanceMs: number
+  onFullscreenLyricsGlobalAdvanceMsChange: (value: number) => void
+  lookaheadMs: number
+  onLookaheadMsChange: (value: number) => void
+  deferImportEnrichment: boolean
+  onDeferImportEnrichmentChange: (enabled: boolean) => void
+  telemetryEnabled: boolean
+  onTelemetryEnabledChange: (enabled: boolean) => void
+  libraryLocationInfo: LibraryLocationInfo | null
+  onLibraryLocationInfoChange: (info: LibraryLocationInfo | null) => void
+  settingsActionStatus: SettingsActionStatus
+  onSettingsActionStatusChange: (status: SettingsActionStatus) => void
+  onRefreshLibrarySnapshot: () => Promise<void>
 }): React.ReactElement {
   return (
     <div className="settings-overlay no-drag">
@@ -5258,7 +5582,22 @@ const SettingsPanel = React.memo(function SettingsPanel({
           <button className="settings-close" type="button" aria-label="关闭设置" onClick={onClose}>
             <X size={17} />
           </button>
-          {selectedCategory === 'nowPlaying' ? (
+          {selectedCategory === 'appearance' ? (
+            <AppearanceSettingsContent
+              globalArtworkTintEnabled={globalArtworkTintEnabled}
+              onGlobalArtworkTintEnabledChange={onGlobalArtworkTintEnabledChange}
+              dockProgressVisible={dockProgressVisible}
+              onDockProgressVisibleChange={onDockProgressVisibleChange}
+              followSystemAppearance={followSystemAppearance}
+              onFollowSystemAppearanceChange={onFollowSystemAppearanceChange}
+              lyricsBackgroundMode={lyricsBackgroundMode}
+              onLyricsBackgroundModeChange={onLyricsBackgroundModeChange}
+              homeCardMaterialMode={homeCardMaterialMode}
+              onHomeCardMaterialModeChange={onHomeCardMaterialModeChange}
+              homeSectionOrder={homeSectionOrder}
+              onHomeSectionOrderChange={onHomeSectionOrderChange}
+            />
+          ) : selectedCategory === 'nowPlaying' ? (
             <NowPlayingSettingsContent
               selectedTab={selectedNowPlayingTab}
               onSelectTab={onSelectNowPlayingTab}
@@ -5321,6 +5660,55 @@ const SettingsPanel = React.memo(function SettingsPanel({
               ledSpeed={ledSpeed}
               onLedSpeedChange={onLedSpeedChange}
             />
+          ) : selectedCategory === 'fullscreen' ? (
+            <FullscreenSettingsContent
+              selectedTab={selectedFullscreenTab}
+              onSelectTab={onSelectFullscreenTab}
+              selectedSkin={selectedFullscreenSkin}
+              onSelectedSkinChange={onSelectedFullscreenSkinChange}
+              artBackgroundEnabled={fullscreenArtBackgroundEnabled}
+              onArtBackgroundEnabledChange={onFullscreenArtBackgroundEnabledChange}
+              classicVisualizerMode={fullscreenClassicVisualizerMode}
+              onClassicVisualizerModeChange={onFullscreenClassicVisualizerModeChange}
+              appleVisualizerMode={fullscreenAppleVisualizerMode}
+              onAppleVisualizerModeChange={onFullscreenAppleVisualizerModeChange}
+              rotatingVisualizerMode={fullscreenRotatingVisualizerMode}
+              onRotatingVisualizerModeChange={onFullscreenRotatingVisualizerModeChange}
+              cassetteVisualizerMode={fullscreenCassetteVisualizerMode}
+              onCassetteVisualizerModeChange={onFullscreenCassetteVisualizerModeChange}
+              lyricsRenderQuality={fullscreenLyricsRenderQuality}
+              onLyricsRenderQualityChange={onFullscreenLyricsRenderQualityChange}
+              discreteWordHighlightEnabled={fullscreenDiscreteWordHighlightEnabled}
+              onDiscreteWordHighlightEnabledChange={onFullscreenDiscreteWordHighlightEnabledChange}
+              lyricsFontSize={fullscreenLyricsFontSize}
+              onLyricsFontSizeChange={onFullscreenLyricsFontSizeChange}
+              lyricsTranslationFontSize={fullscreenLyricsTranslationFontSize}
+              onLyricsTranslationFontSizeChange={onFullscreenLyricsTranslationFontSizeChange}
+              lyricsGlobalAdvanceMs={fullscreenLyricsGlobalAdvanceMs}
+              onLyricsGlobalAdvanceMsChange={onFullscreenLyricsGlobalAdvanceMsChange}
+              ledCount={ledCount}
+              onLedCountChange={onLedCountChange}
+              ledBrightnessLevels={ledBrightnessLevels}
+              onLedBrightnessLevelsChange={onLedBrightnessLevelsChange}
+              ledCutoffHz={ledCutoffHz}
+              onLedCutoffHzChange={onLedCutoffHzChange}
+              ledSpeed={ledSpeed}
+              onLedSpeedChange={onLedSpeedChange}
+            />
+          ) : selectedCategory === 'externalPlayback' ? (
+            <AudioSettingsContent lookaheadMs={lookaheadMs} onLookaheadMsChange={onLookaheadMsChange} />
+          ) : selectedCategory === 'data' ? (
+            <DataSettingsContent
+              libraryLocationInfo={libraryLocationInfo}
+              onLibraryLocationInfoChange={onLibraryLocationInfoChange}
+              deferImportEnrichment={deferImportEnrichment}
+              onDeferImportEnrichmentChange={onDeferImportEnrichmentChange}
+              telemetryEnabled={telemetryEnabled}
+              onTelemetryEnabledChange={onTelemetryEnabledChange}
+              settingsActionStatus={settingsActionStatus}
+              onSettingsActionStatusChange={onSettingsActionStatusChange}
+              onRefreshLibrarySnapshot={onRefreshLibrarySnapshot}
+            />
           ) : (
             <div className="settings-empty">
               <strong>{settingsCategories.find((category) => category.key === selectedCategory)?.title}</strong>
@@ -5332,6 +5720,374 @@ const SettingsPanel = React.memo(function SettingsPanel({
     </div>
   )
 })
+
+const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent({
+  globalArtworkTintEnabled,
+  onGlobalArtworkTintEnabledChange,
+  dockProgressVisible,
+  onDockProgressVisibleChange,
+  followSystemAppearance,
+  onFollowSystemAppearanceChange,
+  lyricsBackgroundMode,
+  onLyricsBackgroundModeChange,
+  homeCardMaterialMode,
+  onHomeCardMaterialModeChange,
+  homeSectionOrder,
+  onHomeSectionOrderChange
+}: {
+  globalArtworkTintEnabled: boolean
+  onGlobalArtworkTintEnabledChange: (enabled: boolean) => void
+  dockProgressVisible: boolean
+  onDockProgressVisibleChange: (enabled: boolean) => void
+  followSystemAppearance: boolean
+  onFollowSystemAppearanceChange: (enabled: boolean) => void
+  lyricsBackgroundMode: LyricsBackgroundMode
+  onLyricsBackgroundModeChange: (mode: LyricsBackgroundMode) => void
+  homeCardMaterialMode: HomeCardMaterialMode
+  onHomeCardMaterialModeChange: (mode: HomeCardMaterialMode) => void
+  homeSectionOrder: HomeSectionID[]
+  onHomeSectionOrderChange: (order: HomeSectionID[]) => void
+}): React.ReactElement {
+  const moveSection = (section: HomeSectionID, direction: -1 | 1): void => {
+    const index = homeSectionOrder.indexOf(section)
+    const target = index + direction
+    if (index < 0 || target < 0 || target >= homeSectionOrder.length) return
+    const nextOrder = [...homeSectionOrder]
+    const [item] = nextOrder.splice(index, 1)
+    nextOrder.splice(target, 0, item)
+    onHomeSectionOrderChange(nextOrder)
+  }
+
+  return (
+    <div className="settings-now-playing">
+      <header className="settings-header-label">
+        <Sparkles size={18} />
+        <strong>外观</strong>
+      </header>
+      <div className="settings-section-stack">
+        <SettingsSection title="常规">
+          <SettingsSwitch title="全局取色" detail="开启后重点色跟随当前歌曲封面，关闭后使用默认主题色。" checked={globalArtworkTintEnabled} onChange={onGlobalArtworkTintEnabledChange} />
+          <SettingsSwitch title="Dock 播放进度" detail="开启后底部状态栏显示当前歌曲进度垫层。" checked={dockProgressVisible} onChange={onDockProgressVisibleChange} />
+          <SettingsSwitch title="深色/浅色跟随系统" detail="开启后跟随系统深浅色；关闭后保留当前手动外观状态。" checked={followSystemAppearance} onChange={onFollowSystemAppearanceChange} />
+          <div className="settings-divider" />
+          <SettingsSegment title="歌词卡片背景" values={['clear', 'sidebar']} labels={['磨砂玻璃', '液态玻璃']} selected={lyricsBackgroundMode} onSelect={(value) => onLyricsBackgroundModeChange(value as LyricsBackgroundMode)} />
+          <SettingsSegment title="主页卡片材质" values={['liquidGlass', 'frostedGlass', 'solid']} labels={['液态玻璃', '磨砂玻璃', '普通']} selected={homeCardMaterialMode} onSelect={(value) => onHomeCardMaterialModeChange(value as HomeCardMaterialMode)} />
+        </SettingsSection>
+        <SettingsSection
+          title="主页板块顺序"
+          action={<button className="settings-text-action" type="button" onClick={() => onHomeSectionOrderChange(defaultHomeSectionOrder)}>恢复默认顺序</button>}
+        >
+          <small className="settings-description">按照 Swift 的 HomeSection 顺序保存；调整后主页立即按新顺序排布。</small>
+          <div className="settings-order-list">
+            {homeSectionOrder.map((section, index) => {
+              const option = homeSectionOptions.find((item) => item.id === section)
+              return (
+                <div className="settings-order-row" key={section}>
+                  <span>{option?.title ?? section}</span>
+                  <button type="button" aria-label="上移" disabled={index === 0} onClick={() => moveSection(section, -1)}>
+                    <ChevronLeft size={15} />
+                  </button>
+                  <button type="button" aria-label="下移" disabled={index === homeSectionOrder.length - 1} onClick={() => moveSection(section, 1)}>
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </SettingsSection>
+      </div>
+    </div>
+  )
+})
+
+const FullscreenSettingsContent = React.memo(function FullscreenSettingsContent({
+  selectedTab,
+  onSelectTab,
+  selectedSkin,
+  onSelectedSkinChange,
+  artBackgroundEnabled,
+  onArtBackgroundEnabledChange,
+  classicVisualizerMode,
+  onClassicVisualizerModeChange,
+  appleVisualizerMode,
+  onAppleVisualizerModeChange,
+  rotatingVisualizerMode,
+  onRotatingVisualizerModeChange,
+  cassetteVisualizerMode,
+  onCassetteVisualizerModeChange,
+  lyricsRenderQuality,
+  onLyricsRenderQualityChange,
+  discreteWordHighlightEnabled,
+  onDiscreteWordHighlightEnabledChange,
+  lyricsFontSize,
+  onLyricsFontSizeChange,
+  lyricsTranslationFontSize,
+  onLyricsTranslationFontSizeChange,
+  lyricsGlobalAdvanceMs,
+  onLyricsGlobalAdvanceMsChange,
+  ledCount,
+  onLedCountChange,
+  ledBrightnessLevels,
+  onLedBrightnessLevelsChange,
+  ledCutoffHz,
+  onLedCutoffHzChange,
+  ledSpeed,
+  onLedSpeedChange
+}: {
+  selectedTab: NowPlayingSettingsTab
+  onSelectTab: (tab: NowPlayingSettingsTab) => void
+  selectedSkin: NowPlayingSkinID
+  onSelectedSkinChange: (skin: NowPlayingSkinID) => void
+  artBackgroundEnabled: boolean
+  onArtBackgroundEnabledChange: (enabled: boolean) => void
+  classicVisualizerMode: VisualizerMode
+  onClassicVisualizerModeChange: (mode: VisualizerMode) => void
+  appleVisualizerMode: VisualizerMode
+  onAppleVisualizerModeChange: (mode: VisualizerMode) => void
+  rotatingVisualizerMode: VisualizerMode
+  onRotatingVisualizerModeChange: (mode: VisualizerMode) => void
+  cassetteVisualizerMode: VisualizerMode
+  onCassetteVisualizerModeChange: (mode: VisualizerMode) => void
+  lyricsRenderQuality: 'performance' | 'balanced' | 'quality'
+  onLyricsRenderQualityChange: (quality: 'performance' | 'balanced' | 'quality') => void
+  discreteWordHighlightEnabled: boolean
+  onDiscreteWordHighlightEnabledChange: (enabled: boolean) => void
+  lyricsFontSize: number
+  onLyricsFontSizeChange: (value: number) => void
+  lyricsTranslationFontSize: number
+  onLyricsTranslationFontSizeChange: (value: number) => void
+  lyricsGlobalAdvanceMs: number
+  onLyricsGlobalAdvanceMsChange: (value: number) => void
+  ledCount: number
+  onLedCountChange: (value: number) => void
+  ledBrightnessLevels: number
+  onLedBrightnessLevelsChange: (value: number) => void
+  ledCutoffHz: number
+  onLedCutoffHzChange: (value: number) => void
+  ledSpeed: number
+  onLedSpeedChange: (value: number) => void
+}): React.ReactElement {
+  const selectedSkinOption = nowPlayingSkinOptions.find((skin) => skin.id === selectedSkin) ?? nowPlayingSkinOptions[0]
+  const visualizerMode = selectedSkin === 'coverLed'
+    ? classicVisualizerMode
+    : selectedSkin === 'appleStyle'
+      ? appleVisualizerMode
+      : selectedSkin === 'rotatingCover'
+        ? rotatingVisualizerMode
+        : cassetteVisualizerMode
+  const setVisualizerMode = (mode: VisualizerMode): void => {
+    if (selectedSkin === 'coverLed') onClassicVisualizerModeChange(mode)
+    else if (selectedSkin === 'appleStyle') onAppleVisualizerModeChange(mode)
+    else if (selectedSkin === 'rotatingCover') onRotatingVisualizerModeChange(mode)
+    else onCassetteVisualizerModeChange(mode)
+  }
+
+  return (
+    <div className="settings-now-playing">
+      <header className="settings-header-label">
+        <Maximize2 size={18} />
+        <strong>全屏播放</strong>
+      </header>
+      <div className="settings-tabs">
+        {[
+          ['general', '皮肤'],
+          ['lyrics', '歌词'],
+          ['led', 'LED']
+        ].map(([key, title]) => (
+          <button key={key} className={selectedTab === key ? 'active' : ''} type="button" onClick={() => onSelectTab(key as NowPlayingSettingsTab)}>
+            {title}
+          </button>
+        ))}
+      </div>
+      {selectedTab === 'general' ? (
+        <div className="settings-section-stack">
+          <SettingsSwitch title="启用艺术背景" detail="对应 Swift 的 fullscreenArtBackgroundEnabled。" checked={artBackgroundEnabled} onChange={onArtBackgroundEnabledChange} />
+          <div className="settings-card-section">
+            <strong>选择皮肤</strong>
+            <div className="settings-skin-row">
+              {nowPlayingSkinOptions.map((skin) => (
+                <button key={skin.id} className={selectedSkin === skin.id ? 'active' : ''} type="button" onClick={() => onSelectedSkinChange(skin.id)}>
+                  <span className={`skin-thumb ${skinPreviewClassName(skin.id)}`} />
+                  <strong>{skin.name}</strong>
+                  <small>{skin.detail}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+          <SettingsSection title={`${selectedSkinOption.name} 选项`}>
+            <SettingsSegment title="可视化" values={['off', 'led', 'spectrum']} labels={['关闭', 'LED', '频谱']} selected={visualizerMode} onSelect={(value) => setVisualizerMode(value as VisualizerMode)} />
+          </SettingsSection>
+        </div>
+      ) : selectedTab === 'lyrics' ? (
+        <div className="settings-section-stack">
+          <SettingsSection title="全屏歌词">
+            <SettingsSegment title="歌词渲染质量" values={['performance', 'balanced', 'quality']} labels={['低', '中', '高']} selected={lyricsRenderQuality} onSelect={(value) => onLyricsRenderQualityChange(value as 'performance' | 'balanced' | 'quality')} />
+            <SettingsSwitch title="减弱高亮(beta)" checked={discreteWordHighlightEnabled} onChange={onDiscreteWordHighlightEnabledChange} />
+            <SettingsRange title="字体大小" valueText={`${Math.round(lyricsFontSize)} px`} value={lyricsFontSize} min={16} max={56} step={1} onChange={onLyricsFontSizeChange} />
+            <SettingsRange title="翻译大小" valueText={`${Math.round(lyricsTranslationFontSize)} px`} value={lyricsTranslationFontSize} min={12} max={40} step={1} onChange={onLyricsTranslationFontSizeChange} />
+            <SettingsRange title="歌词整体提前量" detail="全屏歌词独立补偿；会叠加音频 Lookahead。" valueText={`${Math.round(lyricsGlobalAdvanceMs)} ms`} value={lyricsGlobalAdvanceMs} min={-1000} max={1000} step={10} onChange={onLyricsGlobalAdvanceMsChange} />
+          </SettingsSection>
+          <SettingsSection title="预览">
+            <div className="lyrics-settings-preview dark">
+              <small>全屏歌词预览</small>
+              <b style={{ fontSize: lyricsFontSize, fontWeight: 500 }}>雪把世界删改成更少的字</b>
+              <span style={{ fontSize: lyricsTranslationFontSize }}>时光像河流入海</span>
+            </div>
+          </SettingsSection>
+        </div>
+      ) : (
+        <div className="settings-section-stack">
+          <div className="settings-card-section">
+            <strong>实时预览</strong>
+            <NowPlayingVolumeLed volume={0.72} isPlaying ledCount={ledCount} brightnessLevels={ledBrightnessLevels} ledSpeed={ledSpeed} />
+          </div>
+          <SettingsSection title="视觉配置">
+            <SettingsSegment title="LED 数量" values={['9', '11', '13', '15']} selected={String(Math.round(ledCount))} onSelect={(value) => onLedCountChange(Number(value))} />
+            <SettingsSegment title="亮度等级" values={['3', '5', '7']} selected={String(Math.round(ledBrightnessLevels))} onSelect={(value) => onLedBrightnessLevelsChange(Number(value))} />
+            <SettingsRange title="频率" valueText={`${Math.round(ledCutoffHz)} Hz`} value={ledCutoffHz} min={200} max={6000} step={100} onChange={onLedCutoffHzChange} />
+            <SettingsRange title="速度" valueText={`${ledSpeed.toFixed(2)}x`} value={ledSpeed} min={0.5} max={2} step={0.05} onChange={onLedSpeedChange} />
+          </SettingsSection>
+        </div>
+      )}
+    </div>
+  )
+})
+
+const AudioSettingsContent = React.memo(function AudioSettingsContent({
+  lookaheadMs,
+  onLookaheadMsChange
+}: {
+  lookaheadMs: number
+  onLookaheadMsChange: (value: number) => void
+}): React.ReactElement {
+  return (
+    <div className="settings-now-playing">
+      <header className="settings-header-label">
+        <Volume2 size={18} />
+        <strong>音频</strong>
+      </header>
+      <div className="settings-section-stack">
+        <SettingsSection
+          title="延迟补偿"
+          action={<button className="settings-text-action" type="button" onClick={() => onLookaheadMsChange(200)}>恢复默认值</button>}
+        >
+          <small className="settings-description">Swift 通过 AVAudioUnitDelay 延后音频输出，使 LED/歌词视觉提前。Windows 版当前将同一个值用于视觉时钟补偿。</small>
+          <SettingsRange title="Lookahead" detail="数值越大，歌词和视觉相对声音越早。" valueText={`${Math.round(lookaheadMs)} ms`} value={lookaheadMs} min={0} max={200} step={5} onChange={onLookaheadMsChange} />
+        </SettingsSection>
+      </div>
+    </div>
+  )
+})
+
+const DataSettingsContent = React.memo(function DataSettingsContent({
+  libraryLocationInfo,
+  onLibraryLocationInfoChange,
+  deferImportEnrichment,
+  onDeferImportEnrichmentChange,
+  telemetryEnabled,
+  onTelemetryEnabledChange,
+  settingsActionStatus,
+  onSettingsActionStatusChange,
+  onRefreshLibrarySnapshot
+}: {
+  libraryLocationInfo: LibraryLocationInfo | null
+  onLibraryLocationInfoChange: (info: LibraryLocationInfo | null) => void
+  deferImportEnrichment: boolean
+  onDeferImportEnrichmentChange: (enabled: boolean) => void
+  telemetryEnabled: boolean
+  onTelemetryEnabledChange: (enabled: boolean) => void
+  settingsActionStatus: SettingsActionStatus
+  onSettingsActionStatusChange: (status: SettingsActionStatus) => void
+  onRefreshLibrarySnapshot: () => Promise<void>
+}): React.ReactElement {
+  const runAction = async (label: string, action: () => Promise<void>, tone: 'normal' | 'danger' = 'normal'): Promise<void> => {
+    onSettingsActionStatusChange({ label: `${label}...`, tone })
+    try {
+      await action()
+      onSettingsActionStatusChange({ label: `${label}完成`, tone })
+      window.setTimeout(() => onSettingsActionStatusChange(null), 1600)
+    } catch {
+      onSettingsActionStatusChange({ label: `${label}失败`, tone: 'danger' })
+    }
+  }
+  return (
+    <div className="settings-now-playing">
+      <header className="settings-header-label">
+        <DatabaseIcon />
+        <strong>数据</strong>
+      </header>
+      <div className="settings-section-stack">
+        <SettingsSection title="音乐资料库位置">
+          <code className="settings-path-label">{libraryLocationInfo?.currentPath ?? '正在读取资料库位置'}</code>
+          <div className="settings-button-row">
+            <button type="button" onClick={() => runAction('更改位置', async () => {
+              const info = await window.kmgccc?.chooseLibraryLocation()
+              if (info) onLibraryLocationInfoChange(info)
+              await onRefreshLibrarySnapshot()
+            })}>更改位置</button>
+            <button type="button" onClick={() => runAction('打开资料库', async () => {
+              await window.kmgccc?.showLibraryLocation()
+            })}>在文件管理器中显示</button>
+            <button type="button" onClick={() => runAction('重新扫描资料库', async () => {
+              await onRefreshLibrarySnapshot()
+            })}>重新扫描资料库</button>
+            <button type="button" disabled={libraryLocationInfo?.isDefault} onClick={() => runAction('恢复默认位置', async () => {
+              const info = await window.kmgccc?.resetLibraryLocation()
+              if (info) onLibraryLocationInfoChange(info)
+              await onRefreshLibrarySnapshot()
+            })}>恢复默认位置</button>
+          </div>
+        </SettingsSection>
+        <SettingsSection title="导入">
+          <SettingsSwitch title="导入时延后补全歌词与封面" detail="开启后导入会先完成文件写入，再由手动补全任务联网补全信息。" checked={deferImportEnrichment} onChange={onDeferImportEnrichmentChange} />
+        </SettingsSection>
+        <SettingsSection title="补全与缓存">
+          <div className="settings-button-row">
+            <button type="button" onClick={() => runAction('补全所有歌曲信息', async () => {
+              await window.kmgccc?.completeLibraryMetadata()
+              await onRefreshLibrarySnapshot()
+            })}>补全所有歌曲信息</button>
+            <button type="button" onClick={() => runAction('清除索引缓存', async () => {
+              await window.kmgccc?.clearIndexCache()
+              await onRefreshLibrarySnapshot()
+            })}>清除索引缓存</button>
+            <button type="button" onClick={() => runAction('清除取色缓存', async () => {
+              artworkThemeCache.clear()
+            })}>清除取色缓存</button>
+            <button type="button" onClick={() => runAction('清理外部播放缓存', async () => {
+              await window.kmgccc?.clearExternalPlaybackCache()
+            })}>清理外部播放元数据缓存</button>
+          </div>
+        </SettingsSection>
+        <SettingsSection title="重置">
+          <div className="settings-button-row">
+            <button className="danger" type="button" onClick={() => runAction('初始化应用设置', async () => {
+              const keepTelemetry = window.localStorage.getItem('telemetry.anonymousUsageEnabled')
+              const keepLibrary = window.localStorage.getItem('deferImportEnrichment')
+              window.localStorage.clear()
+              if (keepTelemetry !== null) window.localStorage.setItem('telemetry.anonymousUsageEnabled', keepTelemetry)
+              if (keepLibrary !== null) window.localStorage.setItem('deferImportEnrichment', keepLibrary)
+            }, 'danger')}>初始化应用设置</button>
+            <button className="danger" type="button" onClick={() => runAction('重置音乐播放数据', async () => {
+              window.localStorage.removeItem('playbackOrderMode')
+              window.localStorage.removeItem('shuffleEnabled')
+              window.localStorage.removeItem('repeatMode')
+              window.localStorage.removeItem('stopAfterTrack')
+            }, 'danger')}>重置音乐播放数据</button>
+          </div>
+        </SettingsSection>
+        <SettingsSection title="数据共享">
+          <SettingsSwitch title="帮助改进 kmgccc_player" detail="仅保存匿名统计开关；Windows 版当前不会上传歌曲名、歌词内容、本地路径或账号信息。" checked={telemetryEnabled} onChange={onTelemetryEnabledChange} />
+        </SettingsSection>
+        {settingsActionStatus ? <div className={`settings-action-status ${settingsActionStatus.tone === 'danger' ? 'danger' : ''}`}>{settingsActionStatus.label}</div> : null}
+      </div>
+    </div>
+  )
+})
+
+function DatabaseIcon(): React.ReactElement {
+  return <ArrowDownUp size={18} />
+}
 
 const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent({
   selectedTab,
