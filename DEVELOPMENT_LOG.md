@@ -43,3 +43,4 @@
 - BK dot 可见度微调：dot 窗口改为正常混合，压低底层渐变干扰，提高大小点阵层透明度和轻微对比，保持低饱和但让点阵更清楚。
 - BK dot 调回中值：dot 色相改为浅第一主题色附近，降低反色感；运动 travel 小幅收窄、duration 放慢，对比度和透明度从偏强值回收。
 - BK image/油漆状态染色调整：tinted background 的色阶从浅第一主题色改为深一些的第一主题色到第二主题色，增强刷漆时的色彩分层，dot 状态不受影响。
+- 底部时间条性能隔离：播放进度动画从连续 linear 改为低频 steps，时间条层使用独立 3D 合成和 isolation，普通播放时 React playbackTime 刷新从 8s 降到 30s，减少与 BK shape/dot 动画抢帧。

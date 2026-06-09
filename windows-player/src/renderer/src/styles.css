@@ -3948,9 +3948,11 @@ input {
   z-index: calc(var(--layer-floating-glass) + 1);
   width: clamp(620px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - 48px), 717px);
   height: 102px;
-  transform: translateX(-50%);
+  transform: translate3d(-50%, 0, 0);
   pointer-events: none;
   contain: layout style paint;
+  isolation: isolate;
+  backface-visibility: hidden;
 }
 
 .mini-timeline-fill {
@@ -3964,6 +3966,7 @@ input {
   opacity: 0;
   transform: scaleX(var(--mini-player-progress-ratio, 0));
   transform-origin: left center;
+  backface-visibility: hidden;
   pointer-events: none;
   will-change: transform, opacity;
   transition: opacity 180ms ease;
@@ -3971,7 +3974,7 @@ input {
 
 .mini-timeline-layer.playing .mini-timeline-fill {
   opacity: 0.92;
-  animation: miniProgressRun var(--mini-player-progress-duration, 60s) linear forwards;
+  animation: miniProgressRun var(--mini-player-progress-duration, 60s) steps(90, end) forwards;
 }
 
 .mini-timeline-layer:not(.playing) .mini-timeline-fill {

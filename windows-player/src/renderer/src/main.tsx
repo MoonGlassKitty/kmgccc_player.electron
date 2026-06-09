@@ -2411,7 +2411,7 @@ function App(): React.ReactElement {
     if (!audio) return
     const nextTime = audio.currentTime
     const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : currentTrack?.duration ?? 0
-    const refreshInterval = isLyricsSidebarOpen || isFullscreenLyricsOpen ? 0.25 : 8
+    const refreshInterval = isLyricsSidebarOpen || isFullscreenLyricsOpen ? 0.25 : 30
     if (!audio.paused && Math.abs(nextTime - lastPlaybackTimeRef.current) < refreshInterval) return
     lastPlaybackTimeRef.current = nextTime
     setPlaybackTime(nextTime)
