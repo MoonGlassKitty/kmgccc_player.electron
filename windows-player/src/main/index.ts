@@ -70,6 +70,7 @@ type LocalAudioImport = {
   language?: string
   labelOrCompany?: string
   releaseDate?: string
+  neteaseSongId?: number
   qqMusicSongMid?: string
   metadataFetchedAt?: string
   metadataConfidence?: number
@@ -118,6 +119,7 @@ type NcmMetadata = {
   albumPicDocId?: string
   format?: string
   duration?: number
+  musicId?: number
 }
 
 type NcmConversionResult = {
@@ -268,6 +270,7 @@ type MetadataCandidate = {
   album?: string
   duration?: number
   artworkUrl?: string
+  neteaseSongId?: number
   source: string
   score: number
 }
@@ -279,6 +282,28 @@ type LrcLibResult = {
   plainLyrics?: string | null
   syncedLyrics?: string | null
 }
+
+type AmllDbSearchResult = {
+  title?: string
+  titles?: string[]
+  artist?: string
+  artists?: string[]
+  album?: string | string[]
+  albums?: string[]
+  ncmIds?: Array<string | number>
+  file?: string
+  id?: string
+  score?: number
+}
+
+type NetEaseLyricPayload = {
+  code?: number
+  lrc?: { lyric?: string }
+  tlyric?: { lyric?: string }
+  yrc?: { lyric?: string }
+}
+
+type LyricsLookupResult = Pick<LocalAudioImport, 'lyricsText' | 'syncedLyrics' | 'neteaseSongId'>
 
 function mediaUrlForPath(audioPath: string): string {
   const encodedPath = Buffer.from(audioPath, 'utf8').toString('base64url')
@@ -840,6 +865,7 @@ async function localAudioImportFromPath(audioPath: string): Promise<LocalAudioIm
       album: convertedAlbum || imported.album,
       albumId: ids.albumId,
       duration,
+      neteaseSongId: positiveInteger(converted.metadata?.musicId),
       artworkUrl: converted.artworkUrl || imported.artworkUrl,
       originalSourcePath: converted.originalPath,
       convertedFromNcm: true,
@@ -1183,7 +1209,8 @@ async function fetchNetEaseSongMetadata(track: LocalAudioImport): Promise<Metada
         artist: song.artists?.map((artist) => artist.name).filter(Boolean).join(', '),
         album: song.album?.name?.trim(),
         duration: song.duration ? Math.round(song.duration / 1000) : undefined,
-        artworkUrl: upgradeNetEaseArtworkUrl(song.album?.picUrl)
+        artworkUrl: upgradeNetEaseArtworkUrl(song.album?.picUrl),
+        neteaseSongId: positiveInteger(song.id)
       }
       return {
         ...candidate,
@@ -1451,7 +1478,250 @@ function scoreLyricsCandidate(track: LocalAudioImport, candidate: LrcLibResult):
   return score
 }
 
-async function fetchLyrics(track: LocalAudioImport): Promise<Pick<LocalAudioImport, 'lyricsText' | 'syncedLyrics'> | null> {
+function amllTtmlUrlsForNetEaseSong(songId: number): string[] {
+  return [
+    `https://amll-ttml-db.stevexmh.net/ncm/${songId}`,
+    `https://raw.githubusercontent.com/amll-dev/amll-ttml-db/main/ncm-lyrics/${songId}.ttml`,
+    `https://amlldb.bikonoo.com/ncm-lyrics/${songId}.ttml`,
+    `https://amll.mirror.dimeta.top/api/db/ncm-lyrics/${songId}.ttml`
+  ]
+}
+
+function looksLikeTtmlLyrics(text: string): boolean {
+  return text.length > 120 && /<tt[\s>]/i.test(text) && /<p[\s>]/i.test(text) && /<span[\s>]/i.test(text)
+}
+
+async function fetchAmllTtmlLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
+  const metadata = track.neteaseSongId ? null : await fetchNetEaseSongMetadata(track).catch(() => null)
+  const neteaseSongId = positiveInteger(track.neteaseSongId ?? metadata?.neteaseSongId)
+  if (!neteaseSongId) return null
+
+  for (const url of amllTtmlUrlsForNetEaseSong(neteaseSongId)) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/xml,text/xml,text/plain,*/*',
+          'User-Agent': 'kmgccc-player-electron/0.1.0'
+        },
+        signal: AbortSignal.timeout(12000)
+      })
+      if (!response.ok) continue
+      const text = await response.text()
+      if (looksLikeTtmlLyrics(text)) {
+        return {
+          syncedLyrics: text,
+          neteaseSongId
+        }
+      }
+    } catch {
+      continue
+    }
+  }
+
+  return null
+}
+
+function amllSearchAlbumName(result: AmllDbSearchResult): string | undefined {
+  if (Array.isArray(result.albums)) return result.albums.filter(Boolean).join(' / ')
+  if (Array.isArray(result.album)) return result.album.filter(Boolean).join(' / ')
+  return result.album
+}
+
+function scoreAmllDbLyricsCandidate(track: LocalAudioImport, result: AmllDbSearchResult): number {
+  const titleValues = [result.title, ...(result.titles ?? [])].filter((value): value is string => Boolean(value?.trim()))
+  const artistValues = [result.artist, ...(result.artists ?? [])].filter((value): value is string => Boolean(value?.trim()))
+  const album = amllSearchAlbumName(result)
+  let score = 0
+
+  if (titleValues.length) score += Math.max(...titleValues.map((title) => textSimilarityScore(track.title, title))) * 7
+  if (!isUnknown(track.artist) && artistValues.length) {
+    score += Math.max(...artistValues.map((artist) => textSimilarityScore(track.artist, artist))) * 5
+  }
+  if (!isUnknown(track.album) && album) score += textSimilarityScore(track.album, album) * 2
+  if (track.neteaseSongId && result.ncmIds?.some((id) => positiveInteger(id) === track.neteaseSongId)) score += 6
+  if (result.score && result.score > 0) score += Math.min(1.5, result.score / 1000)
+  return score
+}
+
+function isStrongAmllLyricsMatch(track: LocalAudioImport, result: AmllDbSearchResult, score: number): boolean {
+  if (track.neteaseSongId && result.ncmIds?.some((id) => positiveInteger(id) === track.neteaseSongId)) return true
+  if (score < 6.2) return false
+  const titleValues = [result.title, ...(result.titles ?? [])].filter((value): value is string => Boolean(value?.trim()))
+  if (titleValues.length && Math.max(...titleValues.map((title) => textSimilarityScore(track.title, title))) < 0.72) return false
+  const artistValues = [result.artist, ...(result.artists ?? [])].filter((value): value is string => Boolean(value?.trim()))
+  if (!isUnknown(track.artist) && artistValues.length && Math.max(...artistValues.map((artist) => textSimilarityScore(track.artist, artist))) < 0.45) return false
+  return true
+}
+
+async function searchAmllDbLyrics(track: LocalAudioImport, query: string, type: 'all' | 'title' | 'artist' | 'album' | 'id' | 'lyric'): Promise<AmllDbSearchResult[]> {
+  const trimmedQuery = query.trim()
+  if (!trimmedQuery) return []
+  const response = await fetch('https://amlldb.bikonoo.com/api/search-lyrics', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': 'kmgccc-player-electron/0.1.0'
+    },
+    body: JSON.stringify({ query: trimmedQuery, type }),
+    signal: AbortSignal.timeout(12000)
+  })
+  if (!response.ok) return []
+  const payload = (await response.json()) as unknown
+  if (!Array.isArray(payload)) return []
+  return payload
+    .filter((item): item is AmllDbSearchResult => Boolean(item && typeof item === 'object'))
+    .filter((item) => Boolean((item.file || item.id)?.trim()))
+    .map((item) => ({
+      ...item,
+      score: scoreAmllDbLyricsCandidate(track, item)
+    }))
+}
+
+async function fetchAmllDbSearchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
+  const queries: Array<{ query: string; type: 'all' | 'title' | 'artist' | 'album' | 'id' | 'lyric' }> = []
+  if (track.neteaseSongId) queries.push({ query: String(track.neteaseSongId), type: 'id' })
+  queries.push({ query: track.title, type: 'title' })
+  const artistTitle = [track.title, isUnknown(track.artist) ? '' : track.artist].filter(Boolean).join(' ')
+  if (artistTitle && artistTitle !== track.title) queries.push({ query: artistTitle, type: 'all' })
+
+  const deduped = new Map<string, AmllDbSearchResult>()
+  for (const entry of queries) {
+    const results = await searchAmllDbLyrics(track, entry.query, entry.type).catch(() => [])
+    for (const result of results) {
+      const file = result.file || result.id
+      if (!file) continue
+      const current = deduped.get(file)
+      if (!current || (result.score ?? 0) > (current.score ?? 0)) deduped.set(file, result)
+    }
+  }
+
+  const selected = [...deduped.values()]
+    .filter((result) => isStrongAmllLyricsMatch(track, result, result.score ?? 0))
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
+  const file = selected?.file || selected?.id
+  if (!file) return null
+
+  const response = await fetch(`https://amlldb.bikonoo.com/raw-lyrics/${encodeURIComponent(file)}`, {
+    headers: {
+      'Accept': 'application/xml,text/xml,text/plain,*/*',
+      'User-Agent': 'kmgccc-player-electron/0.1.0'
+    },
+    signal: AbortSignal.timeout(12000)
+  })
+  if (!response.ok) return null
+  const text = await response.text()
+  if (!looksLikeTtmlLyrics(text)) return null
+  return {
+    syncedLyrics: text,
+    neteaseSongId: track.neteaseSongId ?? selected.ncmIds?.map(positiveInteger).find((id): id is number => Boolean(id))
+  }
+}
+
+function formatLyricTimestampFromMs(milliseconds: number): string {
+  const safeMs = Math.max(0, Math.round(milliseconds))
+  const minutes = Math.floor(safeMs / 60000)
+  const seconds = Math.floor((safeMs % 60000) / 1000)
+  const ms = safeMs % 1000
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(ms).padStart(3, '0')}`
+}
+
+function netEaseLyricCreditLineToLrc(line: string): string {
+  const credit = [...line.matchAll(/"tx"\s*:\s*"([^"]*)"/g)].map((match) => match[1]).join('')
+  if (!credit.trim()) return ''
+  const time = Number(line.match(/"t"\s*:\s*(\d+)/)?.[1] ?? 0)
+  return `[${formatLyricTimestampFromMs(time)}]${credit}`
+}
+
+function normalizeNetEaseLrc(lyrics: string): string {
+  return lyrics
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim()
+      if (!trimmed.startsWith('{')) return line
+      return netEaseLyricCreditLineToLrc(trimmed)
+    })
+    .filter((line) => line.trim())
+    .join('\n')
+}
+
+function netEaseYrcToInlineLrc(yrcLyrics: string): string {
+  return yrcLyrics
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const lyricMatch = line.match(/^\[(\d+),(\d+)\](.*)$/)
+      if (!lyricMatch) {
+        return netEaseLyricCreditLineToLrc(line)
+      }
+      const lineStartMs = Number(lyricMatch[1])
+      const words = [...lyricMatch[3].matchAll(/\((\d+),(\d+),\d+\)([^()]*)/g)]
+        .map((match) => {
+          const wordStartMs = Number(match[1])
+          const word = match[3]
+          if (!word) return ''
+          return `<${formatLyricTimestampFromMs(wordStartMs)}>${word}`
+        })
+        .join('')
+      return words ? `[${formatLyricTimestampFromMs(lineStartMs)}]${words}` : ''
+    })
+    .filter(Boolean)
+    .join('\n')
+}
+
+async function fetchNetEaseLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
+  const metadata = track.neteaseSongId ? null : await fetchNetEaseSongMetadata(track).catch(() => null)
+  const neteaseSongId = positiveInteger(track.neteaseSongId ?? metadata?.neteaseSongId)
+  if (!neteaseSongId) return null
+
+  const url = new URL('https://music.163.com/api/song/lyric/v1')
+  url.searchParams.set('id', String(neteaseSongId))
+  url.searchParams.set('lv', '1')
+  url.searchParams.set('kv', '1')
+  url.searchParams.set('tv', '-1')
+  url.searchParams.set('yv', '1')
+  url.searchParams.set('ytv', '1')
+
+  const response = await fetch(url, {
+    headers: {
+      'Referer': 'https://music.163.com/',
+      'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0'
+    },
+    signal: AbortSignal.timeout(12000)
+  })
+  if (!response.ok) return null
+  const payload = (await response.json()) as NetEaseLyricPayload
+  if (payload.yrc?.lyric?.trim()) {
+    const syncedLyrics = netEaseYrcToInlineLrc(payload.yrc.lyric)
+    if (syncedLyrics.trim()) {
+      return {
+        lyricsText: payload.lrc?.lyric ? normalizeNetEaseLrc(payload.lrc.lyric) : payload.tlyric?.lyric || undefined,
+        syncedLyrics,
+        neteaseSongId
+      }
+    }
+  }
+  const lrcLyrics = payload.lrc?.lyric?.trim()
+  if (lrcLyrics) {
+    return {
+      lyricsText: payload.tlyric?.lyric || undefined,
+      syncedLyrics: normalizeNetEaseLrc(lrcLyrics),
+      neteaseSongId
+    }
+  }
+  return null
+}
+
+async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
+  const amllLyrics = await fetchAmllTtmlLyrics(track)
+  if (amllLyrics) return amllLyrics
+
+  const amllSearchLyrics = await fetchAmllDbSearchLyrics(track).catch(() => null)
+  if (amllSearchLyrics) return amllSearchLyrics
+
+  const netEaseLyrics = await fetchNetEaseLyrics(track).catch(() => null)
+  if (netEaseLyrics) return netEaseLyrics
+
   const url = new URL('https://lrclib.net/api/search')
   url.searchParams.set('track_name', track.title)
   if (!isUnknown(track.artist)) url.searchParams.set('artist_name', track.artist)
@@ -1471,7 +1741,8 @@ async function fetchLyrics(track: LocalAudioImport): Promise<Pick<LocalAudioImpo
   if (!selected) return null
   return {
     lyricsText: selected.plainLyrics ?? undefined,
-    syncedLyrics: selected.syncedLyrics ?? undefined
+    syncedLyrics: selected.syncedLyrics ?? undefined,
+    neteaseSongId: track.neteaseSongId
   }
 }
 
@@ -1492,7 +1763,8 @@ async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSync
         ? {
           ...syncedTrack,
           duration: syncedTrack.duration || metadata.duration || syncedTrack.duration,
-          artworkUrl: syncedTrack.artworkUrl || metadata.artworkUrl
+          artworkUrl: syncedTrack.artworkUrl || metadata.artworkUrl,
+          neteaseSongId: syncedTrack.neteaseSongId ?? metadata.neteaseSongId
         }
         : {
           ...syncedTrack,
@@ -1501,6 +1773,7 @@ async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSync
           album: metadata.album?.trim() || syncedTrack.album,
           duration: metadata.duration || syncedTrack.duration,
           artworkUrl: metadata.artworkUrl || syncedTrack.artworkUrl,
+          neteaseSongId: metadata.neteaseSongId ?? syncedTrack.neteaseSongId,
           metadataSource: metadata.source
         }
       const ids = idsForMetadata(syncedTrack.artist, syncedTrack.album)
@@ -1949,6 +2222,7 @@ ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, un
   const artist = typeof values.artist === 'string' ? values.artist.trim() : ''
   const album = typeof values.album === 'string' ? values.album.trim() : ''
   const duration = typeof values.duration === 'number' && Number.isFinite(values.duration) ? values.duration : 0
+  const neteaseSongId = positiveInteger(values.neteaseSongId)
   if (!title) return null
   const ids = idsForMetadata(artist || '未知艺人', album || '未知专辑')
   return fetchLyrics({
@@ -1959,6 +2233,7 @@ ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, un
     album: album || '未知专辑',
     albumId: ids.albumId,
     duration,
+    neteaseSongId,
     sourcePath: '',
     sourceUrl: ''
   })

@@ -138,3 +138,5 @@
 - 艺术封面 BPM 律动稳定性修正：封面描边 RAF 不再依赖 `playbackTime` 状态，避免歌词界面展开后频繁重建循环导致节拍乱跳；渐进检测只发布初始候选和连续接近的稳定候选，避免后续单段误判 BPM 直接把律动拉快。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL 歌词行宽修正：放宽侧栏与全屏 AMLL 的 `--amll-lp-line-width-aspect`，并按 performance/balanced 降采样比例补偿行宽，避免右侧实际有空间但歌词过早换行。`npm run typecheck` 与 `npm run build` 已通过。
 - 艺术封面 BPM 视觉提前：封面描边节拍判定读取音频时间时增加 100ms 视觉提前量，让专辑描边切换更贴近听感，不改 BPM 检测与缓存结果。`npm run typecheck` 与 `npm run build` 已通过。
+- AMLL/网易云逐字歌词源接入：为本地曲目保存 `neteaseSongId`，NCM 解包读取 `musicId`、网易云元数据匹配保存 song id；歌词补全先按 NCM ID 请求 AMLL TTML DB 的 raw/bikonoo/dimeta 镜像，失败后接网易云 lyric v1，若返回 yrc 则转成现有 parser 可吃的逐字增强 LRC，最后再回退 LRCLIB。`npm run typecheck` 与 `npm run build` 已通过。
+- AMLL DB 歌词搜索源补齐：按站点前端实际接口 `POST /api/search-lyrics` 增加 title/all/id 搜索，并从 `/raw-lyrics/{file}` 下载 TTML；搜索结果用标题、歌手、专辑和 NCM ID 打分过滤，直链镜像补上 `amll-ttml-db.stevexmh.net/ncm/{id}`，避免本地曲目没有 NCM ID 或直链缺失时直接掉到无歌词。`npm run typecheck` 与 `npm run build` 已通过。

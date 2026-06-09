@@ -110,6 +110,7 @@ type Track = {
   language?: string
   labelOrCompany?: string
   releaseDate?: string
+  neteaseSongId?: number
   qqMusicSongMid?: string
   metadataFetchedAt?: string
   metadataConfidence?: number
