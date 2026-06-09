@@ -337,7 +337,8 @@ type VisualizerMode = 'off' | 'led' | 'spectrum'
 type AppleMeshSpeed = 'slow' | 'standard' | 'fast'
 type LyricsBackgroundMode = 'clear' | 'sidebar'
 type HomeCardMaterialMode = 'liquidGlass' | 'frostedGlass' | 'solid'
-type HomeSectionID = 'featured' | 'artists' | 'albums' | 'playlists' | 'stats'
+type HomeSectionID = 'featured' | 'artists' | 'albums' | 'playlists' | 'listeningFootprint'
+type ManualAppearanceMode = 'light' | 'dark'
 type LibraryLocationInfo = {
   currentPath: string
   isDefault: boolean
@@ -384,7 +385,7 @@ const homeSectionOptions: Array<{ id: HomeSectionID; title: string }> = [
   { id: 'artists', title: '艺人' },
   { id: 'albums', title: '专辑' },
   { id: 'playlists', title: '播放列表' },
-  { id: 'stats', title: '音乐足迹' }
+  { id: 'listeningFootprint', title: '音乐足迹' }
 ]
 const defaultHomeSectionOrder: HomeSectionID[] = homeSectionOptions.map((section) => section.id)
 
@@ -573,7 +574,9 @@ function storedHomeSectionOrder(): HomeSectionID[] {
     const rawValue = window.localStorage.getItem('homeSectionOrder')
     const parsed = rawValue ? JSON.parse(rawValue) : []
     if (!Array.isArray(parsed)) return defaultHomeSectionOrder
-    const normalized = parsed.filter((value): value is HomeSectionID => defaultHomeSectionOrder.includes(value as HomeSectionID))
+    const normalized = parsed
+      .map((value) => (value === 'stats' ? 'listeningFootprint' : value))
+      .filter((value): value is HomeSectionID => defaultHomeSectionOrder.includes(value as HomeSectionID))
     const missing = defaultHomeSectionOrder.filter((value) => !normalized.includes(value))
     return [...normalized, ...missing]
   } catch {
@@ -1758,6 +1761,7 @@ function App(): React.ReactElement {
   const [globalArtworkTintEnabled, setGlobalArtworkTintEnabled] = React.useState(() => storedBoolean('globalArtworkTintEnabled', true))
   const [dockProgressVisible, setDockProgressVisible] = React.useState(() => storedBoolean('dockProgressVisible', true))
   const [followSystemAppearance, setFollowSystemAppearance] = React.useState(() => storedBoolean('followSystemAppearance', true))
+  const [manualAppearance, setManualAppearance] = React.useState<ManualAppearanceMode>(() => storedString('manualAppearance', 'dark', ['light', 'dark']))
   const [lyricsBackgroundMode, setLyricsBackgroundMode] = React.useState<LyricsBackgroundMode>(() => storedString('lyricsBackgroundMode', 'sidebar', ['clear', 'sidebar']))
   const [homeCardMaterialMode, setHomeCardMaterialMode] = React.useState<HomeCardMaterialMode>(() => storedString('homeCardMaterialMode', 'liquidGlass', ['liquidGlass', 'frostedGlass', 'solid']))
   const [homeSectionOrder, setHomeSectionOrder] = React.useState<HomeSectionID[]>(() => storedHomeSectionOrder())
@@ -1925,6 +1929,10 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     persistSetting('followSystemAppearance', followSystemAppearance)
   }, [followSystemAppearance])
+
+  React.useEffect(() => {
+    persistSetting('manualAppearance', manualAppearance)
+  }, [manualAppearance])
 
   React.useEffect(() => {
     persistSetting('lyricsBackgroundMode', lyricsBackgroundMode)
@@ -2648,7 +2656,7 @@ function App(): React.ReactElement {
 
   return (
     <div
-      className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''} lyrics-bg-${lyricsBackgroundMode} ${followSystemAppearance ? 'appearance-system' : 'appearance-manual'}`}
+      className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''} lyrics-bg-${lyricsBackgroundMode} ${followSystemAppearance ? 'appearance-system' : `appearance-manual appearance-${manualAppearance}`}`}
       style={desktopStyle}
     >
       <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
@@ -2786,6 +2794,8 @@ function App(): React.ReactElement {
             onDockProgressVisibleChange={setDockProgressVisible}
             followSystemAppearance={followSystemAppearance}
             onFollowSystemAppearanceChange={setFollowSystemAppearance}
+            manualAppearance={manualAppearance}
+            onManualAppearanceChange={setManualAppearance}
             lyricsBackgroundMode={lyricsBackgroundMode}
             onLyricsBackgroundModeChange={setLyricsBackgroundMode}
             homeCardMaterialMode={homeCardMaterialMode}
@@ -5349,6 +5359,8 @@ const SettingsPanel = React.memo(function SettingsPanel({
   onDockProgressVisibleChange,
   followSystemAppearance,
   onFollowSystemAppearanceChange,
+  manualAppearance,
+  onManualAppearanceChange,
   lyricsBackgroundMode,
   onLyricsBackgroundModeChange,
   homeCardMaterialMode,
@@ -5460,6 +5472,8 @@ const SettingsPanel = React.memo(function SettingsPanel({
   onDockProgressVisibleChange: (enabled: boolean) => void
   followSystemAppearance: boolean
   onFollowSystemAppearanceChange: (enabled: boolean) => void
+  manualAppearance: ManualAppearanceMode
+  onManualAppearanceChange: (mode: ManualAppearanceMode) => void
   lyricsBackgroundMode: LyricsBackgroundMode
   onLyricsBackgroundModeChange: (mode: LyricsBackgroundMode) => void
   homeCardMaterialMode: HomeCardMaterialMode
@@ -5590,6 +5604,8 @@ const SettingsPanel = React.memo(function SettingsPanel({
               onDockProgressVisibleChange={onDockProgressVisibleChange}
               followSystemAppearance={followSystemAppearance}
               onFollowSystemAppearanceChange={onFollowSystemAppearanceChange}
+              manualAppearance={manualAppearance}
+              onManualAppearanceChange={onManualAppearanceChange}
               lyricsBackgroundMode={lyricsBackgroundMode}
               onLyricsBackgroundModeChange={onLyricsBackgroundModeChange}
               homeCardMaterialMode={homeCardMaterialMode}
@@ -5728,6 +5744,8 @@ const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent(
   onDockProgressVisibleChange,
   followSystemAppearance,
   onFollowSystemAppearanceChange,
+  manualAppearance,
+  onManualAppearanceChange,
   lyricsBackgroundMode,
   onLyricsBackgroundModeChange,
   homeCardMaterialMode,
@@ -5741,6 +5759,8 @@ const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent(
   onDockProgressVisibleChange: (enabled: boolean) => void
   followSystemAppearance: boolean
   onFollowSystemAppearanceChange: (enabled: boolean) => void
+  manualAppearance: ManualAppearanceMode
+  onManualAppearanceChange: (mode: ManualAppearanceMode) => void
   lyricsBackgroundMode: LyricsBackgroundMode
   onLyricsBackgroundModeChange: (mode: LyricsBackgroundMode) => void
   homeCardMaterialMode: HomeCardMaterialMode
@@ -5748,14 +5768,71 @@ const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent(
   homeSectionOrder: HomeSectionID[]
   onHomeSectionOrderChange: (order: HomeSectionID[]) => void
 }): React.ReactElement {
-  const moveSection = (section: HomeSectionID, direction: -1 | 1): void => {
-    const index = homeSectionOrder.indexOf(section)
-    const target = index + direction
-    if (index < 0 || target < 0 || target >= homeSectionOrder.length) return
-    const nextOrder = [...homeSectionOrder]
-    const [item] = nextOrder.splice(index, 1)
-    nextOrder.splice(target, 0, item)
-    onHomeSectionOrderChange(nextOrder)
+  const orderRef = React.useRef(homeSectionOrder)
+  const dragStartIndexRef = React.useRef(0)
+  const dragLastTargetIndexRef = React.useRef(0)
+  const dragStartXRef = React.useRef(0)
+  const dragStartYRef = React.useRef(0)
+  const [draggingSection, setDraggingSection] = React.useState<HomeSectionID | null>(null)
+  const [dragFloatingX, setDragFloatingX] = React.useState(0)
+  const [dragFloatingY, setDragFloatingY] = React.useState(0)
+  const homeRowHeight = 40
+  const homeRowSpacing = 6
+  const homeRowStride = homeRowHeight + homeRowSpacing
+
+  React.useEffect(() => {
+    orderRef.current = homeSectionOrder
+  }, [homeSectionOrder])
+
+  const beginSectionDrag = (event: React.PointerEvent, section: HomeSectionID): void => {
+    event.preventDefault()
+    event.stopPropagation()
+    const startIndex = orderRef.current.indexOf(section)
+    if (startIndex < 0) return
+    dragStartIndexRef.current = startIndex
+    dragLastTargetIndexRef.current = startIndex
+    dragStartXRef.current = event.clientX
+    dragStartYRef.current = event.clientY
+    setDraggingSection(section)
+    setDragFloatingX(0)
+    setDragFloatingY(startIndex * homeRowStride)
+
+    const handleMove = (moveEvent: PointerEvent): void => {
+      const translationX = moveEvent.clientX - dragStartXRef.current
+      const translationY = moveEvent.clientY - dragStartYRef.current
+      const nextFloatingY = dragStartIndexRef.current * homeRowStride + translationY
+      const nextFloatingX = clampNumber(translationX * 0.45, -28, 28)
+      setDragFloatingY(nextFloatingY)
+      setDragFloatingX(nextFloatingX)
+
+      const centerY = nextFloatingY + homeRowHeight / 2
+      const target = clampNumber(Math.floor(centerY / homeRowStride), 0, orderRef.current.length - 1)
+      if (target === dragLastTargetIndexRef.current) return
+      dragLastTargetIndexRef.current = target
+
+      const current = orderRef.current.indexOf(section)
+      if (current < 0 || current === target) return
+      const nextOrder = [...orderRef.current]
+      const [item] = nextOrder.splice(current, 1)
+      nextOrder.splice(target > current ? target : target, 0, item)
+      orderRef.current = nextOrder
+      onHomeSectionOrderChange(nextOrder)
+    }
+
+    const handleUp = (): void => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+      const finalIndex = orderRef.current.indexOf(section)
+      setDragFloatingX(0)
+      setDragFloatingY((finalIndex >= 0 ? finalIndex : dragStartIndexRef.current) * homeRowStride)
+      window.setTimeout(() => {
+        setDraggingSection(null)
+        setDragFloatingX(0)
+      }, 160)
+    }
+
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
   }
 
   return (
@@ -5769,6 +5846,10 @@ const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent(
           <SettingsSwitch title="全局取色" detail="开启后重点色跟随当前歌曲封面，关闭后使用默认主题色。" checked={globalArtworkTintEnabled} onChange={onGlobalArtworkTintEnabledChange} />
           <SettingsSwitch title="Dock 播放进度" detail="开启后底部状态栏显示当前歌曲进度垫层。" checked={dockProgressVisible} onChange={onDockProgressVisibleChange} />
           <SettingsSwitch title="深色/浅色跟随系统" detail="开启后跟随系统深浅色；关闭后保留当前手动外观状态。" checked={followSystemAppearance} onChange={onFollowSystemAppearanceChange} />
+          <SettingsSegment title="手动外观" values={['light', 'dark']} labels={['浅色', '深色']} selected={manualAppearance} onSelect={(value) => {
+            onFollowSystemAppearanceChange(false)
+            onManualAppearanceChange(value as ManualAppearanceMode)
+          }} />
           <div className="settings-divider" />
           <SettingsSegment title="歌词卡片背景" values={['clear', 'sidebar']} labels={['磨砂玻璃', '液态玻璃']} selected={lyricsBackgroundMode} onSelect={(value) => onLyricsBackgroundModeChange(value as LyricsBackgroundMode)} />
           <SettingsSegment title="主页卡片材质" values={['liquidGlass', 'frostedGlass', 'solid']} labels={['液态玻璃', '磨砂玻璃', '普通']} selected={homeCardMaterialMode} onSelect={(value) => onHomeCardMaterialModeChange(value as HomeCardMaterialMode)} />
@@ -5778,21 +5859,29 @@ const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent(
           action={<button className="settings-text-action" type="button" onClick={() => onHomeSectionOrderChange(defaultHomeSectionOrder)}>恢复默认顺序</button>}
         >
           <small className="settings-description">按照 Swift 的 HomeSection 顺序保存；调整后主页立即按新顺序排布。</small>
-          <div className="settings-order-list">
+          <div className="settings-order-list" style={{ '--settings-order-row-height': `${homeRowHeight}px`, '--settings-order-row-spacing': `${homeRowSpacing}px` } as React.CSSProperties}>
             {homeSectionOrder.map((section, index) => {
               const option = homeSectionOptions.find((item) => item.id === section)
               return (
-                <div className="settings-order-row" key={section}>
+                <div className={`settings-order-row ${draggingSection === section ? 'dragging' : ''}`} key={section}>
                   <span>{option?.title ?? section}</span>
-                  <button type="button" aria-label="上移" disabled={index === 0} onClick={() => moveSection(section, -1)}>
-                    <ChevronLeft size={15} />
-                  </button>
-                  <button type="button" aria-label="下移" disabled={index === homeSectionOrder.length - 1} onClick={() => moveSection(section, 1)}>
-                    <ChevronRight size={15} />
+                  <button type="button" aria-label="拖动调整顺序" onPointerDown={(event) => beginSectionDrag(event, section)}>
+                    <ArrowDownUp size={15} />
                   </button>
                 </div>
               )
             })}
+            {draggingSection ? (
+              <div
+                className="settings-order-row floating"
+                style={{ transform: `translate3d(${dragFloatingX}px, ${dragFloatingY}px, 0)` }}
+              >
+                <span>{homeSectionOptions.find((item) => item.id === draggingSection)?.title ?? draggingSection}</span>
+                <button type="button" aria-label="正在拖动">
+                  <ArrowDownUp size={15} />
+                </button>
+              </div>
+            ) : null}
           </div>
         </SettingsSection>
       </div>
@@ -6010,6 +6099,10 @@ const DataSettingsContent = React.memo(function DataSettingsContent({
       onSettingsActionStatusChange({ label: `${label}失败`, tone: 'danger' })
     }
   }
+  const requireKmgccc = (): NonNullable<Window['kmgccc']> => {
+    if (!window.kmgccc) throw new Error('Electron IPC unavailable')
+    return window.kmgccc
+  }
   return (
     <div className="settings-now-playing">
       <header className="settings-header-label">
@@ -6021,19 +6114,20 @@ const DataSettingsContent = React.memo(function DataSettingsContent({
           <code className="settings-path-label">{libraryLocationInfo?.currentPath ?? '正在读取资料库位置'}</code>
           <div className="settings-button-row">
             <button type="button" onClick={() => runAction('更改位置', async () => {
-              const info = await window.kmgccc?.chooseLibraryLocation()
-              if (info) onLibraryLocationInfoChange(info)
+              const info = await requireKmgccc().chooseLibraryLocation()
+              onLibraryLocationInfoChange(info)
               await onRefreshLibrarySnapshot()
             })}>更改位置</button>
             <button type="button" onClick={() => runAction('打开资料库', async () => {
-              await window.kmgccc?.showLibraryLocation()
+              await requireKmgccc().showLibraryLocation()
             })}>在文件管理器中显示</button>
             <button type="button" onClick={() => runAction('重新扫描资料库', async () => {
+              requireKmgccc()
               await onRefreshLibrarySnapshot()
             })}>重新扫描资料库</button>
             <button type="button" disabled={libraryLocationInfo?.isDefault} onClick={() => runAction('恢复默认位置', async () => {
-              const info = await window.kmgccc?.resetLibraryLocation()
-              if (info) onLibraryLocationInfoChange(info)
+              const info = await requireKmgccc().resetLibraryLocation()
+              onLibraryLocationInfoChange(info)
               await onRefreshLibrarySnapshot()
             })}>恢复默认位置</button>
           </div>
@@ -6044,18 +6138,18 @@ const DataSettingsContent = React.memo(function DataSettingsContent({
         <SettingsSection title="补全与缓存">
           <div className="settings-button-row">
             <button type="button" onClick={() => runAction('补全所有歌曲信息', async () => {
-              await window.kmgccc?.completeLibraryMetadata()
+              await requireKmgccc().completeLibraryMetadata()
               await onRefreshLibrarySnapshot()
             })}>补全所有歌曲信息</button>
             <button type="button" onClick={() => runAction('清除索引缓存', async () => {
-              await window.kmgccc?.clearIndexCache()
+              await requireKmgccc().clearIndexCache()
               await onRefreshLibrarySnapshot()
             })}>清除索引缓存</button>
             <button type="button" onClick={() => runAction('清除取色缓存', async () => {
               artworkThemeCache.clear()
             })}>清除取色缓存</button>
             <button type="button" onClick={() => runAction('清理外部播放缓存', async () => {
-              await window.kmgccc?.clearExternalPlaybackCache()
+              await requireKmgccc().clearExternalPlaybackCache()
             })}>清理外部播放元数据缓存</button>
           </div>
         </SettingsSection>
@@ -6067,6 +6161,7 @@ const DataSettingsContent = React.memo(function DataSettingsContent({
               window.localStorage.clear()
               if (keepTelemetry !== null) window.localStorage.setItem('telemetry.anonymousUsageEnabled', keepTelemetry)
               if (keepLibrary !== null) window.localStorage.setItem('deferImportEnrichment', keepLibrary)
+              window.setTimeout(() => window.location.reload(), 300)
             }, 'danger')}>初始化应用设置</button>
             <button className="danger" type="button" onClick={() => runAction('重置音乐播放数据', async () => {
               window.localStorage.removeItem('playbackOrderMode')

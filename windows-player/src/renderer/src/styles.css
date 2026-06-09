@@ -706,6 +706,51 @@ input {
   background: rgba(12, 16, 20, 0.10);
 }
 
+.appearance-manual.appearance-dark {
+  color-scheme: dark;
+  background:
+    radial-gradient(circle at 22% 16%, rgba(75, 116, 135, 0.22), transparent 34%),
+    linear-gradient(135deg, #172029, #27323a 48%, #1a2026);
+}
+
+.appearance-manual.appearance-dark .settings-window {
+  background: #1f262c;
+}
+
+.appearance-manual.appearance-dark .settings-sidebar {
+  background: #252d33;
+}
+
+.appearance-manual.appearance-dark .settings-detail,
+.appearance-manual.appearance-dark .settings-sidebar,
+.appearance-manual.appearance-dark .settings-sidebar button,
+.appearance-manual.appearance-dark .settings-card-section,
+.appearance-manual.appearance-dark .settings-switch-row,
+.appearance-manual.appearance-dark .settings-range-row,
+.appearance-manual.appearance-dark .settings-segment-row,
+.appearance-manual.appearance-dark .settings-select-row {
+  color: rgba(246, 250, 252, 0.88);
+}
+
+.appearance-manual.appearance-dark .settings-sidebar::before,
+.appearance-manual.appearance-dark .settings-header-label,
+.appearance-manual.appearance-dark .settings-card-section > strong {
+  color: rgba(250, 252, 253, 0.94);
+}
+
+.appearance-manual.appearance-dark .settings-card-section,
+.appearance-manual.appearance-dark .settings-tabs,
+.appearance-manual.appearance-dark .settings-segment-row > div,
+.appearance-manual.appearance-dark .settings-skin-row {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.appearance-manual.appearance-dark .settings-description,
+.appearance-manual.appearance-dark .settings-switch-row small,
+.appearance-manual.appearance-dark .settings-range-row small {
+  color: rgba(246, 250, 252, 0.56);
+}
+
 .settings-window {
   width: min(1200px, calc(100vw - 16px));
   height: min(1040px, calc(100vh - 16px));
@@ -1072,21 +1117,54 @@ input {
 }
 
 .settings-order-list {
+  position: relative;
   display: grid;
-  gap: 8px;
+  gap: var(--settings-order-row-spacing, 6px);
 }
 
 .settings-order-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px 34px;
+  grid-template-columns: minmax(0, 1fr) 34px;
   align-items: center;
   gap: 8px;
-  min-height: 42px;
+  height: var(--settings-order-row-height, 40px);
   padding: 0 8px 0 14px;
-  border-radius: 12px;
+  border-radius: 999px;
   color: #16232b;
   background: rgba(255, 255, 255, 0.74);
   box-shadow: 0 0 0 1px rgba(18, 28, 36, 0.06) inset;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease,
+    opacity 120ms ease;
+}
+
+.settings-order-row.dragging {
+  color: transparent;
+  background: rgba(38, 53, 64, 0.035);
+  box-shadow: 0 0 0 1px rgba(38, 53, 64, 0.12) inset;
+}
+
+.settings-order-row.dragging > * {
+  opacity: 0;
+}
+
+.settings-order-row.floating {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: 100%;
+  color: #102d3b;
+  background: rgba(255, 255, 255, 0.56);
+  backdrop-filter: url(#lg-circle);
+  -webkit-backdrop-filter: url(#lg-circle);
+  box-shadow:
+    0 18px 42px rgba(14, 31, 39, 0.13),
+    0 1px 15px rgba(0, 0, 0, 0.055) inset,
+    0 -1px 12px rgba(255, 255, 255, 0.18) inset;
+  transition: none;
+  pointer-events: none;
 }
 
 .settings-order-row span {

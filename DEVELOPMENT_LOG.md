@@ -50,3 +50,4 @@
 - Home 性能优化：滚动状态改为 DOM class，不再触发 React 重渲染；home 点缀从每帧 canvas 重绘改为一次性染色贴图 + DOM transform 合成，保留玻璃参数和点缀外观，自动滚动采样约从 36fps 提升到 51fps。
 - 左右侧大玻璃调厚：`lg-sidebar` blur 从 2.4 提到 3.2，左导航栏和右歌词栏乳白 alpha 从 0.38 提到 0.48，边缘白度同步提高。
 - 设置页按 Swift 继续翻译：外观页接入全局取色、底栏进度、跟随系统、歌词背景、主页卡片材质和主页板块顺序；全屏播放页复用窗口播放的皮肤/歌词/LED 结构但保存独立 fullscreen key；音频页接入 `lookaheadMs` 视觉时钟补偿；数据页接入资料库位置、延后导入补全、批量补全、缓存清理、重置和匿名统计开关。`npm run typecheck` 与 `npm run build` 已通过。
+- 继续按 Swift 完善外观设置：主页板块顺序 raw id 改为 `listeningFootprint` 并兼容旧 `stats`；排序控件从上/下按钮改为 pointer 拖拽、占位胶囊和浮动跟手行；补上 `manualAppearance` 手动浅/深色状态和视觉反馈；数据页按钮不再在 IPC 不可用时静默成功，初始化设置后会刷新应用。`npm run typecheck` 与 `npm run build` 已通过。
