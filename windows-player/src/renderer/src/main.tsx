@@ -329,20 +329,34 @@ function createArtworkThumbnail(artworkUrl: string, maxSize: number): Promise<st
 }
 
 function useArtworkThumbnail(artworkUrl: string, maxSize: number): string {
-  const [thumbnail, setThumbnail] = React.useState<string | null>(null)
+  const cacheKey = `${maxSize}:${artworkUrl}`
+  const [thumbnailState, setThumbnailState] = React.useState<{ key: string; thumbnail: string | null }>(() => {
+    const cached = artworkThumbnailCache.get(cacheKey)
+    return {
+      key: cacheKey,
+      thumbnail: typeof cached === 'string' ? cached : null
+    }
+  })
 
   React.useEffect(() => {
     let cancelled = false
-    setThumbnail(null)
+    const cached = artworkThumbnailCache.get(cacheKey)
+    if (typeof cached === 'string') {
+      setThumbnailState({ key: cacheKey, thumbnail: cached })
+      return () => {
+        cancelled = true
+      }
+    }
+    setThumbnailState({ key: cacheKey, thumbnail: null })
     void createArtworkThumbnail(artworkUrl, maxSize).then((nextThumbnail) => {
-      if (!cancelled) setThumbnail(nextThumbnail)
+      if (!cancelled) setThumbnailState({ key: cacheKey, thumbnail: nextThumbnail })
     })
     return () => {
       cancelled = true
     }
-  }, [artworkUrl, maxSize])
+  }, [artworkUrl, cacheKey, maxSize])
 
-  return thumbnail || artworkUrl
+  return thumbnailState.key === cacheKey && thumbnailState.thumbnail ? thumbnailState.thumbnail : artworkUrl
 }
 
 const ArtworkImage = React.memo(function ArtworkImage({
@@ -647,6 +661,22 @@ function storedString<T extends string>(key: string, fallback: T, allowed: reado
     return fallback
   }
   return fallback
+}
+
+function storedHomeCardMaterialMode(): HomeCardMaterialMode {
+  try {
+    const migrated = window.localStorage.getItem('homeCardMaterialModeDefaultMigrated') === 'true'
+    const value = window.localStorage.getItem('homeCardMaterialMode')
+    if (!migrated && (!value || value === 'liquidGlass')) {
+      window.localStorage.setItem('homeCardMaterialModeDefaultMigrated', 'true')
+      window.localStorage.setItem('homeCardMaterialMode', 'frostedGlass')
+      return 'frostedGlass'
+    }
+    if (value === 'liquidGlass' || value === 'frostedGlass' || value === 'solid') return value
+  } catch {
+    return 'frostedGlass'
+  }
+  return 'frostedGlass'
 }
 
 function storedVisualizerMode(): 'off' | 'led' | 'spectrum' {
@@ -1644,6 +1674,9 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
     if (!root) return
 
     let frame = 0
+    let scrollSamplingFrame = 0
+    let scrollIdleTimer = 0
+    let isScrollSampling = false
     let scrollElement: HTMLElement | null = null
     let sidebarElement: HTMLElement | null = null
     let lyricsElement: HTMLElement | null = null
@@ -1768,6 +1801,36 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
       frame = window.requestAnimationFrame(applyTransforms)
     }
 
+    const stopScrollSampling = (): void => {
+      isScrollSampling = false
+      if (scrollSamplingFrame) {
+        window.cancelAnimationFrame(scrollSamplingFrame)
+        scrollSamplingFrame = 0
+      }
+    }
+
+    const sampleScrollWhileActive = (): void => {
+      scrollSamplingFrame = 0
+      if (!isScrollSampling) return
+      if (frame) {
+        window.cancelAnimationFrame(frame)
+        frame = 0
+      }
+      applyTransforms()
+      scrollSamplingFrame = window.requestAnimationFrame(sampleScrollWhileActive)
+    }
+
+    const startScrollSampling = (): void => {
+      if (!isActive || reducedMotion) {
+        requestApply()
+        return
+      }
+      isScrollSampling = true
+      if (!scrollSamplingFrame) {
+        scrollSamplingFrame = window.requestAnimationFrame(sampleScrollWhileActive)
+      }
+    }
+
     const updateLayoutMetrics = (): void => {
       const rootRect = root.getBoundingClientRect()
       if (rootRect.width <= 0 || rootRect.height <= 0) {
@@ -1805,7 +1868,13 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
     }
 
     const handleScroll = (): void => {
-      requestApply()
+      startScrollSampling()
+      if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer)
+      scrollIdleTimer = window.setTimeout(() => {
+        scrollIdleTimer = 0
+        stopScrollSampling()
+        requestApply()
+      }, 160)
     }
 
     const bindScrollElement = (): void => {
@@ -1864,6 +1933,8 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 
     return () => {
       window.clearTimeout(bindTimer)
+      if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer)
+      stopScrollSampling()
       if (frame) window.cancelAnimationFrame(frame)
       scrollElement?.removeEventListener('scroll', handleScroll)
       themeObserver.disconnect()
@@ -1907,7 +1978,7 @@ function App(): React.ReactElement {
   const [followSystemAppearance, setFollowSystemAppearance] = React.useState(() => storedBoolean('followSystemAppearance', true))
   const [manualAppearance, setManualAppearance] = React.useState<ManualAppearanceMode>(() => storedString('manualAppearance', 'dark', ['light', 'dark']))
   const [lyricsBackgroundMode, setLyricsBackgroundMode] = React.useState<LyricsBackgroundMode>(() => storedString('lyricsBackgroundMode', 'sidebar', ['clear', 'sidebar']))
-  const [homeCardMaterialMode, setHomeCardMaterialMode] = React.useState<HomeCardMaterialMode>(() => storedString('homeCardMaterialMode', 'liquidGlass', ['liquidGlass', 'frostedGlass', 'solid']))
+  const [homeCardMaterialMode, setHomeCardMaterialMode] = React.useState<HomeCardMaterialMode>(() => storedHomeCardMaterialMode())
   const [homeSectionOrder, setHomeSectionOrder] = React.useState<HomeSectionID[]>(() => storedHomeSectionOrder())
   const [selectedNowPlayingSkin, setSelectedNowPlayingSkin] = React.useState<NowPlayingSkinID>(() => storedNowPlayingSkin())
   const [isNowPlayingArtBackgroundEnabled, setIsNowPlayingArtBackgroundEnabled] = React.useState(() => storedBoolean('nowPlayingArtBackgroundEnabled', true))
@@ -4109,7 +4180,7 @@ const HomePage = React.memo(function HomePage({
                 onClick={() => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
               >
                 {artist.artworkUrl ? (
-                  <ArtworkImage src={artist.artworkUrl} maxSize={220} alt="" loading="lazy" />
+                  <ArtworkImage src={artist.artworkUrl} maxSize={220} alt="" loading="eager" />
                 ) : (
                   <span className="artist-avatar">{artist.name}</span>
                 )}
@@ -4131,7 +4202,7 @@ const HomePage = React.memo(function HomePage({
                 type="button"
                 onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
               >
-                <ArtworkImage src={albumArtworkFor(album)} maxSize={260} alt="" loading="lazy" />
+                <ArtworkImage src={albumArtworkFor(album)} maxSize={260} alt="" loading="eager" />
                 <strong>{album.title}</strong>
                 <span>{album.artist}</span>
               </button>
@@ -4151,7 +4222,7 @@ const HomePage = React.memo(function HomePage({
                 type="button"
                 onClick={() => onNavigate({ name: 'playlistDetail', id: playlist.id, title: playlist.name })}
               >
-                <ArtworkImage className={`home-playlist-artwork ${isImportedPlaylist(playlist) ? 'generated' : 'logo'}`} src={playlistArtworkFor(playlist)} maxSize={96} style={playlistArtworkStyle(playlist)} alt="" loading="lazy" />
+                <ArtworkImage className={`home-playlist-artwork ${isImportedPlaylist(playlist) ? 'generated' : 'logo'}`} src={playlistArtworkFor(playlist)} maxSize={96} style={playlistArtworkStyle(playlist)} alt="" loading="eager" />
                 <span>
                   <strong>{playlist.name}</strong>
                   <small>{playlist.trackCount} 首</small>
@@ -4171,7 +4242,7 @@ const HomePage = React.memo(function HomePage({
         className={`home-scroll-content ${homeScroll.elasticOffset !== 0 ? 'elastic-active' : ''} ${
           homeScroll.isSettling ? 'settling' : ''
         }`}
-        style={{ transform: `translate3d(0, ${homeScroll.elasticOffset}px, 0)` }}
+        style={homeScroll.elasticOffset !== 0 ? { transform: `translate3d(0, ${homeScroll.elasticOffset}px, 0)` } : undefined}
       >
         {sectionOrder.map(renderSection)}
       </div>
@@ -6175,7 +6246,7 @@ const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent(
           }} />
           <div className="settings-divider" />
           <SettingsSegment title="歌词卡片背景" values={['clear', 'sidebar']} labels={['磨砂玻璃', '液态玻璃']} selected={lyricsBackgroundMode} onSelect={(value) => onLyricsBackgroundModeChange(value as LyricsBackgroundMode)} />
-          <SettingsSegment title="主页卡片材质" values={['liquidGlass', 'frostedGlass', 'solid']} labels={['液态玻璃', '磨砂玻璃', '普通']} selected={homeCardMaterialMode} onSelect={(value) => onHomeCardMaterialModeChange(value as HomeCardMaterialMode)} />
+          <SettingsSegment title="主页卡片材质" values={['liquidGlass', 'frostedGlass', 'solid']} labels={['液态玻璃（试验品）', '磨砂玻璃', '普通']} selected={homeCardMaterialMode} onSelect={(value) => onHomeCardMaterialModeChange(value as HomeCardMaterialMode)} />
         </SettingsSection>
         <SettingsSection
           title="主页板块顺序"
@@ -7063,7 +7134,7 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
         className={`artist-scroll-content ${pageScroll.elasticOffset !== 0 ? 'elastic-active' : ''} ${
           pageScroll.isSettling ? 'settling' : ''
         }`}
-        style={{ transform: `translate3d(0, ${pageScroll.elasticOffset}px, 0)` }}
+        style={pageScroll.elasticOffset !== 0 ? { transform: `translate3d(0, ${pageScroll.elasticOffset}px, 0)` } : undefined}
       >
         <header className="artist-header" onContextMenu={(event) => onOpenContextMenu(event, headerContextItems)}>
           <div className={`artist-image-frame ${artworkShape === 'square' ? 'square-artwork' : ''}`}>

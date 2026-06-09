@@ -24,7 +24,7 @@ type LiquidGlassFilterData = {
 }
 
 const liquidGlassFilterDataCache = new Map<string, LiquidGlassFilterData>()
-const LARGE_GLASS_FILTER_DPR = 0.2
+const LARGE_GLASS_FILTER_DPR = 0.05
 const SMALL_GLASS_FILTER_DPR = 0.65
 
 const convexSquircle = (value: number): number => Math.pow(1 - Math.pow(1 - value, 4), 1 / 4)

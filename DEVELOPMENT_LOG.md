@@ -73,3 +73,4 @@
 - Mac 端帧率优化第一轮，不动玻璃/高斯/滤镜外观：Home 点缀滚动改为缓存 DOM 写入并按约 50fps 合帧，避免滚轮事件逐次触发全量样式写；BK dot 窗口运动改为 DOM CSS 变量直写，React 只在新增/移除 dot 结构时更新；LED 频谱采样限制到 45fps，保留原亮度和平滑算法。`npm run typecheck` 与 `npm run build` 已通过。
 - 修正 Home 背景点缀跟手延迟：撤掉 50fps 延迟合帧，滚动后仍在下一帧立即响应；保留点缀 DOM 写入缓存、BK dot DOM 变量直写和 LED 45fps 采样优化。`npm run typecheck` 与 `npm run build` 已通过。
 - 省电模式性能优化继续推进：新增 renderer 侧封面缩略图生成与缓存，Home 艺人/专辑/播放列表、详情集合、曲目行、侧栏、歌词侧栏、底栏和队列小图改用低分辨率缩略图，保留全屏/Now Playing 大图和主题取色原图；缓存限制为 240 项避免长期堆积。`npm run typecheck`、`npm run build` 和 `npm run preview` 启动 smoke test 已通过。
+- Home 默认材质调整：左右侧栏共用大玻璃 DPR 从 0.2 降到 0.05；主页卡片默认改为磨砂玻璃，并在设置里标注“液态玻璃（试验品）”，增加一次性迁移避免旧默认值继续停留在液态玻璃。Home 卡片不再使用 `content-visibility` 按需卸载，主页卡片图片改为 eager，并修复缩略图缓存已存在时仍闪回原图的问题。`npm run typecheck` 与 `npm run build` 已通过。
