@@ -4704,14 +4704,15 @@ function dryBKPaintColor(value: string, amount: number): string {
   return rgbaString(darkened, parsed.a)
 }
 
-function dryBKPaintThemeStyle(themeStyle: React.CSSProperties): React.CSSProperties {
+function dryBKPaintThemeStyle(themeStyle: React.CSSProperties, variantSeed: number): React.CSSProperties {
   const toneOne = bkThemeCssValue(themeStyle, '--bk-bg-tone-1')
   const toneTwo = bkThemeCssValue(themeStyle, '--bk-bg-tone-2')
   const toneThree = bkThemeCssValue(themeStyle, '--bk-bg-tone-3')
+  const useSecondToneBrush = (variantSeed & 1) === 1 && Boolean(toneTwo)
   return {
     ...themeStyle,
-    ...(toneOne ? { '--bk-bg-tone-1': dryBKPaintColor(toneOne, 0.16) } : null),
-    ...(toneTwo ? { '--bk-bg-tone-2': dryBKPaintColor(toneTwo, 0.14) } : null),
+    ...(toneOne ? { '--bk-bg-tone-1': dryBKPaintColor(useSecondToneBrush ? toneTwo : toneOne, useSecondToneBrush ? 0.13 : 0.16) } : null),
+    ...(toneTwo ? { '--bk-bg-tone-2': dryBKPaintColor(useSecondToneBrush ? toneOne : toneTwo, useSecondToneBrush ? 0.12 : 0.14) } : null),
     ...(toneThree ? { '--bk-bg-tone-3': dryBKPaintColor(toneThree, 0.12) } : null)
   } as React.CSSProperties
 }
@@ -4778,7 +4779,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const transitionSeedRef = React.useRef(0)
   const themeStyleRef = React.useRef(themeStyle)
   const shouldDrySameAlbumPaintRef = React.useRef(false)
-  themeStyleRef.current = shouldDrySameAlbumPaintRef.current ? dryBKPaintThemeStyle(themeStyle) : themeStyle
+  themeStyleRef.current = shouldDrySameAlbumPaintRef.current ? dryBKPaintThemeStyle(themeStyle, trackSeed) : themeStyle
   const initialSurface = React.useMemo(() => makeBKSurfaceState(trackSeed, 0, null, themeStyle), [themeStyle, trackSeed])
   const [currentSurface, setCurrentSurface] = React.useState(initialSurface)
   const [previousSurface, setPreviousSurface] = React.useState<BKSurfaceState | null>(null)
@@ -4810,7 +4811,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
     }
     const previousTrack = previousTrackRef.current
     shouldDrySameAlbumPaintRef.current = shouldDrySameAlbumPaint(previousTrack, track, currentSurfaceRef.current.themeStyle, themeStyle)
-    themeStyleRef.current = shouldDrySameAlbumPaintRef.current ? dryBKPaintThemeStyle(themeStyle) : themeStyle
+    themeStyleRef.current = shouldDrySameAlbumPaintRef.current ? dryBKPaintThemeStyle(themeStyle, trackSeed) : themeStyle
     transitionSeedRef.current = 0
     setIsDotExiting(false)
     setPreviousSurface(freezeBKSurfaceForTransition(currentSurfaceRef.current))
@@ -4822,7 +4823,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
 
   React.useLayoutEffect(() => {
     if (lastTrackSeedRef.current !== trackSeed) return
-    const nextThemeStyle = shouldDrySameAlbumPaintRef.current ? dryBKPaintThemeStyle(themeStyle) : themeStyle
+    const nextThemeStyle = shouldDrySameAlbumPaintRef.current ? dryBKPaintThemeStyle(themeStyle, trackSeed) : themeStyle
     themeStyleRef.current = nextThemeStyle
     setCurrentSurface((surface) => ({ ...surface, themeStyle: nextThemeStyle }))
   }, [themeStyle, trackSeed])
