@@ -4675,13 +4675,12 @@ input {
   top: 1px;
   left: 1px;
   z-index: 0;
-  width: calc(100% - 2px);
+  width: var(--mini-player-progress-width, 0%);
+  max-width: calc(100% - 2px);
   height: 58px;
-  border-radius: 29px 12px 12px 29px;
+  border-radius: 999px;
   background: color-mix(in srgb, var(--cover-accent-text) 48%, transparent);
-  opacity: 0;
-  transform: scaleX(var(--mini-player-progress-ratio, 0));
-  transform-origin: left center;
+  opacity: 0.30;
   pointer-events: none;
   transition: opacity 180ms ease;
 }

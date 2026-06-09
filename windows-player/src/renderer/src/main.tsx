@@ -2446,7 +2446,9 @@ function App(): React.ReactElement {
 
   const writeMiniProgressRatio = React.useCallback((seconds: number, duration: number) => {
     const ratio = duration > 0 ? clampNumber(seconds / duration, 0, 1) : 0
-    document.querySelector<HTMLElement>('.mini-player')?.style.setProperty('--mini-player-progress-ratio', String(ratio))
+    const miniPlayer = document.querySelector<HTMLElement>('.mini-player')
+    miniPlayer?.style.setProperty('--mini-player-progress-ratio', String(ratio))
+    miniPlayer?.style.setProperty('--mini-player-progress-width', `${ratio * 100}%`)
   }, [])
 
   const seekTo = React.useCallback((seconds: number) => {
@@ -2471,6 +2473,20 @@ function App(): React.ReactElement {
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
   }, [])
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.code !== 'Space' || event.repeat) return
+      const target = event.target as HTMLElement | null
+      const tagName = target?.tagName?.toLowerCase()
+      const isEditableTarget = !!target?.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select' || tagName === 'button'
+      if (isEditableTarget || !currentTrack?.sourceUrl) return
+      event.preventDefault()
+      togglePlayback()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentTrack?.sourceUrl, togglePlayback])
   const playTrackByIndex = React.useCallback((index: number) => {
     const tracks = playbackQueue
     if (!tracks.length) return
@@ -7571,7 +7587,12 @@ const MiniPlayer = React.memo(function MiniPlayer({
     }
   }, [])
 
-  const miniPlayerStyle = { '--filter-url': 'url(#lg-mini)', '--mini-player-progress-ratio': progress / 100 } as React.CSSProperties
+  const progressRatio = progress / 100
+  const miniPlayerStyle = {
+    '--filter-url': 'url(#lg-mini)',
+    '--mini-player-progress-ratio': progressRatio,
+    '--mini-player-progress-width': `${progress}%`
+  } as React.CSSProperties
 
   return (
     <>
