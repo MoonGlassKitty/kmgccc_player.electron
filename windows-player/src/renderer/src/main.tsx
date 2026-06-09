@@ -1573,9 +1573,6 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
     const resolvedColorCache = new Map<string, string>()
     const shapeStyleCache = new Map<number, { visible: boolean; side: number; opacity: number; transform: string }>()
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const minFrameIntervalMs = 1000 / 50
-    let lastFrameAt = 0
-    let deferredFrameTimer = 0
 
     const resolveColor = (color: string): string => {
       const cached = resolvedColorCache.get(color)
@@ -1678,22 +1675,7 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 
     const requestApply = (): void => {
       if (frame) return
-      if (deferredFrameTimer) return
-      const elapsed = performance.now() - lastFrameAt
-      const schedule = (): void => {
-        frame = window.requestAnimationFrame((now) => {
-          lastFrameAt = now
-          applyTransforms()
-        })
-      }
-      if (elapsed >= minFrameIntervalMs) {
-        schedule()
-      } else {
-        deferredFrameTimer = window.setTimeout(() => {
-          deferredFrameTimer = 0
-          schedule()
-        }, minFrameIntervalMs - elapsed)
-      }
+      frame = window.requestAnimationFrame(applyTransforms)
     }
 
     const updateLayoutMetrics = (): void => {
@@ -1792,7 +1774,6 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 
     return () => {
       window.clearTimeout(bindTimer)
-      if (deferredFrameTimer) window.clearTimeout(deferredFrameTimer)
       if (frame) window.cancelAnimationFrame(frame)
       scrollElement?.removeEventListener('scroll', handleScroll)
       themeObserver.disconnect()

@@ -71,3 +71,4 @@
 - BK 干漆同色过渡补主题色变体：同专辑同色触发时按 track seed 稳定选择第一主题色或第二主题色作为刷入主色，并互换辅助 tone，避免连续切歌只出现单调的同色加深。`npm run typecheck` 与 `npm run build` 已通过。
 - 统一漏网主题色：底部状态栏队列/播放/切歌/随机/音量滑杆、音乐足迹统计卡/排行条/日历点、侧栏资料库/播放列表 active 态和底部圆按钮、设置页 tab/开关/滑杆/segment/action 按钮都改为读取 `--cover-accent*` 当前主题变量，减少固定蓝色残留。`npm run typecheck` 与 `npm run build` 已通过。
 - Mac 端帧率优化第一轮，不动玻璃/高斯/滤镜外观：Home 点缀滚动改为缓存 DOM 写入并按约 50fps 合帧，避免滚轮事件逐次触发全量样式写；BK dot 窗口运动改为 DOM CSS 变量直写，React 只在新增/移除 dot 结构时更新；LED 频谱采样限制到 45fps，保留原亮度和平滑算法。`npm run typecheck` 与 `npm run build` 已通过。
+- 修正 Home 背景点缀跟手延迟：撤掉 50fps 延迟合帧，滚动后仍在下一帧立即响应；保留点缀 DOM 写入缓存、BK dot DOM 变量直写和 LED 45fps 采样优化。`npm run typecheck` 与 `npm run build` 已通过。
