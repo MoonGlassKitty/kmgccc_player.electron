@@ -12,6 +12,7 @@ import {
   Calendar,
   Disc3,
   ExternalLink,
+  GripHorizontal,
   Hammer,
   House,
   ImageIcon,
@@ -388,6 +389,14 @@ const homeSectionOptions: Array<{ id: HomeSectionID; title: string }> = [
   { id: 'listeningFootprint', title: '音乐足迹' }
 ]
 const defaultHomeSectionOrder: HomeSectionID[] = homeSectionOptions.map((section) => section.id)
+
+function HomeSectionOrderIcon({ section }: { section: HomeSectionID }): React.ReactElement {
+  if (section === 'featured') return <Sparkles size={18} />
+  if (section === 'artists') return <Music2 size={18} />
+  if (section === 'albums') return <Disc3 size={18} />
+  if (section === 'playlists') return <ListMusic size={18} />
+  return <Calendar size={18} />
+}
 
 function formatDuration(seconds: number): string {
   const safeSeconds = Math.max(0, Math.round(seconds))
@@ -1792,8 +1801,9 @@ function App(): React.ReactElement {
   const [lyricsGlobalAdvanceMs, setLyricsGlobalAdvanceMs] = React.useState(() => clampNumber(storedNumber('lyricsGlobalAdvanceMs', 0), -1000, 1000))
   const [ledCount, setLedCount] = React.useState(() => storedNumber('ledCount', 11))
   const [ledBrightnessLevels, setLedBrightnessLevels] = React.useState(() => storedNumber('ledBrightnessLevels', 5))
-  const [ledCutoffHz, setLedCutoffHz] = React.useState(() => storedNumber('ledCutoffHz', 1200))
-  const [ledSpeed, setLedSpeed] = React.useState(() => storedNumber('ledSpeed', 1))
+  const [ledCutoffHz, setLedCutoffHz] = React.useState(() => storedNumber('ledCutoffHz', 2400))
+  const [ledSpeed, setLedSpeed] = React.useState(() => storedNumber('ledSpeed', 1.15))
+  const [ledValues, setLedValues] = React.useState<number[]>([])
   const [selectedFullscreenSkin, setSelectedFullscreenSkin] = React.useState<NowPlayingSkinID>(() => storedString('fullscreenSkin', 'kmgccc.cassette', ['coverLed', 'appleStyle', 'rotatingCover', 'kmgccc.cassette']))
   const [isFullscreenArtBackgroundEnabled, setIsFullscreenArtBackgroundEnabled] = React.useState(() => storedBoolean('fullscreenArtBackgroundEnabled', true))
   const [fullscreenClassicVisualizerMode, setFullscreenClassicVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.classicLED.fullscreen.visualizerMode', 'led'))
@@ -1825,6 +1835,11 @@ function App(): React.ReactElement {
   const [contextMenu, setContextMenu] = React.useState<ContextMenuState | null>(null)
   const [libraryDialog, setLibraryDialog] = React.useState<LibraryDialogState | null>(null)
   const audioRef = React.useRef<HTMLAudioElement>(null)
+  const audioContextRef = React.useRef<AudioContext | null>(null)
+  const audioSourceRef = React.useRef<MediaElementAudioSourceNode | null>(null)
+  const audioAnalyserRef = React.useRef<AnalyserNode | null>(null)
+  const ledAnimationFrameRef = React.useRef<number | null>(null)
+  const smoothedLedValuesRef = React.useRef<number[]>([])
   const lastPlaybackTimeRef = React.useRef(0)
   const loadedAudioTrackRef = React.useRef<string>('')
   const albums = React.useMemo(() => albumById(homeSnapshot), [homeSnapshot])
@@ -1855,6 +1870,28 @@ function App(): React.ReactElement {
       : selectedNowPlayingSkin === 'rotatingCover'
         ? rotatingVisualizerMode
         : cassetteVisualizerMode
+  const ensureAudioAnalyser = React.useCallback((): AnalyserNode | null => {
+    const audio = audioRef.current
+    if (!audio) return null
+    const AudioContextCtor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextCtor) return null
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContextCtor()
+    }
+    const context = audioContextRef.current
+    if (!audioAnalyserRef.current) {
+      const analyser = context.createAnalyser()
+      analyser.fftSize = 1024
+      analyser.smoothingTimeConstant = 0.62
+      audioAnalyserRef.current = analyser
+    }
+    if (!audioSourceRef.current) {
+      audioSourceRef.current = context.createMediaElementSource(audio)
+      audioSourceRef.current.connect(audioAnalyserRef.current)
+      audioAnalyserRef.current.connect(context.destination)
+    }
+    return audioAnalyserRef.current
+  }, [])
   const effectiveLyricPlaybackTime = Math.max(0, playbackTime + (lyricsGlobalAdvanceMs + lookaheadMs) / 1000)
   const lyricsWidth = isLyricsSidebarOpen ? lyricsSidebarWidth : 0
   const adaptiveSidebarWidth = React.useMemo(() => {
@@ -2624,6 +2661,60 @@ function App(): React.ReactElement {
     audio.volume = volume
   }, [volume])
 
+  React.useEffect(() => {
+    if (!isPlaying || selectedVisualizerMode !== 'led' || !currentTrack?.sourceUrl) {
+      if (ledAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(ledAnimationFrameRef.current)
+        ledAnimationFrameRef.current = null
+      }
+      smoothedLedValuesRef.current = []
+      setLedValues([])
+      return
+    }
+
+    const analyser = ensureAudioAnalyser()
+    const context = audioContextRef.current
+    if (!analyser || !context) return
+    void context.resume().catch(() => {})
+
+    const frequencyData = new Uint8Array(analyser.frequencyBinCount)
+    let lastPublish = 0
+    const sample = (timestamp: number): void => {
+      analyser.getByteFrequencyData(frequencyData)
+      const sampleRate = context.sampleRate || 44100
+      const hzPerBin = sampleRate / analyser.fftSize
+      const maxBin = clampNumber(Math.floor(ledCutoffHz / hzPerBin), 1, frequencyData.length - 1)
+      const safeLedCount = Math.max(3, Math.round(ledCount))
+      const center = Math.floor(safeLedCount / 2)
+      const bands = center + 1
+      const nextValues = Array.from({ length: safeLedCount }, (_entry, index) => {
+        const distance = Math.abs(index - center)
+        const start = Math.floor((distance / bands) * maxBin)
+        const end = Math.max(start + 1, Math.floor(((distance + 1) / bands) * maxBin))
+        let sum = 0
+        for (let bin = start; bin < end; bin += 1) sum += frequencyData[bin] ?? 0
+        const average = sum / Math.max(1, end - start) / 255
+        return clampNumber(Math.pow(average, 0.72) * volume * 1.35, 0, 1)
+      })
+      const previous = smoothedLedValuesRef.current.length === safeLedCount ? smoothedLedValuesRef.current : Array.from({ length: safeLedCount }, () => 0)
+      const alpha = clampNumber(0.18 * ledSpeed, 0.08, 0.42)
+      const smoothed = nextValues.map((value, index) => previous[index] + (value - previous[index]) * alpha)
+      smoothedLedValuesRef.current = smoothed
+      if (timestamp - lastPublish >= 33) {
+        lastPublish = timestamp
+        setLedValues(smoothed)
+      }
+      ledAnimationFrameRef.current = window.requestAnimationFrame(sample)
+    }
+    ledAnimationFrameRef.current = window.requestAnimationFrame(sample)
+    return () => {
+      if (ledAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(ledAnimationFrameRef.current)
+        ledAnimationFrameRef.current = null
+      }
+    }
+  }, [currentTrack?.sourceUrl, ensureAudioAnalyser, isPlaying, ledCount, ledCutoffHz, ledSpeed, selectedVisualizerMode, volume])
+
   const updateAudioMetadata = React.useCallback(() => {
     const audio = audioRef.current
     if (!audio || !currentTrack || !Number.isFinite(audio.duration)) return
@@ -2712,6 +2803,7 @@ function App(): React.ReactElement {
               ledCount={ledCount}
               ledBrightnessLevels={ledBrightnessLevels}
               ledSpeed={ledSpeed}
+              ledValues={ledValues}
               skinID={selectedNowPlayingSkin}
               visualizerMode={selectedVisualizerMode}
               artBackgroundEnabled={isNowPlayingArtBackgroundEnabled}
@@ -4440,6 +4532,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   ledCount,
   ledBrightnessLevels,
   ledSpeed,
+  ledValues,
   skinID,
   visualizerMode,
   artBackgroundEnabled,
@@ -4459,6 +4552,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   ledCount: number
   ledBrightnessLevels: number
   ledSpeed: number
+  ledValues: number[]
   skinID: NowPlayingSkinID
   visualizerMode: VisualizerMode
   artBackgroundEnabled: boolean
@@ -4492,7 +4586,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
         ) : (
           <CassetteNowPlayingArtwork artwork={artwork} showKmgLook={cassetteKmgLookEnabled} />
         )}
-        {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} ledCount={ledCount} brightnessLevels={ledBrightnessLevels} ledSpeed={ledSpeed} /> : null}
+        {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} ledCount={ledCount} brightnessLevels={ledBrightnessLevels} ledSpeed={ledSpeed} ledValues={ledValues} /> : null}
         {visualizerMode === 'spectrum' ? <NowPlayingSpectrum isPlaying={isPlaying} /> : null}
       </div>
       <div className="now-playing-track-copy">
@@ -5290,22 +5384,25 @@ const NowPlayingVolumeLed = React.memo(function NowPlayingVolumeLed({
   isPlaying,
   ledCount = 11,
   brightnessLevels = 5,
-  ledSpeed = 1
+  ledSpeed = 1,
+  ledValues
 }: {
   volume: number
   isPlaying: boolean
   ledCount?: number
   brightnessLevels?: number
   ledSpeed?: number
+  ledValues?: number[]
 }): React.ReactElement {
   const safeLedCount = Math.max(3, Math.round(ledCount))
   const safeBrightnessLevels = Math.max(2, Math.round(brightnessLevels))
   const center = Math.floor(safeLedCount / 2)
   const totalSlots = (center + 1) * safeBrightnessLevels
   const currentSlot = clampNumber(volume, 0, 1) * totalSlots
+  const hasLedValues = Array.isArray(ledValues) && ledValues.length === safeLedCount
   return (
     <div
-      className={`now-playing-led-pill glass-panel ${isPlaying ? 'playing' : ''}`}
+      className={`now-playing-led-pill ${isPlaying ? 'playing' : ''}`}
       style={{ '--filter-url': 'url(#lg-mini)', '--led-speed': clampNumber(ledSpeed, 0.5, 2) } as React.CSSProperties}
     >
       <span className="now-playing-status-led" />
@@ -5313,7 +5410,9 @@ const NowPlayingVolumeLed = React.memo(function NowPlayingVolumeLed({
       {Array.from({ length: safeLedCount }, (_, index) => {
         const distance = Math.abs(index - center)
         const ledStartSlot = distance * safeBrightnessLevels
-        const state = currentSlot < ledStartSlot ? 0 : currentSlot >= ledStartSlot + safeBrightnessLevels ? safeBrightnessLevels - 1 : Math.floor(currentSlot - ledStartSlot)
+        const state = hasLedValues
+          ? Math.min(safeBrightnessLevels - 1, Math.round(clampNumber(ledValues[index] ?? 0, 0, 1) * (safeBrightnessLevels - 1)))
+          : currentSlot < ledStartSlot ? 0 : currentSlot >= ledStartSlot + safeBrightnessLevels ? safeBrightnessLevels - 1 : Math.floor(currentSlot - ledStartSlot)
         const brightness = state / (safeBrightnessLevels - 1)
         return (
           <span
@@ -5776,8 +5875,8 @@ const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent(
   const [draggingSection, setDraggingSection] = React.useState<HomeSectionID | null>(null)
   const [dragFloatingX, setDragFloatingX] = React.useState(0)
   const [dragFloatingY, setDragFloatingY] = React.useState(0)
-  const homeRowHeight = 40
-  const homeRowSpacing = 6
+  const homeRowHeight = 64
+  const homeRowSpacing = 14
   const homeRowStride = homeRowHeight + homeRowSpacing
 
   React.useEffect(() => {
@@ -5860,32 +5959,44 @@ const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent(
         >
           <small className="settings-description">按照 Swift 的 HomeSection 顺序保存；调整后主页立即按新顺序排布。</small>
           <div className="settings-order-list" style={{ '--settings-order-row-height': `${homeRowHeight}px`, '--settings-order-row-spacing': `${homeRowSpacing}px` } as React.CSSProperties}>
-            {homeSectionOrder.map((section, index) => {
-              const option = homeSectionOptions.find((item) => item.id === section)
-              return (
-                <div className={`settings-order-row ${draggingSection === section ? 'dragging' : ''}`} key={section}>
-                  <span>{option?.title ?? section}</span>
-                  <button type="button" aria-label="拖动调整顺序" onPointerDown={(event) => beginSectionDrag(event, section)}>
-                    <ArrowDownUp size={15} />
-                  </button>
-                </div>
-              )
-            })}
+            {homeSectionOrder.map((section) => (
+              <div className={`settings-order-row ${draggingSection === section ? 'dragging' : ''}`} key={section}>
+                <HomeSectionOrderRowContent section={section} onDragStart={(event) => beginSectionDrag(event, section)} />
+              </div>
+            ))}
             {draggingSection ? (
               <div
                 className="settings-order-row floating"
                 style={{ transform: `translate3d(${dragFloatingX}px, ${dragFloatingY}px, 0)` }}
               >
-                <span>{homeSectionOptions.find((item) => item.id === draggingSection)?.title ?? draggingSection}</span>
-                <button type="button" aria-label="正在拖动">
-                  <ArrowDownUp size={15} />
-                </button>
+                <HomeSectionOrderRowContent section={draggingSection} />
               </div>
             ) : null}
           </div>
         </SettingsSection>
       </div>
     </div>
+  )
+})
+
+const HomeSectionOrderRowContent = React.memo(function HomeSectionOrderRowContent({
+  section,
+  onDragStart
+}: {
+  section: HomeSectionID
+  onDragStart?: (event: React.PointerEvent) => void
+}): React.ReactElement {
+  const option = homeSectionOptions.find((item) => item.id === section)
+  return (
+    <>
+      <span className="settings-order-icon">
+        <HomeSectionOrderIcon section={section} />
+      </span>
+      <strong>{option?.title ?? section}</strong>
+      <button type="button" aria-label="拖动调整顺序" onPointerDown={onDragStart}>
+        <GripHorizontal size={25} />
+      </button>
+    </>
   )
 })
 
@@ -6030,7 +6141,15 @@ const FullscreenSettingsContent = React.memo(function FullscreenSettingsContent(
             <strong>实时预览</strong>
             <NowPlayingVolumeLed volume={0.72} isPlaying ledCount={ledCount} brightnessLevels={ledBrightnessLevels} ledSpeed={ledSpeed} />
           </div>
-          <SettingsSection title="视觉配置">
+          <SettingsSection
+            title="视觉配置"
+            action={<button className="settings-text-action" type="button" onClick={() => {
+              onLedCountChange(11)
+              onLedBrightnessLevelsChange(5)
+              onLedCutoffHzChange(2400)
+              onLedSpeedChange(1.15)
+            }}>恢复默认值</button>}
+          >
             <SettingsSegment title="LED 数量" values={['9', '11', '13', '15']} selected={String(Math.round(ledCount))} onSelect={(value) => onLedCountChange(Number(value))} />
             <SettingsSegment title="亮度等级" values={['3', '5', '7']} selected={String(Math.round(ledBrightnessLevels))} onSelect={(value) => onLedBrightnessLevelsChange(Number(value))} />
             <SettingsRange title="频率" valueText={`${Math.round(ledCutoffHz)} Hz`} value={ledCutoffHz} min={200} max={6000} step={100} onChange={onLedCutoffHzChange} />
@@ -6439,6 +6558,12 @@ const NowPlayingSettingsContent = React.memo(function NowPlayingSettingsContent(
           </div>
           <div className="settings-card-section">
             <strong>视觉配置</strong>
+            <button className="settings-text-action inline" type="button" onClick={() => {
+              onLedCountChange(11)
+              onLedBrightnessLevelsChange(5)
+              onLedCutoffHzChange(2400)
+              onLedSpeedChange(1.15)
+            }}>恢复默认值</button>
             <SettingsSegment title="LED 数量" values={['9', '11', '13', '15']} selected={String(Math.round(ledCount))} onSelect={(value) => onLedCountChange(Number(value))} />
             <SettingsSegment title="亮度等级" values={['3', '5', '7']} selected={String(Math.round(ledBrightnessLevels))} onSelect={(value) => onLedBrightnessLevelsChange(Number(value))} />
           </div>
