@@ -5398,11 +5398,11 @@ const NowPlayingVolumeLed = React.memo(function NowPlayingVolumeLed({
   const safeBrightnessLevels = Math.max(2, Math.round(brightnessLevels))
   const center = Math.floor(safeLedCount / 2)
   const totalSlots = (center + 1) * safeBrightnessLevels
-  const currentSlot = clampNumber(volume, 0, 1) * totalSlots
+  const currentSlot = (isPlaying ? clampNumber(volume, 0, 1) : 0) * totalSlots
   const hasLedValues = Array.isArray(ledValues) && ledValues.length === safeLedCount
   return (
     <div
-      className={`now-playing-led-pill ${isPlaying ? 'playing' : ''}`}
+      className={`now-playing-led-pill glass-panel ${isPlaying ? 'playing' : ''}`}
       style={{ '--filter-url': 'url(#lg-mini)', '--led-speed': clampNumber(ledSpeed, 0.5, 2) } as React.CSSProperties}
     >
       <span className="now-playing-status-led" />
