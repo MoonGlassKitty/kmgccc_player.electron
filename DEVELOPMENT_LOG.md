@@ -125,3 +125,4 @@
 - 歌词栏开关结构恢复到动画前版本：移除右歌词栏外层 slot、closing 状态和 transform/opacity keyframe，恢复为 `isLyricsSidebarOpen` 直接挂载的原结构；保留 app-shell `grid-template-columns` 过渡作为不破坏 backdrop-filter 的开关动画，歌词栏玻璃/模糊分块参数回到动画前状态。`npm run typecheck` 与 `npm run build` 已通过。
 - 全屏歌词背景垫层重写：去掉歌词后方自带颜色的彩色光斑，改为透明 backdrop-filter 模糊层和软 mask，让滚珠经过歌词后方时被化成较轻的光晕；全屏 BK 歌词取色改为进入/切歌后渲染稳定再单次采样，BK 滚珠循环不再反复触发窗口取色或歌词色 seed 更新；全屏专用 BK 背景/油漆纹理/dot grid 降低饱和度，避免滚珠本体过艳。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL 换行宽度修正：全屏歌词收窄右侧留白并提高 `--amll-lp-line-width-aspect`；按低/中渲染精度的 quality frame 缩放比例补偿 side/fullscreen AMLL 行宽，避免降精度后 AMLL 以较窄逻辑宽度排版导致过早换行。`npm run typecheck` 与 `npm run build` 已通过。
+- 窗口/全屏播放底栏与歌名块对齐：新增底部状态栏共享 left/width/bottom 变量，mini-player、timeline、窗口播放歌名块和全屏播放歌名块共用同一左边缘；歌名块固定在底栏上方，避免被底栏遮挡。窗口播放和全屏播放态移除底栏白/黑底色 tint，深色模式同步覆盖为透明底。`npm run typecheck` 与 `npm run build` 已通过。
