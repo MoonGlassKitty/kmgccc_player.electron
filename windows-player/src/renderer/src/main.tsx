@@ -5271,7 +5271,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       ) : nowPlayingSkinID === 'appleStyle' ? (
         <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
       ) : showBKBackground ? (
-        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onColorPhaseChange={setAmllColorPhase} onColorThemeChange={setActiveBKThemeStyle} onToneSeedChange={onLyricToneSeedChange} onPaintRevealComplete={sampleFullscreenBackgroundColor} />
+        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} mode="fullscreenDotOnly" onColorPhaseChange={setAmllColorPhase} onColorThemeChange={setActiveBKThemeStyle} onToneSeedChange={onLyricToneSeedChange} onPaintRevealComplete={sampleFullscreenBackgroundColor} />
       ) : (
         <UnifiedMeshBackground />
       )}
@@ -5595,6 +5595,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   track,
   isPlaying,
   themeStyle,
+  mode = 'default',
   onColorPhaseChange,
   onColorThemeChange,
   onToneSeedChange,
@@ -5603,17 +5604,19 @@ const BKArtBackground = React.memo(function BKArtBackground({
   track: Track | null | undefined
   isPlaying: boolean
   themeStyle: React.CSSProperties
+  mode?: 'default' | 'fullscreenDotOnly'
   onColorPhaseChange?: (phase: number) => void
   onColorThemeChange?: (themeStyle: React.CSSProperties) => void
   onToneSeedChange?: (seed: RgbColor) => void
   onPaintRevealComplete?: () => void
 }): React.ReactElement {
+  const isFullscreenDotOnly = mode === 'fullscreenDotOnly'
   const trackSeed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
   const transitionSeedRef = React.useRef(0)
   const themeStyleRef = React.useRef(themeStyle)
   const shouldDrySameAlbumPaintRef = React.useRef(false)
   themeStyleRef.current = shouldDrySameAlbumPaintRef.current ? dryBKPaintThemeStyle(themeStyle, trackSeed) : themeStyle
-  const initialSurface = React.useMemo(() => makeBKSurfaceState(trackSeed, 0, null, themeStyle), [themeStyle, trackSeed])
+  const initialSurface = React.useMemo(() => makeBKSurfaceState(trackSeed, 0, isFullscreenDotOnly ? fullscreenBKDotStyle(trackSeed, 0) : null, themeStyle), [isFullscreenDotOnly, themeStyle, trackSeed])
   const [currentSurface, setCurrentSurface] = React.useState(initialSurface)
   const [previousSurface, setPreviousSurface] = React.useState<BKSurfaceState | null>(null)
   const [isDotExiting, setIsDotExiting] = React.useState(false)
@@ -5639,22 +5642,32 @@ const BKArtBackground = React.memo(function BKArtBackground({
       lastTrackSeedRef.current = trackSeed
       previousTrackRef.current = track
       shouldDrySameAlbumPaintRef.current = false
-      setCurrentSurface(makeBKSurfaceState(trackSeed, 0, 'image', themeStyleRef.current))
+      setCurrentSurface(makeBKSurfaceState(trackSeed, 0, isFullscreenDotOnly ? fullscreenBKDotStyle(trackSeed, 0) : 'image', themeStyleRef.current))
       setPreviousSurface(null)
       setIsRevealing(false)
       return
     }
     const previousTrack = previousTrackRef.current
-    shouldDrySameAlbumPaintRef.current = shouldDrySameAlbumPaint(previousTrack, track, currentSurfaceRef.current.themeStyle, themeStyle)
+    shouldDrySameAlbumPaintRef.current = !isFullscreenDotOnly && shouldDrySameAlbumPaint(previousTrack, track, currentSurfaceRef.current.themeStyle, themeStyle)
     themeStyleRef.current = shouldDrySameAlbumPaintRef.current ? dryBKPaintThemeStyle(themeStyle, trackSeed) : themeStyle
     transitionSeedRef.current = 0
     setIsDotExiting(false)
-    setPreviousSurface(freezeBKSurfaceForTransition(currentSurfaceRef.current))
-    setCurrentSurface(makeBKSurfaceState(trackSeed, 0, initialBKSurfaceStyle(trackSeed), themeStyleRef.current))
-    setIsRevealing(true)
+    if (isFullscreenDotOnly) {
+      setPreviousSurface(null)
+      setCurrentSurface(makeBKSurfaceState(trackSeed, 0, fullscreenBKDotStyle(trackSeed, 0), themeStyleRef.current))
+      setIsRevealing(false)
+      window.requestAnimationFrame(() => {
+        onPaintRevealComplete?.()
+        publishToneSeedRef.current()
+      })
+    } else {
+      setPreviousSurface(freezeBKSurfaceForTransition(currentSurfaceRef.current))
+      setCurrentSurface(makeBKSurfaceState(trackSeed, 0, initialBKSurfaceStyle(trackSeed), themeStyleRef.current))
+      setIsRevealing(true)
+    }
     lastTrackSeedRef.current = trackSeed
     previousTrackRef.current = track
-  }, [trackSeed])
+  }, [isFullscreenDotOnly, onPaintRevealComplete, trackSeed])
 
   React.useLayoutEffect(() => {
     if (lastTrackSeedRef.current !== trackSeed) return
@@ -5665,6 +5678,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
 
   React.useEffect(() => {
     if (!isPlaying) return
+    if (isFullscreenDotOnly) return
     if (isDotExiting) return
     if (isBKDotStyle(currentSurface.style)) return
     const delay = 15000
@@ -5675,10 +5689,11 @@ const BKArtBackground = React.memo(function BKArtBackground({
       setIsRevealing(true)
     }, delay)
     return () => window.clearTimeout(timer)
-  }, [currentSurface, isDotExiting, isPlaying, trackSeed])
+  }, [currentSurface, isDotExiting, isFullscreenDotOnly, isPlaying, trackSeed])
 
   React.useEffect(() => {
     if (!isDotExiting) return
+    if (isFullscreenDotOnly) return
     const timer = window.setTimeout(() => {
       transitionSeedRef.current += 1
       setPreviousSurface(freezeBKSurfaceForTransition(currentSurface))
@@ -5687,7 +5702,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
       setIsRevealing(true)
     }, 900)
     return () => window.clearTimeout(timer)
-  }, [currentSurface, isDotExiting, trackSeed])
+  }, [currentSurface, isDotExiting, isFullscreenDotOnly, trackSeed])
 
   const handleRevealEnd = React.useCallback(() => {
     setPreviousSurface(null)
@@ -5699,11 +5714,20 @@ const BKArtBackground = React.memo(function BKArtBackground({
   }, [onPaintRevealComplete])
   const handleDotComplete = React.useCallback(() => {
     transitionSeedRef.current += 1
-    setPreviousSurface(freezeBKSurfaceForTransition(currentSurface))
-    setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current, trackSeed), themeStyleRef.current))
+    const nextStyle = isFullscreenDotOnly
+      ? fullscreenBKDotStyle(trackSeed, transitionSeedRef.current)
+      : nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current, trackSeed)
+    setPreviousSurface(isFullscreenDotOnly ? null : freezeBKSurfaceForTransition(currentSurface))
+    setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextStyle, themeStyleRef.current))
     setIsDotExiting(false)
-    setIsRevealing(true)
-  }, [currentSurface, trackSeed])
+    setIsRevealing(!isFullscreenDotOnly)
+    if (isFullscreenDotOnly) {
+      window.requestAnimationFrame(() => {
+        onPaintRevealComplete?.()
+        publishToneSeedRef.current()
+      })
+    }
+  }, [currentSurface, isFullscreenDotOnly, onPaintRevealComplete, trackSeed])
 
   React.useEffect(() => {
     onColorPhaseChange?.(currentSurface.phaseOffset)
@@ -5726,7 +5750,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   }, [currentSurface, onToneSeedChange, previousSurface])
 
   return (
-    <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
+    <div className={`bk-art-background mode-${mode} ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
       {previousSurface ? <BKArtSurface key={`previous-${bkSurfaceKey(previousSurface)}`} surface={previousSurface} className={`previous ${isBKDotStyle(previousSurface.style) && currentSurface.style === 'image' ? 'dot-exited' : ''}`} isRunning={false} /> : null}
       <BKArtSurface key={`current-${bkSurfaceKey(currentSurface)}`} surface={currentSurface} className={previousSurface !== null ? `current entering ${previousSurface.style === 'image' && currentSurface.style === 'image' ? 'paint-only' : ''}` : `current ${isDotExiting ? 'dot-exiting' : ''}`} isRunning={isPlaying && !isDotExiting && !isRevealing} onRevealEnd={previousSurface ? handleRevealEnd : undefined} onDotComplete={isBKDotStyle(currentSurface.style) && !isDotExiting ? handleDotComplete : undefined} />
     </div>
@@ -5816,6 +5840,11 @@ function initialBKSurfaceStyle(trackSeed: number): BKSurfaceStyle {
 }
 
 const bkDotStyles: BKSurfaceStyle[] = ['dot-a', 'dot-b', 'dot-c', 'dot-d', 'dot-e']
+
+function fullscreenBKDotStyle(trackSeed: number, transitionIndex: number): BKSurfaceStyle {
+  const slot = (trackSeed + transitionIndex) % bkDotStyles.length
+  return bkDotStyles[slot]
+}
 
 function seededBKSurfaceStyle(trackSeed: number, transitionIndex: number): BKSurfaceStyle {
   const mixed = (trackSeed ^ Math.imul(transitionIndex + 1, 0x85ebca6b) ^ (trackSeed >>> 13)) >>> 0

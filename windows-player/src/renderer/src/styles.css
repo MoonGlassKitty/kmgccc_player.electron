@@ -222,6 +222,61 @@ input {
   background: var(--bk-bg-tone-1);
 }
 
+.bk-art-background.mode-fullscreenDotOnly {
+  filter: saturate(1.06);
+  background:
+    radial-gradient(circle at 18% 24%, color-mix(in srgb, var(--bk-bg-tone-1) 98%, transparent), transparent 42%),
+    radial-gradient(circle at 74% 64%, color-mix(in srgb, var(--bk-bg-tone-2) 94%, transparent), transparent 48%),
+    linear-gradient(132deg, color-mix(in srgb, var(--bk-bg-tone-1) 92%, #ffffff), color-mix(in srgb, var(--bk-bg-tone-2) 90%, var(--bk-bg-tone-1)));
+}
+
+.bk-art-background.mode-fullscreenDotOnly .bk-art-surface {
+  background: transparent;
+}
+
+.bk-art-background.mode-fullscreenDotOnly .bk-art-surface.style-dot-a .bk-image-surface,
+.bk-art-background.mode-fullscreenDotOnly .bk-art-surface.style-dot-b .bk-image-surface,
+.bk-art-background.mode-fullscreenDotOnly .bk-art-surface.style-dot-c .bk-image-surface,
+.bk-art-background.mode-fullscreenDotOnly .bk-art-surface.style-dot-d .bk-image-surface,
+.bk-art-background.mode-fullscreenDotOnly .bk-art-surface.style-dot-e .bk-image-surface {
+  display: block;
+  opacity: 0.9;
+}
+
+.bk-art-background.mode-fullscreenDotOnly .bk-image-phase {
+  opacity: 0.74;
+  filter: contrast(1.02) saturate(1.08) brightness(1.01);
+}
+
+.bk-art-background.mode-fullscreenDotOnly .bk-art-surface .phase-a {
+  animation: bkPhaseA 2.8s steps(1, end) infinite;
+}
+
+.bk-art-background.mode-fullscreenDotOnly .bk-art-surface .phase-b {
+  animation: bkPhaseB 2.8s steps(1, end) infinite;
+}
+
+.bk-art-background.mode-fullscreenDotOnly .bk-dot-surface {
+  background: transparent;
+}
+
+.bk-art-background.mode-fullscreenDotOnly .bk-dot-gradient {
+  background:
+    radial-gradient(circle at 30% 22%, color-mix(in srgb, var(--bk-bg-tone-1) 30%, transparent), transparent 38%),
+    radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 28%, transparent), transparent 44%);
+  opacity: 0.20;
+  filter: saturate(1.08);
+}
+
+.bk-art-background.mode-fullscreenDotOnly .bk-dot-grid {
+  opacity: 0.96;
+  filter: blur(0.1px) saturate(1.06) contrast(1.02);
+}
+
+.bk-art-background.mode-fullscreenDotOnly .bk-dot-grid.small {
+  opacity: 0.62;
+}
+
 .bk-art-surface.style-image .bk-dot-surface {
   display: none;
 }
@@ -4600,6 +4655,24 @@ input {
   pointer-events: none;
 }
 
+.fullscreen-lyrics-lines::after {
+  content: "";
+  position: absolute;
+  top: clamp(72px, 10vh, 118px);
+  right: clamp(-8px, -0.8vw, 0px);
+  bottom: clamp(112px, 14vh, 172px);
+  left: clamp(-22px, -1.8vw, -8px);
+  z-index: 0;
+  border-radius: 38px;
+  background:
+    radial-gradient(circle at 48% 18%, rgba(255, 255, 255, 0.22), transparent 30%),
+    radial-gradient(circle at 58% 64%, color-mix(in srgb, var(--amll-fullscreen-bg-color) 86%, rgba(255, 255, 255, 0.12)), transparent 42%),
+    rgba(8, 14, 20, 0.14);
+  filter: blur(34px) saturate(1.18);
+  opacity: 0.78;
+  pointer-events: none;
+}
+
 .fullscreen-lyrics-lines > * {
   position: relative;
   z-index: 1;
@@ -5797,6 +5870,41 @@ input {
 
 .appearance-dark .bk-dot-grid.small {
   opacity: 0.44;
+}
+
+.appearance-dark .bk-art-background.mode-fullscreenDotOnly {
+  filter: saturate(0.76) brightness(0.84) contrast(0.96);
+  background:
+    radial-gradient(circle at 18% 24%, color-mix(in srgb, var(--bk-bg-tone-1) 64%, rgba(54, 58, 62, 0.40)), transparent 42%),
+    radial-gradient(circle at 74% 64%, color-mix(in srgb, var(--bk-bg-tone-2) 58%, rgba(42, 46, 50, 0.36)), transparent 48%),
+    linear-gradient(132deg, color-mix(in srgb, var(--bk-bg-tone-1) 56%, #30363a), color-mix(in srgb, var(--bk-bg-tone-2) 50%, #22282c));
+}
+
+.appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-art-surface {
+  background: transparent;
+}
+
+.appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-image-phase {
+  filter: contrast(0.98) saturate(0.84) brightness(0.80);
+  opacity: 0.70;
+}
+
+.appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-dot-surface {
+  background: transparent;
+}
+
+.appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-dot-gradient {
+  opacity: 0.18;
+  filter: saturate(0.86);
+}
+
+.appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-dot-grid {
+  opacity: 0.76;
+  filter: blur(0.1px) saturate(0.86) contrast(1) brightness(0.92);
+}
+
+.appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-dot-grid.small {
+  opacity: 0.48;
 }
 
 .appearance-dark .bk-shape {

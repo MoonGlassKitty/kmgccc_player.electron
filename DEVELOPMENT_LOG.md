@@ -118,3 +118,4 @@
 - AMLL 逐词/逐字演唱数据接入：歌词解析新增 TTML `<p>/<span begin/end>` 支持和增强 LRC 内嵌 `<timestamp>` 逐词标签解析；AMLL line 现在在有 word timing 时传入多个 `words`，没有逐词时间时才回退整行 word。逐字节点显式继承当前歌词颜色；“减弱高亮(beta)”接入侧栏/全屏歌词，开启后关闭 AMLL 和普通歌词高亮 glow。`npm run typecheck` 与 `npm run build` 已通过。
 - 全屏歌词背后增加柔和散景垫层：只在右侧全屏歌词列添加不参与交互的模糊光斑 underlay，位于歌词下方/BK 上方，降低滚珠和背景点缀经过时对歌词可读性的影响。`npm run typecheck` 与 `npm run build` 已通过。
 - 右歌词栏和左侧栏开关动画：右侧歌词栏关闭时保留节点与宽度，先整体向右滑出后再卸载释放布局；打开时从右侧滑入。左侧栏收起增加 grid/侧栏/标题栏过渡，文字与播放源从透明压缩到 0，不再直接 `display:none` 瞬切。`npm run typecheck` 与 `npm run build` 已通过。
+- 全屏 BK 改为专用滚珠态：全屏歌词页的 BK 不再进入普通 image/dot 随机状态机，只循环 dot surface；底层保留现有两主题色染色油漆纹理作为非单色背景，并提高全屏 BK/dot 饱和度。全屏 AMLL 在 dot 循环和曲目切换后继续触发可见背景取色，歌词列下方再叠一层柔和模糊垫子，降低滚珠经过时对歌词可读性的干扰。`npm run typecheck` 与 `npm run build` 已通过。
