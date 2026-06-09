@@ -4314,6 +4314,16 @@ input {
   transition: color 680ms ease, text-shadow 680ms ease;
 }
 
+.fullscreen-amll-player .amll-lyric-player {
+  --amll-lp-color: var(--amll-fullscreen-active-color, rgba(255, 255, 255, 0.96));
+  --amll-lp-hover-bg-color: var(--amll-fullscreen-bg-color, rgba(255, 255, 255, 0.13));
+  color: var(--amll-fullscreen-active-color, rgba(255, 255, 255, 0.96));
+  font-family: var(--lyrics-main-font-family, system-ui, sans-serif);
+  font-weight: var(--lyrics-main-font-weight, 600);
+  text-shadow: 0 6px 24px var(--amll-fullscreen-glow-color, rgba(255, 255, 255, 0.28));
+  transition: color 360ms ease, text-shadow 360ms ease;
+}
+
 .fullscreen-lyrics-page {
   --amll-fullscreen-active-color: var(--amll-fullscreen-active-color-a, rgba(255, 255, 255, 0.96));
   --amll-fullscreen-inactive-color: var(--amll-fullscreen-inactive-color-a, rgba(255, 255, 255, 0.56));
@@ -4332,6 +4342,15 @@ input {
   font-weight: var(--lyrics-main-font-weight, 600);
   text-shadow: none;
   mix-blend-mode: normal;
+}
+
+.amll-lyrics-player.side .amll-lyric-player {
+  --amll-lp-color: var(--amll-side-active-color, rgba(9, 37, 54, 0.84));
+  --amll-lp-hover-bg-color: rgba(255, 255, 255, 0.32);
+  color: var(--amll-side-active-color, rgba(9, 37, 54, 0.84));
+  font-family: var(--lyrics-main-font-family, system-ui, sans-serif);
+  font-weight: var(--lyrics-main-font-weight, 600);
+  transition: color 360ms ease;
 }
 
 .fullscreen-amll-player.amll-lyric-player {

@@ -1037,13 +1037,9 @@ function amllLyricToneSet(seed: RgbColor): {
 function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties, toneBlend = 0): React.CSSProperties {
   const toneOne = parseCssRgbColor(themeStyle['--bk-bg-tone-1' as keyof React.CSSProperties])
   const toneTwo = parseCssRgbColor(themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties])
-  const toneThree = parseCssRgbColor(themeStyle['--bk-bg-tone-3' as keyof React.CSSProperties])
-  const backgroundSeed = toneOne && toneTwo
-    ? mixRgb(mixRgb(toneOne, toneTwo, 0.16), toneThree ?? toneOne, 0.06)
-    : null
-  const primarySeed = backgroundSeed ?? parseCssRgbColor(themeStyle['--cover-accent' as keyof React.CSSProperties]) ?? { r: 22, g: 128, b: 173 }
+  const primarySeed = toneOne ?? parseCssRgbColor(themeStyle['--cover-accent' as keyof React.CSSProperties]) ?? { r: 22, g: 128, b: 173 }
   const secondarySeed = toneOne && toneTwo
-    ? mixRgb(toneTwo, toneOne, 0.74)
+    ? toneTwo
     :
     parseCssRgbColor(themeStyle['--cover-accent-secondary' as keyof React.CSSProperties]) ??
     parseCssRgbColor(themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties]) ??
@@ -1084,10 +1080,9 @@ function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties, ton
 function fullscreenLyricColorStyleFromBKTheme(themeStyle: React.CSSProperties, toneBlend = 0): React.CSSProperties {
   const toneOne = parseCssRgbColor(themeStyle['--bk-bg-tone-1' as keyof React.CSSProperties])
   const toneTwo = parseCssRgbColor(themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties])
-  const toneThree = parseCssRgbColor(themeStyle['--bk-bg-tone-3' as keyof React.CSSProperties])
   if (!toneOne || !toneTwo) return fullscreenLyricColorStyleFromTheme(themeStyle, toneBlend)
-  const backgroundSeed = mixRgb(mixRgb(toneOne, toneTwo, 0.16), toneThree ?? toneOne, 0.06)
-  const secondarySeed = mixRgb(toneTwo, toneOne, 0.74)
+  const backgroundSeed = toneOne
+  const secondarySeed = toneTwo
   const primary = amllLyricToneSet(backgroundSeed)
   const secondary = amllLyricToneSet(secondarySeed)
   const blended = amllLyricToneSet(mixRgb(backgroundSeed, secondarySeed, toneBlend))
@@ -3156,7 +3151,7 @@ function App(): React.ReactElement {
   }, [route.name])
 
   React.useEffect(() => {
-    if (!isLyricsSidebarOpen && !isFullscreenLyricsOpen) {
+    if (!currentTrackHasTimedLyrics) {
       setLyricToneBlend(0)
       return
     }
@@ -3175,7 +3170,7 @@ function App(): React.ReactElement {
     return () => {
       if (frame) window.cancelAnimationFrame(frame)
     }
-  }, [isFullscreenLyricsOpen, isLyricsSidebarOpen])
+  }, [currentTrackHasTimedLyrics])
 
   return (
     <div
