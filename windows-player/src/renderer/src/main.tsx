@@ -528,6 +528,31 @@ type LibraryDialogState =
 const bkShapeAssets = [shape1, shape2, shape3, shape4, shape5, shape6, shape7, shape8, shape9, shape10, shape11]
 const bkBackgroundAssets = [bkBackground1, bkBackground2]
 const artworkFrameAssets = [artworkFrame1, artworkFrame2, artworkFrame3, artworkFrame4]
+
+function normalizeArtworkPulseBpm(rawTempo: number): number {
+  let bpm = rawTempo
+  while (bpm > 180) bpm /= 2
+  if (bpm > 130) bpm /= 2
+  return clampNumber(Math.round(bpm), 45, 130)
+}
+
+function artworkPulseBpmFromCandidates(candidates: BpmCandidates['bpm']): number | null {
+  const scores = new Map<number, number>()
+  for (const candidate of candidates) {
+    const bpm = normalizeArtworkPulseBpm(candidate.tempo)
+    const score = candidate.count * Math.max(candidate.confidence, 0.35)
+    scores.set(bpm, (scores.get(bpm) ?? 0) + score)
+  }
+  let bestBpm: number | null = null
+  let bestScore = 0
+  for (const [bpm, score] of scores) {
+    if (score > bestScore) {
+      bestBpm = bpm
+      bestScore = score
+    }
+  }
+  return bestBpm
+}
 const playlistCoverBases = [playlistCover1, playlistCover2, playlistCover3, playlistCover4]
 
 const nowPlayingSkinOptions: Array<{ id: NowPlayingSkinID; name: string; detail: string }> = [
@@ -2237,6 +2262,8 @@ function App(): React.ReactElement {
   const bpmMutedGainRef = React.useRef<GainNode | null>(null)
   const bpmDetectionTrackIdRef = React.useRef<string | null>(null)
   const bpmCacheRef = React.useRef<Record<string, number>>({})
+  const artworkPulseFrameRef = React.useRef<number | null>(null)
+  const artworkPulseLastBeatRef = React.useRef<number | null>(null)
   const ledAnimationFrameRef = React.useRef<number | null>(null)
   const smoothedLedValuesRef = React.useRef<number[]>([])
   const lastPlaybackTimeRef = React.useRef(0)
@@ -2329,7 +2356,8 @@ function App(): React.ReactElement {
     if (!trackId || !candidate) return
     if (bpmCacheRef.current[trackId]) return
     if (!stable && candidate.confidence < 0.58 && candidate.count < 8) return
-    const bpm = clampNumber(Math.round(candidate.tempo), 40, 220)
+    const bpm = artworkPulseBpmFromCandidates(data.bpm)
+    if (!bpm) return
     bpmCacheRef.current = { ...bpmCacheRef.current, [trackId]: bpm }
     setTrackBpmById((previous) => (
       previous[trackId] ? previous : { ...previous, [trackId]: bpm }
@@ -2459,13 +2487,33 @@ function App(): React.ReactElement {
 
   React.useEffect(() => {
     const bpm = currentTrack?.id ? trackBpmById[currentTrack.id] : null
-    if (!isArtworkBpmPulseEnabled || !isPlaying || !bpm) return
-    const beatMs = clampNumber(60000 / bpm, 260, 1400)
-    const timer = window.setInterval(() => {
-      setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)
-    }, beatMs)
-    return () => window.clearInterval(timer)
-  }, [currentTrack?.id, isArtworkBpmPulseEnabled, isPlaying, trackBpmById])
+    if (!isArtworkBpmPulseEnabled || !isPlaying || !bpm) {
+      artworkPulseLastBeatRef.current = null
+      if (artworkPulseFrameRef.current !== null) {
+        window.cancelAnimationFrame(artworkPulseFrameRef.current)
+        artworkPulseFrameRef.current = null
+      }
+      return
+    }
+    const beatSeconds = 60 / bpm
+    const tick = (): void => {
+      const time = audioRef.current?.currentTime ?? playbackTime
+      const beatIndex = Math.floor(time / beatSeconds)
+      if (artworkPulseLastBeatRef.current !== beatIndex) {
+        artworkPulseLastBeatRef.current = beatIndex
+        setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)
+      }
+      artworkPulseFrameRef.current = window.requestAnimationFrame(tick)
+    }
+    artworkPulseFrameRef.current = window.requestAnimationFrame(tick)
+    return () => {
+      if (artworkPulseFrameRef.current !== null) {
+        window.cancelAnimationFrame(artworkPulseFrameRef.current)
+        artworkPulseFrameRef.current = null
+      }
+      artworkPulseLastBeatRef.current = null
+    }
+  }, [currentTrack?.id, isArtworkBpmPulseEnabled, isPlaying, playbackTime, trackBpmById])
 
   React.useEffect(() => {
     persistSetting('globalArtworkTintEnabled', globalArtworkTintEnabled)
@@ -3346,6 +3394,9 @@ function App(): React.ReactElement {
   React.useEffect(() => () => {
     for (const timer of entryRevealTimersRef.current) {
       window.clearTimeout(timer)
+    }
+    if (artworkPulseFrameRef.current !== null) {
+      window.cancelAnimationFrame(artworkPulseFrameRef.current)
     }
     bpmAnalyzerRef.current?.disconnect()
     bpmMutedGainRef.current?.disconnect()

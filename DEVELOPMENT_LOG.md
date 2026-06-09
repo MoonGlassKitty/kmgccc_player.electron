@@ -128,3 +128,4 @@
 - 窗口/全屏播放底栏与歌名块对齐：新增底部状态栏共享 left/width/bottom 变量，mini-player、timeline、窗口播放歌名块和全屏播放歌名块共用同一左边缘；歌名块固定在底栏上方，避免被底栏遮挡。窗口播放和全屏播放态移除底栏白/黑底色 tint，深色模式同步覆盖为透明底。`npm run typecheck` 与 `npm run build` 已通过。
 - 艺术封面描边改为 BPM 律动：接入 `realtime-bpm-analyzer`，复用现有 WebAudio source 分支实时检测当前歌曲 BPM 并按曲目缓存一次；切歌不再按 hash 自动切换 artwork frame。点击经典封面开启/关闭节奏律动，开启且播放中会按检测到的 BPM 推进封面描边，切歌时未缓存 BPM 的歌曲会重新检测。`npm run typecheck` 与 `npm run build` 已通过。
 - 播放页歌名块定位微调：全屏歌词页的歌名/艺人专辑块不再跟随底部状态栏左边缘，恢复到左下信息区并整体右移、上移；窗口播放页歌名块改回按左侧导航栏右边缘对齐，同时继续保持在底栏上方避免被遮挡。`npm run typecheck` 与 `npm run build` 已通过。
+- 艺术封面 BPM 律动修正：检测到的 BPM 按“超过 130 则除 2”的规则归一，并把倍速/半速候选合并后选最高分；描边推进从 `setInterval` 改为 `requestAnimationFrame` 读取 audio.currentTime 计算 beat index，减少漂移和错拍。`npm run typecheck` 与 `npm run build` 已通过。
