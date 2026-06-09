@@ -134,3 +134,5 @@
 - 艺术封面 BPM 检测换库：移除 `realtime-bpm-analyzer`，改用 `web-audio-beat-detector` 的 `guess(AudioBuffer, { minTempo: 45, maxTempo: 130 })` 离线分析当前歌曲，拿到 BPM 和 first beat offset 后驱动封面描边；点击封面会清当前曲目 beat 缓存并重新分析，分析失败才用 96 BPM 兜底。`npm run typecheck` 与 `npm run build` 已通过。
 - 艺术封面描边切换闪烁优化：不再在同一个封面 DOM 上动态替换 `mask-image`，改为预加载 4 张 artwork frame mask，并渲染 4 组固定 mask 的封面/描边层，只通过 opacity 切换 active 层，减少切换时 mask 重建和图片来不及加载导致的闪烁；拍点相位保持 `guess()` 返回值，不做全局强弱拍硬偏移。`npm run typecheck` 与 `npm run build` 已通过。
 - 艺术封面 BPM 渐进锚定：同一首歌解码一次后按 12s/20s/32s/48s/最长 72s 分段调用 `guess()`，分析过程中先用候选 beat 驱动律动，连续两段 BPM 接近后才写入 locked cache 并停止变化，避免第一次估算不准就永久锚定。`npm run typecheck` 与 `npm run build` 已通过。
+- 艺术封面 BPM 检测区间修正：`guess()` 检测阶段不再硬卡到 130 BPM，改为允许 45-260 BPM，让算法能看到高 BPM 候选；检测结果再按超过 130 则除 2 的规则归一到视觉律动速度。`npm run typecheck` 与 `npm run build` 已通过。
+- 艺术封面 BPM 律动稳定性修正：封面描边 RAF 不再依赖 `playbackTime` 状态，避免歌词界面展开后频繁重建循环导致节拍乱跳；渐进检测只发布初始候选和连续接近的稳定候选，避免后续单段误判 BPM 直接把律动拉快。`npm run typecheck` 与 `npm run build` 已通过。

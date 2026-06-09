@@ -2349,21 +2349,29 @@ function App(): React.ReactElement {
     ))
     if (!durations.length) durations.push(audioBuffer.duration)
     let bestBeat: ArtworkBeat | null = null
+    let previousBeat: ArtworkBeat | null = null
     let stableBeat: ArtworkBeat | null = null
     let stableCount = 0
     for (const duration of durations) {
-      const result = await guess(audioBuffer, 0, duration, { minTempo: 45, maxTempo: 130 })
+      const result = await guess(audioBuffer, 0, duration, { minTempo: 45, maxTempo: 260 })
       const beat = {
         bpm: normalizeArtworkPulseBpm(result.bpm),
         offset: clampNumber(result.offset || 0, 0, Math.max(0, audioBuffer.duration))
       }
-      onCandidate?.(beat)
-      if (bestBeat && Math.abs(bestBeat.bpm - beat.bpm) <= 1) {
+      bestBeat = beat
+      if (!previousBeat) {
+        onCandidate?.(beat)
+        stableCount = 1
+        previousBeat = beat
+        continue
+      }
+      if (Math.abs(previousBeat.bpm - beat.bpm) <= 1) {
         stableCount += 1
+        onCandidate?.(beat)
       } else {
         stableCount = 1
       }
-      bestBeat = beat
+      previousBeat = beat
       if (stableCount >= 2) {
         stableBeat = beat
         break
@@ -2479,7 +2487,7 @@ function App(): React.ReactElement {
     }
     const beatSeconds = 60 / beat.bpm
     const tick = (): void => {
-      const time = audioRef.current?.currentTime ?? playbackTime
+      const time = audioRef.current?.currentTime ?? 0
       const beatIndex = Math.floor(Math.max(0, time - beat.offset) / beatSeconds)
       if (artworkPulseLastBeatRef.current !== beatIndex) {
         artworkPulseLastBeatRef.current = beatIndex
@@ -2495,7 +2503,7 @@ function App(): React.ReactElement {
       }
       artworkPulseLastBeatRef.current = null
     }
-  }, [currentTrack?.id, isArtworkBpmPulseEnabled, isPlaying, playbackTime, trackBeatById])
+  }, [currentTrack?.id, isArtworkBpmPulseEnabled, isPlaying, trackBeatById])
 
   React.useEffect(() => {
     persistSetting('globalArtworkTintEnabled', globalArtworkTintEnabled)
