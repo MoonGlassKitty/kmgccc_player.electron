@@ -1061,6 +1061,38 @@ function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties): Re
   } as React.CSSProperties
 }
 
+function fullscreenLyricColorStyleFromBKTheme(themeStyle: React.CSSProperties): React.CSSProperties {
+  const toneOne = parseCssRgbColor(themeStyle['--bk-bg-tone-1' as keyof React.CSSProperties])
+  const toneTwo = parseCssRgbColor(themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties])
+  const toneThree = parseCssRgbColor(themeStyle['--bk-bg-tone-3' as keyof React.CSSProperties])
+  if (!toneOne || !toneTwo) return fullscreenLyricColorStyleFromTheme(themeStyle)
+  const backgroundSeed = mixRgb(mixRgb(toneOne, toneTwo, 0.64), toneThree ?? toneTwo, 0.18)
+  const secondarySeed = mixRgb(toneTwo, toneOne, 0.28)
+  const primary = amllLyricToneSet(backgroundSeed)
+  const secondary = amllLyricToneSet(secondarySeed)
+  return {
+    ...fullscreenLyricColorStyleFromTheme(themeStyle),
+    '--amll-fullscreen-active-color': rgbaString(primary.active, 1),
+    '--amll-fullscreen-inactive-color': rgbaString(primary.inactive, 1),
+    '--amll-fullscreen-sub-active-color': rgbaString(primary.subActive, 1),
+    '--amll-fullscreen-sub-inactive-color': rgbaString(primary.subInactive, 1),
+    '--amll-fullscreen-bg-color': rgbaString(primary.wash, 0.18),
+    '--amll-fullscreen-glow-color': rgbaString(primary.wash, 0.52),
+    '--amll-fullscreen-active-color-a': rgbaString(primary.active, 1),
+    '--amll-fullscreen-inactive-color-a': rgbaString(primary.inactive, 1),
+    '--amll-fullscreen-sub-active-color-a': rgbaString(primary.subActive, 1),
+    '--amll-fullscreen-sub-inactive-color-a': rgbaString(primary.subInactive, 1),
+    '--amll-fullscreen-bg-color-a': rgbaString(primary.wash, 0.18),
+    '--amll-fullscreen-glow-color-a': rgbaString(primary.wash, 0.52),
+    '--amll-fullscreen-active-color-b': rgbaString(secondary.active, 1),
+    '--amll-fullscreen-inactive-color-b': rgbaString(secondary.inactive, 1),
+    '--amll-fullscreen-sub-active-color-b': rgbaString(secondary.subActive, 1),
+    '--amll-fullscreen-sub-inactive-color-b': rgbaString(secondary.subInactive, 1),
+    '--amll-fullscreen-bg-color-b': rgbaString(secondary.wash, 0.18),
+    '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, 0.52)
+  } as React.CSSProperties
+}
+
 function harmonizedShapeTints(colors: RgbColor[]): [string, string, string] {
   const firstHsl = rgbToHsl(colors[0])
   const secondHsl = rgbToHsl(colors[1] ?? colors[0])
@@ -4856,9 +4888,17 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   const artworkFrame = artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]
   const [pixelStretchBackground, setPixelStretchBackground] = React.useState<string | null>(null)
   const [amllColorPhase, setAmllColorPhase] = React.useState(0)
+  const [activeBKThemeStyle, setActiveBKThemeStyle] = React.useState<React.CSSProperties>(bkThemeStyle)
   const useCoverGradientBlur = skinID === 'fullscreen.coverGradientBlur'
   const nowPlayingSkinID: NowPlayingSkinID = skinID === 'fullscreen.coverGradientBlur' ? 'coverLed' : skinID
   const showBKBackground = artBackgroundEnabled && !useCoverGradientBlur && nowPlayingSkinID !== 'appleStyle'
+  const fullscreenPageStyle = React.useMemo(
+    () => ({
+      ...bkThemeStyle,
+      ...fullscreenLyricColorStyleFromBKTheme(activeBKThemeStyle)
+    }) as React.CSSProperties,
+    [activeBKThemeStyle, bkThemeStyle]
+  )
 
   React.useEffect(() => {
     let cancelled = false
@@ -4874,10 +4914,11 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
 
   React.useEffect(() => {
     setAmllColorPhase(0)
-  }, [track?.id])
+    setActiveBKThemeStyle(bkThemeStyle)
+  }, [bkThemeStyle, track?.id])
 
   return (
-    <section className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} amll-color-phase-${amllColorPhase % 2} no-drag`} style={bkThemeStyle}>
+    <section className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} amll-color-phase-${amllColorPhase % 2} no-drag`} style={fullscreenPageStyle}>
       {useCoverGradientBlur ? (
         <>
           {pixelStretchBackground ? <img className="fullscreen-lyrics-stretch-bg" src={pixelStretchBackground} alt="" decoding="async" /> : null}
@@ -4886,7 +4927,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       ) : nowPlayingSkinID === 'appleStyle' ? (
         <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
       ) : showBKBackground ? (
-        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onColorPhaseChange={setAmllColorPhase} />
+        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onColorPhaseChange={setAmllColorPhase} onColorThemeChange={setActiveBKThemeStyle} />
       ) : (
         <UnifiedMeshBackground />
       )}
@@ -5186,12 +5227,14 @@ const BKArtBackground = React.memo(function BKArtBackground({
   track,
   isPlaying,
   themeStyle,
-  onColorPhaseChange
+  onColorPhaseChange,
+  onColorThemeChange
 }: {
   track: Track | null | undefined
   isPlaying: boolean
   themeStyle: React.CSSProperties
   onColorPhaseChange?: (phase: number) => void
+  onColorThemeChange?: (themeStyle: React.CSSProperties) => void
 }): React.ReactElement {
   const trackSeed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
   const transitionSeedRef = React.useRef(0)
@@ -5286,7 +5329,8 @@ const BKArtBackground = React.memo(function BKArtBackground({
 
   React.useEffect(() => {
     onColorPhaseChange?.(currentSurface.phaseOffset)
-  }, [currentSurface.phaseOffset, onColorPhaseChange])
+    onColorThemeChange?.(currentSurface.themeStyle)
+  }, [currentSurface.phaseOffset, currentSurface.themeStyle, onColorPhaseChange, onColorThemeChange])
 
   return (
     <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
