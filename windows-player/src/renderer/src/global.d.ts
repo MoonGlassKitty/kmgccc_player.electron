@@ -23,6 +23,7 @@ declare global {
     labelOrCompany?: string
     releaseDate?: string
     neteaseSongId?: number
+    qqMusicSongId?: string
     qqMusicSongMid?: string
     metadataFetchedAt?: string
     metadataConfidence?: number
@@ -175,7 +176,7 @@ declare global {
       syncTrackInfo: (track: LocalAudioImport) => Promise<TrackMetadataSyncResult>
       lookupAlbumMetadata: (values: Record<string, unknown>) => Promise<Record<string, unknown> | null>
       lookupArtistMetadata: (values: Record<string, unknown>) => Promise<Record<string, unknown> | null>
-      lookupLyrics: (values: Record<string, unknown>) => Promise<{ lyricsText?: string; syncedLyrics?: string; neteaseSongId?: number } | null>
+      lookupLyrics: (values: Record<string, unknown>) => Promise<{ lyricsText?: string; syncedLyrics?: string; neteaseSongId?: number; qqMusicSongId?: string } | null>
       lookupCover: (values: Record<string, unknown>) => Promise<Array<{ artworkUrl: string; source: string; label?: string }>>
       clearLibrary: () => Promise<HomeSnapshot>
       updateTrack: (track: LocalAudioImport) => Promise<HomeSnapshot>

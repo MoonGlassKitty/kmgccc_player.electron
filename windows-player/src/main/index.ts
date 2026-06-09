@@ -6,6 +6,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Readable } from 'node:stream'
+import { decryptQrcHex, parseQrc, type LyricLine as AmllParsedLyricLine } from '@applemusic-like-lyrics/lyric'
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL)
 
@@ -71,6 +72,7 @@ type LocalAudioImport = {
   labelOrCompany?: string
   releaseDate?: string
   neteaseSongId?: number
+  qqMusicSongId?: string
   qqMusicSongMid?: string
   metadataFetchedAt?: string
   metadataConfidence?: number
@@ -217,6 +219,7 @@ type NetEaseAlbumSearchResult = {
 type QQMusicSearchType = 'song' | 'singer' | 'album'
 
 type QQMusicSongSearchItem = {
+  id?: number | string
   title?: string
   name?: string
   mid?: string
@@ -283,6 +286,14 @@ type LrcLibResult = {
   syncedLyrics?: string | null
 }
 
+type QQMusicLyricCandidate = {
+  songId: string
+  title?: string
+  artist?: string
+  album?: string
+  score: number
+}
+
 type AmllDbSearchResult = {
   title?: string
   titles?: string[]
@@ -303,7 +314,7 @@ type NetEaseLyricPayload = {
   yrc?: { lyric?: string }
 }
 
-type LyricsLookupResult = Pick<LocalAudioImport, 'lyricsText' | 'syncedLyrics' | 'neteaseSongId'>
+type LyricsLookupResult = Pick<LocalAudioImport, 'lyricsText' | 'syncedLyrics' | 'neteaseSongId' | 'qqMusicSongId'>
 
 function mediaUrlForPath(audioPath: string): string {
   const encodedPath = Buffer.from(audioPath, 'utf8').toString('base64url')
@@ -1478,6 +1489,142 @@ function scoreLyricsCandidate(track: LocalAudioImport, candidate: LrcLibResult):
   return score
 }
 
+function decodeQQMusicXmlText(value?: string): string {
+  if (!value) return ''
+  const withSpaces = value.replace(/\+/g, ' ')
+  try {
+    return decodeURIComponent(withSpaces)
+  } catch {
+    return withSpaces
+  }
+}
+
+function xmlEntityDecode(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
+
+function parseQQMusicLyricSearchXml(track: LocalAudioImport, xml: string): QQMusicLyricCandidate[] {
+  const songMatches = [...xml.matchAll(/<songinfo\b([^>]*)>([\s\S]*?)<\/songinfo>/gi)]
+  const candidates: QQMusicLyricCandidate[] = []
+  songMatches.forEach((match, index) => {
+    const attrs = match[1]
+    const body = match[2]
+    const songId = attrs.match(/\bid="([^"]+)"/i)?.[1]?.trim()
+    if (!songId) return
+    const readTag = (tag: string): string => {
+      const value = body.match(new RegExp(`<${tag}>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*<\\/${tag}>`, 'i'))?.[1]
+      return decodeQQMusicXmlText(value)
+    }
+    const title = readTag('name')
+    const artist = readTag('singername')
+    const album = readTag('albumname')
+    let score = textSimilarityScore(track.title, title) * 7
+    if (!isUnknown(track.artist)) score += textSimilarityScore(track.artist, artist) * 5
+    if (!isUnknown(track.album)) score += textSimilarityScore(track.album, album) * 2
+    score += Math.max(0, 0.8 - index * 0.08)
+    candidates.push({ songId, title, artist, album, score })
+  })
+  return candidates
+}
+
+async function searchQQMusicLyrics(track: LocalAudioImport): Promise<QQMusicLyricCandidate[]> {
+  const url = new URL('https://c.y.qq.com/lyric/fcgi-bin/fcg_search_pc_lrc.fcg')
+  url.searchParams.set('SONGNAME', track.title)
+  if (!isUnknown(track.artist)) url.searchParams.set('SINGERNAME', track.artist)
+  url.searchParams.set('TYPE', '2')
+  url.searchParams.set('RANGE_MIN', '1')
+  url.searchParams.set('RANGE_MAX', '20')
+
+  const response = await fetch(url, {
+    headers: {
+      'Referer': 'https://y.qq.com/',
+      'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0'
+    },
+    signal: AbortSignal.timeout(12000)
+  })
+  if (!response.ok) return []
+  return parseQQMusicLyricSearchXml(track, await response.text())
+    .filter((candidate) => candidate.score >= 6.6 && textSimilarityScore(track.title, candidate.title) >= 0.72)
+    .sort((a, b) => b.score - a.score)
+}
+
+function qrcXmlContent(xml: string, tag: string): string {
+  return xml.match(new RegExp(`<${tag}\\b[^>]*>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*<\\/${tag}>`, 'i'))?.[1]?.trim() ?? ''
+}
+
+async function downloadQQMusicQrc(songId: string): Promise<{ origHex: string; translationHex: string; romanHex: string } | null> {
+  const url = new URL('https://c.y.qq.com/qqmusic/fcgi-bin/lyric_download.fcg')
+  url.searchParams.set('version', '15')
+  url.searchParams.set('miniversion', '82')
+  url.searchParams.set('lrctype', '4')
+  url.searchParams.set('musicid', songId)
+
+  const response = await fetch(url, {
+    headers: {
+      'Referer': 'https://y.qq.com/',
+      'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0'
+    },
+    signal: AbortSignal.timeout(12000)
+  })
+  if (!response.ok) return null
+  const text = (await response.text()).replace(/<!--/g, '').replace(/-->/g, '')
+  const origHex = qrcXmlContent(text, 'content')
+  if (!origHex) return null
+  return {
+    origHex,
+    translationHex: qrcXmlContent(text, 'contentts'),
+    romanHex: qrcXmlContent(text, 'contentroma')
+  }
+}
+
+function extractQrcLyricContent(decrypted: string): string {
+  const lyricContent = decrypted.match(/<Lyric_1\b[^>]*\bLyricContent="([\s\S]*?)"\/>/i)?.[1]
+  return lyricContent ? xmlEntityDecode(lyricContent) : decrypted
+}
+
+function amllLyricLinesToInlineLrc(lines: AmllParsedLyricLine[]): string {
+  return lines
+    .filter((line) => Number.isFinite(line.startTime) && line.words.length)
+    .map((line) => {
+      const words = line.words
+        .filter((word) => word.word)
+        .map((word) => `<${formatLyricTimestampFromMs(word.startTime)}>${word.word}`)
+        .join('')
+      return words ? `[${formatLyricTimestampFromMs(line.startTime)}]${words}` : ''
+    })
+    .filter(Boolean)
+    .join('\n')
+}
+
+async function fetchQQMusicLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
+  const candidates = track.qqMusicSongId
+    ? [{ songId: track.qqMusicSongId, title: track.title, artist: track.artist, album: track.album, score: 100 }]
+    : await searchQQMusicLyrics(track)
+
+  for (const candidate of candidates.slice(0, 5)) {
+    try {
+      const payload = await downloadQQMusicQrc(candidate.songId)
+      if (!payload?.origHex) continue
+      const qrcLyrics = extractQrcLyricContent(decryptQrcHex(payload.origHex))
+      const lines = parseQrc(qrcLyrics)
+      const syncedLyrics = amllLyricLinesToInlineLrc(lines)
+      if (!syncedLyrics.trim() || !lines.some((line) => line.words.length > 1)) continue
+      return {
+        syncedLyrics,
+        qqMusicSongId: candidate.songId
+      }
+    } catch {
+      continue
+    }
+  }
+  return null
+}
+
 function amllTtmlUrlsForNetEaseSong(songId: number): string[] {
   return [
     `https://amll-ttml-db.stevexmh.net/ncm/${songId}`,
@@ -1720,6 +1867,11 @@ async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult 
   if (amllSearchLyrics) return amllSearchLyrics
 
   const netEaseLyrics = await fetchNetEaseLyrics(track).catch(() => null)
+  if (netEaseLyrics?.syncedLyrics && /<\d{1,2}:\d{2}(?:[.:]\d{1,3})?>/.test(netEaseLyrics.syncedLyrics)) return netEaseLyrics
+
+  const qqMusicLyrics = await fetchQQMusicLyrics(track).catch(() => null)
+  if (qqMusicLyrics) return { ...netEaseLyrics, ...qqMusicLyrics }
+
   if (netEaseLyrics) return netEaseLyrics
 
   const url = new URL('https://lrclib.net/api/search')
@@ -1742,7 +1894,8 @@ async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult 
   return {
     lyricsText: selected.plainLyrics ?? undefined,
     syncedLyrics: selected.syncedLyrics ?? undefined,
-    neteaseSongId: track.neteaseSongId
+    neteaseSongId: track.neteaseSongId,
+    qqMusicSongId: track.qqMusicSongId
   }
 }
 
@@ -2223,6 +2376,7 @@ ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, un
   const album = typeof values.album === 'string' ? values.album.trim() : ''
   const duration = typeof values.duration === 'number' && Number.isFinite(values.duration) ? values.duration : 0
   const neteaseSongId = positiveInteger(values.neteaseSongId)
+  const qqMusicSongId = typeof values.qqMusicSongId === 'string' ? values.qqMusicSongId.trim() : undefined
   if (!title) return null
   const ids = idsForMetadata(artist || '未知艺人', album || '未知专辑')
   return fetchLyrics({
@@ -2234,6 +2388,7 @@ ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, un
     albumId: ids.albumId,
     duration,
     neteaseSongId,
+    qqMusicSongId,
     sourcePath: '',
     sourceUrl: ''
   })

@@ -34,6 +34,7 @@
     }
   },
   "dependencies": {
+    "@applemusic-like-lyrics/lyric": "^1.0.1",
     "@applemusic-like-lyrics/react": "^0.5.1",
     "@pixi/app": "^7.4.3",
     "@pixi/core": "^7.4.3",
