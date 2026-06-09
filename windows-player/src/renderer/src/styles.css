@@ -1314,7 +1314,7 @@ input {
 
 .settings-skin-row button strong {
   font-size: 14px;
-  font-weight: 820;
+  font-weight: var(--lyrics-main-font-weight, 820);
 }
 
 .settings-skin-row button small {
@@ -4030,6 +4030,7 @@ input {
   background: transparent;
   font-size: clamp(22px, 2.1vw, 34px);
   font-weight: 820;
+  font-family: var(--lyrics-main-font-family, system-ui, sans-serif);
   line-height: 1.18;
   text-align: left;
   transition:
@@ -4044,7 +4045,7 @@ input {
   padding: 6px 18px;
   color: rgba(255, 255, 255, 0.28);
   font-size: clamp(34px, 3.2vw, 64px);
-  font-weight: 900;
+  font-weight: var(--lyrics-main-font-weight, 900);
   text-shadow: 0 6px 28px rgba(0, 0, 0, 0.12);
   filter: blur(2.2px);
 }
@@ -4092,6 +4093,7 @@ input {
   gap: 12px;
   min-height: 0;
   color: rgba(8, 42, 60, 0.5);
+  font-family: var(--lyrics-main-font-family, system-ui, sans-serif);
   text-align: center;
 }
 
@@ -4306,6 +4308,8 @@ input {
   width: 100%;
   height: 100%;
   color: var(--amll-fullscreen-active-color, rgba(255, 255, 255, 0.96));
+  font-family: var(--lyrics-main-font-family, system-ui, sans-serif);
+  font-weight: var(--lyrics-main-font-weight, 600);
   text-shadow: 0 6px 24px var(--amll-fullscreen-glow-color, rgba(255, 255, 255, 0.28));
   transition: color 680ms ease, text-shadow 680ms ease;
 }
@@ -4324,6 +4328,8 @@ input {
   --amll-lp-font-size: clamp(18px, calc(var(--lyrics-font-size, 26px) * 1), 36px);
   --amll-lp-hover-bg-color: rgba(255, 255, 255, 0.32);
   --amll-lp-line-width-aspect: 0.98;
+  font-family: var(--lyrics-main-font-family, system-ui, sans-serif);
+  font-weight: var(--lyrics-main-font-weight, 600);
   text-shadow: none;
   mix-blend-mode: normal;
 }
@@ -4347,6 +4353,8 @@ input {
 
 .fullscreen-amll-player .FmKaba_lyricSubLine {
   color: var(--amll-fullscreen-sub-active-color, rgba(255, 255, 255, 0.72));
+  font-family: var(--lyrics-translation-font-family, var(--lyrics-main-font-family, system-ui, sans-serif));
+  font-weight: var(--lyrics-translation-font-weight, 400);
   opacity: 0.54;
   transition: color 360ms ease;
 }
@@ -4354,6 +4362,11 @@ input {
 .fullscreen-amll-player .FmKaba_lyricBgLine .FmKaba_lyricSubLine {
   color: var(--amll-fullscreen-sub-inactive-color, rgba(255, 255, 255, 0.36));
   opacity: 0.48;
+}
+
+.amll-lyrics-player.side .FmKaba_lyricSubLine {
+  font-family: var(--lyrics-translation-font-family, var(--lyrics-main-font-family, system-ui, sans-serif));
+  font-weight: var(--lyrics-translation-font-weight, 400);
 }
 
 .amll-lyrics-player.side .FmKaba_lyricBgLine {

@@ -861,6 +861,11 @@ const lyricsFontFamilyOptions = [
 
 const artworkThemeCache = new Map<string, React.CSSProperties>()
 
+function cssFontFamily(...families: string[]): string {
+  const cleaned = families.map((family) => family.trim()).filter(Boolean)
+  return [...cleaned.map((family) => JSON.stringify(family)), 'system-ui', 'sans-serif'].join(', ')
+}
+
 function rgbToHsl({ r, g, b }: RgbColor): HslColor {
   const red = r / 255
   const green = g / 255
@@ -2193,20 +2198,29 @@ function App(): React.ReactElement {
   const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
   const effectiveCoverThemeStyle = globalArtworkTintEnabled ? coverThemeStyle : coverThemeFor(null, albums)
   const lyricColorStyle = React.useMemo(() => fullscreenLyricColorStyleFromTheme(effectiveCoverThemeStyle, lyricToneBlend), [effectiveCoverThemeStyle, lyricToneBlend])
+  const lyricFontStyle = React.useMemo(() => ({
+    '--lyrics-main-font-family': cssFontFamily(lyricsFontNameZh, lyricsFontNameEn),
+    '--lyrics-english-font-family': cssFontFamily(lyricsFontNameEn),
+    '--lyrics-translation-font-family': cssFontFamily(lyricsTranslationFontName),
+    '--lyrics-main-font-weight': String(followSystemAppearance || manualAppearance === 'light' ? lyricsFontWeightLight : lyricsFontWeightDark),
+    '--lyrics-translation-font-weight': String(followSystemAppearance || manualAppearance === 'light' ? lyricsTranslationFontWeightLight : lyricsTranslationFontWeightDark)
+  }) as React.CSSProperties, [followSystemAppearance, lyricsFontNameEn, lyricsFontNameZh, lyricsFontWeightDark, lyricsFontWeightLight, lyricsTranslationFontName, lyricsTranslationFontWeightDark, lyricsTranslationFontWeightLight, manualAppearance])
   const desktopStyle = React.useMemo(() => ({
     ...effectiveCoverThemeStyle,
     ...lyricColorStyle,
+    ...lyricFontStyle,
     '--lyrics-font-size': `${lyricsFontSize}px`,
     '--lyrics-translation-font-size': `${lyricsTranslationFontSize}px`,
     '--amll-render-scale': String(lyricRenderScaleForQuality(lyricsRenderQuality))
-  }) as React.CSSProperties, [effectiveCoverThemeStyle, lyricColorStyle, lyricsFontSize, lyricsRenderQuality, lyricsTranslationFontSize])
+  }) as React.CSSProperties, [effectiveCoverThemeStyle, lyricColorStyle, lyricFontStyle, lyricsFontSize, lyricsRenderQuality, lyricsTranslationFontSize])
   const fullscreenCoverThemeStyle = React.useMemo(() => ({
     ...effectiveCoverThemeStyle,
     ...lyricColorStyle,
+    ...lyricFontStyle,
     '--lyrics-font-size': `${fullscreenLyricsFontSize}px`,
     '--lyrics-translation-font-size': `${fullscreenLyricsTranslationFontSize}px`,
     '--amll-render-scale': String(lyricRenderScaleForQuality(fullscreenLyricsRenderQuality))
-  }) as React.CSSProperties, [effectiveCoverThemeStyle, fullscreenLyricsFontSize, fullscreenLyricsRenderQuality, fullscreenLyricsTranslationFontSize, lyricColorStyle])
+  }) as React.CSSProperties, [effectiveCoverThemeStyle, fullscreenLyricsFontSize, fullscreenLyricsRenderQuality, fullscreenLyricsTranslationFontSize, lyricColorStyle, lyricFontStyle])
   const selectedVisualizerMode = selectedNowPlayingSkin === 'coverLed'
     ? classicVisualizerMode
     : selectedNowPlayingSkin === 'appleStyle'
