@@ -340,6 +340,7 @@ type LyricsBackgroundMode = 'clear' | 'sidebar'
 type HomeCardMaterialMode = 'liquidGlass' | 'frostedGlass' | 'solid'
 type HomeSectionID = 'featured' | 'artists' | 'albums' | 'playlists' | 'listeningFootprint'
 type ManualAppearanceMode = 'light' | 'dark'
+type LyricsRenderQuality = 'performance' | 'balanced' | 'quality'
 type LibraryLocationInfo = {
   currentPath: string
   isDefault: boolean
@@ -389,6 +390,12 @@ const homeSectionOptions: Array<{ id: HomeSectionID; title: string }> = [
   { id: 'listeningFootprint', title: '音乐足迹' }
 ]
 const defaultHomeSectionOrder: HomeSectionID[] = homeSectionOptions.map((section) => section.id)
+
+function lyricRenderScaleForQuality(quality: LyricsRenderQuality): number {
+  if (quality === 'quality') return 0.75
+  if (quality === 'balanced') return 0.55
+  return 0.45
+}
 
 function HomeSectionOrderIcon({ section }: { section: HomeSectionID }): React.ReactElement {
   if (section === 'featured') return <Sparkles size={18} />
@@ -1785,7 +1792,7 @@ function App(): React.ReactElement {
   const [isAppleDynamicBackgroundEnabled, setIsAppleDynamicBackgroundEnabled] = React.useState(() => storedBoolean('skin.appleStyle.dynamicBackgroundEnabled', true))
   const [appleMeshSpeed, setAppleMeshSpeed] = React.useState<AppleMeshSpeed>(() => storedAppleMeshSpeed())
   const [isCassetteKmgLookEnabled, setIsCassetteKmgLookEnabled] = React.useState(() => storedBoolean('skin.kmgcccCassette.showKmgLook', false))
-  const [lyricsRenderQuality, setLyricsRenderQuality] = React.useState<'performance' | 'balanced' | 'quality'>(() => storedString('amllLyricsRenderQuality', 'balanced', ['performance', 'balanced', 'quality']))
+  const [lyricsRenderQuality, setLyricsRenderQuality] = React.useState<LyricsRenderQuality>(() => storedString('amllLyricsRenderQuality', 'balanced', ['performance', 'balanced', 'quality']))
   const [isDiscreteWordHighlightEnabled, setIsDiscreteWordHighlightEnabled] = React.useState(() => storedBoolean('amllDiscreteWordHighlightEnabled', false))
   const [lyricsFontSize, setLyricsFontSize] = React.useState(() => clampNumber(storedNumber('lyricsFontSize', 26), 16, 48))
   const [lyricsTranslationFontSize, setLyricsTranslationFontSize] = React.useState(() => clampNumber(storedNumber('lyricsTranslationFontSize', 16), 12, 36))
@@ -1810,7 +1817,7 @@ function App(): React.ReactElement {
   const [fullscreenAppleVisualizerMode, setFullscreenAppleVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.appleStyle.fullscreen.visualizerMode', 'led'))
   const [fullscreenRotatingVisualizerMode, setFullscreenRotatingVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.rotatingCover.fullscreen.visualizerMode', 'off'))
   const [fullscreenCassetteVisualizerMode, setFullscreenCassetteVisualizerMode] = React.useState<VisualizerMode>(() => storedVisualizerModeForKey('skin.kmgcccCassette.fullscreen.visualizerMode', 'off'))
-  const [fullscreenLyricsRenderQuality, setFullscreenLyricsRenderQuality] = React.useState<'performance' | 'balanced' | 'quality'>(() => storedString('fullscreen.amllLyricsRenderQuality', 'balanced', ['performance', 'balanced', 'quality']))
+  const [fullscreenLyricsRenderQuality, setFullscreenLyricsRenderQuality] = React.useState<LyricsRenderQuality>(() => storedString('fullscreen.amllLyricsRenderQuality', 'balanced', ['performance', 'balanced', 'quality']))
   const [fullscreenDiscreteWordHighlightEnabled, setFullscreenDiscreteWordHighlightEnabled] = React.useState(() => storedBoolean('fullscreen.amllDiscreteWordHighlightEnabled', false))
   const [fullscreenLyricsFontSize, setFullscreenLyricsFontSize] = React.useState(() => clampNumber(storedNumber('fullscreen.lyricsFontSize', 30), 16, 56))
   const [fullscreenLyricsTranslationFontSize, setFullscreenLyricsTranslationFontSize] = React.useState(() => clampNumber(storedNumber('fullscreen.lyricsTranslationFontSize', 18), 12, 40))
@@ -1861,7 +1868,7 @@ function App(): React.ReactElement {
     ...effectiveCoverThemeStyle,
     '--lyrics-font-size': `${lyricsFontSize}px`,
     '--lyrics-translation-font-size': `${lyricsTranslationFontSize}px`,
-    '--amll-quality-scale': lyricsRenderQuality === 'performance' ? 0.78 : lyricsRenderQuality === 'quality' ? 1.18 : 1
+    '--amll-render-scale': String(lyricRenderScaleForQuality(lyricsRenderQuality))
   }) as React.CSSProperties, [effectiveCoverThemeStyle, lyricsFontSize, lyricsRenderQuality, lyricsTranslationFontSize])
   const selectedVisualizerMode = selectedNowPlayingSkin === 'coverLed'
     ? classicVisualizerMode
@@ -1892,7 +1899,8 @@ function App(): React.ReactElement {
     }
     return audioAnalyserRef.current
   }, [])
-  const effectiveLyricPlaybackTime = Math.max(0, playbackTime + (lyricsGlobalAdvanceMs + lookaheadMs) / 1000)
+  const lyricPlaybackOffsetSeconds = (lyricsGlobalAdvanceMs + lookaheadMs) / 1000
+  const effectiveLyricPlaybackTime = Math.max(0, playbackTime + lyricPlaybackOffsetSeconds)
   const lyricsWidth = isLyricsSidebarOpen ? lyricsSidebarWidth : 0
   const adaptiveSidebarWidth = React.useMemo(() => {
     if (isSidebarCollapsed) return COLLAPSED_SIDEBAR_WIDTH
@@ -2220,6 +2228,9 @@ function App(): React.ReactElement {
     lastPlaybackTimeRef.current = nextTime
     setPlaybackTime(nextTime)
   }, [currentTrack?.duration, currentTrack?.sourceUrl, writeMiniProgressRatio])
+  const seekToLyricTime = React.useCallback((seconds: number) => {
+    seekTo(Math.max(0, seconds - lyricPlaybackOffsetSeconds))
+  }, [lyricPlaybackOffsetSeconds, seekTo])
   const togglePlayback = React.useCallback(() => {
     setIsPlaying((value) => !value)
   }, [])
@@ -2871,7 +2882,7 @@ function App(): React.ReactElement {
             albums={albums}
             playbackTime={effectiveLyricPlaybackTime}
             isPlaying={isPlaying}
-            onSeek={seekTo}
+            onSeek={seekToLyricTime}
             onResizeStart={handleLyricsResizeStart}
           />
         ) : null}
@@ -2992,7 +3003,7 @@ function App(): React.ReactElement {
           />
         ) : null}
         {isFullscreenLyricsOpen ? (
-          <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={effectiveLyricPlaybackTime} isPlaying={isPlaying} onSeek={seekTo} />
+          <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={effectiveLyricPlaybackTime} isPlaying={isPlaying} onSeek={seekToLyricTime} />
         ) : null}
         {libraryDialog ? (
           <LibraryDialog state={libraryDialog} snapshot={homeSnapshot} onClose={() => setLibraryDialog(null)} onSubmit={submitLibraryDialog} />
@@ -4262,6 +4273,7 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
   const amllShellRef = React.useRef<HTMLDivElement | null>(null)
   const [amllHitTargets, setAmllHitTargets] = React.useState<FullscreenLyricHitTarget[]>([])
+  const [isLyricHovering, setIsLyricHovering] = React.useState(false)
   const amllOptimizeOptions = React.useMemo(() => ({ resetLineTimestamps: false }), [])
   const amllBottomLine = React.useMemo(
     () => variant === 'fullscreen' ? <span className="fullscreen-amll-bottom">{track ? `${track.artist} · ${track.album}` : ''}</span> : undefined,
@@ -4339,7 +4351,7 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
         playing={isPlaying}
         alignAnchor="center"
         alignPosition={0.18}
-        enableBlur
+        enableBlur={!isLyricHovering}
         enableScale
         enableSpring
         wordFadeWidth={0.5}
@@ -4365,6 +4377,8 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
               event.stopPropagation()
               onSeek(target.startTime / 1000)
             }}
+            onPointerEnter={() => setIsLyricHovering(true)}
+            onPointerLeave={() => setIsLyricHovering(false)}
             onClick={(event) => {
               event.preventDefault()
               event.stopPropagation()

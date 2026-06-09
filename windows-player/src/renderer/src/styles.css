@@ -3700,6 +3700,7 @@ input {
 .lyrics-line-list.fullscreen .lyrics-line:not(:disabled):hover {
   color: rgba(255, 255, 255, 0.82);
   background: rgba(255, 255, 255, 0.08);
+  filter: none;
 }
 
 .lyrics-line.plain {
@@ -3895,7 +3896,7 @@ input {
 
 .fullscreen-amll-player {
   --amll-lp-color: rgba(255, 255, 255, 0.96);
-  --amll-lp-font-size: clamp(28px, calc(var(--lyrics-font-size, 26px) * var(--amll-quality-scale, 1) * 1.45), 56px);
+  --amll-lp-font-size: clamp(28px, calc(var(--lyrics-font-size, 26px) * 1.45), 56px);
   --amll-lp-hover-bg-color: rgba(255, 255, 255, 0.13);
   --amll-lp-line-width-aspect: 0.96;
   width: 100%;
@@ -3905,7 +3906,7 @@ input {
 
 .amll-lyrics-player.side {
   --amll-lp-color: rgba(9, 37, 54, 0.84);
-  --amll-lp-font-size: clamp(18px, calc(var(--lyrics-font-size, 26px) * var(--amll-quality-scale, 1)), 36px);
+  --amll-lp-font-size: clamp(18px, calc(var(--lyrics-font-size, 26px) * 1), 36px);
   --amll-lp-hover-bg-color: rgba(255, 255, 255, 0.32);
   --amll-lp-line-width-aspect: 0.98;
   text-shadow: none;
