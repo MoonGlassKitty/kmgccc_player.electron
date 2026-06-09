@@ -871,6 +871,10 @@ function saturateRgb(color: RgbColor, amount: number): RgbColor {
   })
 }
 
+function darkenRgb(color: RgbColor, amount: number): RgbColor {
+  return mixRgb(color, { r: 0, g: 0, b: 0 }, amount)
+}
+
 function hexString(color: RgbColor): string {
   const channel = (value: number): string => value.toString(16).padStart(2, '0')
   return `#${channel(color.r)}${channel(color.g)}${channel(color.b)}`
@@ -4760,6 +4764,8 @@ const BKImagePhase = React.memo(function BKImagePhase({
     loadImageElement(source)
       .then((image) => {
         if (cancelled) return
+        const firstPaintTone = darkenRgb(firstTone, 0.18)
+        const secondPaintTone = secondTone
         const maxSide = 1280
         const scale = Math.min(1, maxSide / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height))
         const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale))
@@ -4778,7 +4784,7 @@ const BKImagePhase = React.memo(function BKImagePhase({
           const b = pixels[index + 2]
           const a = pixels[index + 3]
           const luma = clampNumber(((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 - 0.5) * 1.08 + 0.5, 0, 1)
-          const mapped = mixRgb(firstTone, secondTone, luma)
+          const mapped = mixRgb(firstPaintTone, secondPaintTone, luma)
           const originalSoft = saturateRgb({ r, g, b }, 0.08)
           const composed = mixRgb(originalSoft, mapped, 0.78)
           const boosted = saturateRgb(composed, 0.82)
