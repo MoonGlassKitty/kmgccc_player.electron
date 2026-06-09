@@ -4298,17 +4298,38 @@ input {
 }
 
 .fullscreen-amll-player {
-  --amll-lp-color: rgba(255, 255, 255, 0.96);
+  --amll-lp-color: var(--amll-fullscreen-active-color, rgba(255, 255, 255, 0.96));
+  --amll-lp-bg-color: transparent;
   --amll-lp-font-size: clamp(28px, calc(var(--lyrics-font-size, 26px) * 1.45), 56px);
-  --amll-lp-hover-bg-color: rgba(255, 255, 255, 0.13);
+  --amll-lp-hover-bg-color: var(--amll-fullscreen-bg-color, rgba(255, 255, 255, 0.13));
   --amll-lp-line-width-aspect: 0.96;
   width: 100%;
   height: 100%;
-  text-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
+  color: var(--amll-fullscreen-active-color, rgba(255, 255, 255, 0.96));
+  text-shadow: 0 6px 24px var(--amll-fullscreen-glow-color, rgba(255, 255, 255, 0.28));
+  transition: color 680ms ease, text-shadow 680ms ease;
+}
+
+.fullscreen-lyrics-page.amll-color-phase-0 {
+  --amll-fullscreen-active-color: var(--amll-fullscreen-active-color-a, rgba(255, 255, 255, 0.96));
+  --amll-fullscreen-inactive-color: var(--amll-fullscreen-inactive-color-a, rgba(255, 255, 255, 0.56));
+  --amll-fullscreen-sub-active-color: var(--amll-fullscreen-sub-active-color-a, rgba(255, 255, 255, 0.72));
+  --amll-fullscreen-sub-inactive-color: var(--amll-fullscreen-sub-inactive-color-a, rgba(255, 255, 255, 0.36));
+  --amll-fullscreen-bg-color: var(--amll-fullscreen-bg-color-a, rgba(255, 255, 255, 0.13));
+  --amll-fullscreen-glow-color: var(--amll-fullscreen-glow-color-a, rgba(255, 255, 255, 0.28));
+}
+
+.fullscreen-lyrics-page.amll-color-phase-1 {
+  --amll-fullscreen-active-color: var(--amll-fullscreen-active-color-b, rgba(255, 255, 255, 0.96));
+  --amll-fullscreen-inactive-color: var(--amll-fullscreen-inactive-color-b, rgba(255, 255, 255, 0.56));
+  --amll-fullscreen-sub-active-color: var(--amll-fullscreen-sub-active-color-b, rgba(255, 255, 255, 0.72));
+  --amll-fullscreen-sub-inactive-color: var(--amll-fullscreen-sub-inactive-color-b, rgba(255, 255, 255, 0.36));
+  --amll-fullscreen-bg-color: var(--amll-fullscreen-bg-color-b, rgba(255, 255, 255, 0.13));
+  --amll-fullscreen-glow-color: var(--amll-fullscreen-glow-color-b, rgba(255, 255, 255, 0.28));
 }
 
 .amll-lyrics-player.side {
-  --amll-lp-color: rgba(9, 37, 54, 0.84);
+  --amll-lp-color: var(--amll-side-active-color, rgba(9, 37, 54, 0.84));
   --amll-lp-font-size: clamp(18px, calc(var(--lyrics-font-size, 26px) * 1), 36px);
   --amll-lp-hover-bg-color: rgba(255, 255, 255, 0.32);
   --amll-lp-line-width-aspect: 0.98;
@@ -4318,6 +4339,27 @@ input {
 
 .fullscreen-amll-player.amll-lyric-player {
   mix-blend-mode: plus-lighter;
+}
+
+.fullscreen-amll-player .FmKaba_lyricBgLine {
+  color: var(--amll-fullscreen-inactive-color, rgba(255, 255, 255, 0.56));
+  opacity: 0.58;
+  transition: color 680ms ease;
+}
+
+.fullscreen-amll-player .FmKaba_lyricSubLine {
+  color: var(--amll-fullscreen-sub-active-color, rgba(255, 255, 255, 0.72));
+  opacity: 0.54;
+  transition: color 680ms ease;
+}
+
+.fullscreen-amll-player .FmKaba_lyricBgLine .FmKaba_lyricSubLine {
+  color: var(--amll-fullscreen-sub-inactive-color, rgba(255, 255, 255, 0.36));
+  opacity: 0.48;
+}
+
+.amll-lyrics-player.side .FmKaba_lyricBgLine {
+  color: var(--amll-side-inactive-color, rgba(9, 37, 54, 0.48));
 }
 
 .amll-lyrics-player.side.amll-lyric-player {

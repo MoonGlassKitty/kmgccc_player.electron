@@ -771,6 +771,7 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
   if (!track) {
     return {
       '--cover-accent': 'rgba(116, 124, 132, 0.28)',
+      '--cover-accent-secondary': 'rgba(154, 158, 164, 0.26)',
       '--cover-accent-border': 'rgba(66, 72, 78, 0.18)',
       '--cover-accent-text': '#303840',
       '--cover-accent-shadow': 'rgba(20, 24, 28, 0.08)',
@@ -791,6 +792,7 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
   const artwork = trackArtwork(track, albums)
   const isAltArtwork = artwork === altArtwork || track?.albumId === 'album-myth' || track?.albumId === 'album-udong'
   const accent = isAltArtwork ? 'rgba(124, 143, 104, 0.34)' : 'rgba(88, 190, 229, 0.30)'
+  const secondaryAccent = isAltArtwork ? 'rgba(224, 132, 142, 0.30)' : 'rgba(238, 106, 142, 0.30)'
   const border = isAltArtwork ? 'rgba(92, 110, 75, 0.24)' : 'rgba(38, 137, 174, 0.18)'
   const text = isAltArtwork ? '#354020' : '#075b80'
   const shadow = isAltArtwork ? 'rgba(92, 110, 75, 0.11)' : 'rgba(15, 85, 120, 0.09)'
@@ -800,6 +802,7 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
 
   return {
     '--cover-accent': accent,
+    '--cover-accent-secondary': secondaryAccent,
     '--cover-accent-border': border,
     '--cover-accent-text': text,
     '--cover-accent-shadow': shadow,
@@ -996,6 +999,66 @@ function hsbToRgb(h: number, s: number, b: number): RgbColor {
 
 function hsbCss(h: number, s: number, b: number, alpha: number): string {
   return rgbaString(hsbToRgb(h, s, b), alpha)
+}
+
+function parseCssRgbColor(value: unknown): RgbColor | null {
+  if (typeof value !== 'string') return null
+  const parsed = parseCssColor(value)
+  return parsed ? { r: parsed.r, g: parsed.g, b: parsed.b } : null
+}
+
+function amllLyricToneSet(seed: RgbColor): {
+  active: RgbColor
+  inactive: RgbColor
+  subActive: RgbColor
+  subInactive: RgbColor
+  wash: RgbColor
+} {
+  const hsl = rgbToHsl(seed)
+  const tunedSaturation = clampNumber(hsl.s * 0.82 + 0.08, 0.18, 0.72)
+  const mainLightness = clampNumber(hsl.l * 0.82 + 0.12, 0.34, 0.64)
+  const deepLightness = clampNumber(mainLightness * 0.48, 0.16, 0.30)
+  const inactiveLightness = clampNumber(mainLightness + 0.16, 0.46, 0.70)
+  const subActiveLightness = clampNumber(mainLightness + 0.24, 0.56, 0.78)
+  return {
+    active: hslToRgb({ h: hsl.h, s: tunedSaturation, l: mainLightness }),
+    inactive: hslToRgb({ h: hsl.h, s: clampNumber(tunedSaturation * 0.44, 0.10, 0.34), l: inactiveLightness }),
+    subActive: hslToRgb({ h: hsl.h, s: clampNumber(tunedSaturation * 0.58, 0.12, 0.42), l: subActiveLightness }),
+    subInactive: hslToRgb({ h: hsl.h, s: clampNumber(tunedSaturation * 0.30, 0.08, 0.24), l: inactiveLightness }),
+    wash: hslToRgb({ h: hsl.h, s: clampNumber(tunedSaturation * 0.88, 0.14, 0.62), l: deepLightness })
+  }
+}
+
+function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties): React.CSSProperties {
+  const primarySeed = parseCssRgbColor(themeStyle['--cover-accent' as keyof React.CSSProperties]) ?? { r: 22, g: 128, b: 173 }
+  const secondarySeed =
+    parseCssRgbColor(themeStyle['--cover-accent-secondary' as keyof React.CSSProperties]) ??
+    parseCssRgbColor(themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties]) ??
+    primarySeed
+  const primary = amllLyricToneSet(primarySeed)
+  const secondary = amllLyricToneSet(secondarySeed)
+  return {
+    '--amll-fullscreen-active-color': rgbaString(primary.active, 1),
+    '--amll-fullscreen-inactive-color': rgbaString(primary.inactive, 1),
+    '--amll-fullscreen-sub-active-color': rgbaString(primary.subActive, 1),
+    '--amll-fullscreen-sub-inactive-color': rgbaString(primary.subInactive, 1),
+    '--amll-fullscreen-bg-color': rgbaString(primary.wash, 0.18),
+    '--amll-fullscreen-glow-color': rgbaString(primary.wash, 0.52),
+    '--amll-fullscreen-active-color-a': rgbaString(primary.active, 1),
+    '--amll-fullscreen-inactive-color-a': rgbaString(primary.inactive, 1),
+    '--amll-fullscreen-sub-active-color-a': rgbaString(primary.subActive, 1),
+    '--amll-fullscreen-sub-inactive-color-a': rgbaString(primary.subInactive, 1),
+    '--amll-fullscreen-bg-color-a': rgbaString(primary.wash, 0.18),
+    '--amll-fullscreen-glow-color-a': rgbaString(primary.wash, 0.52),
+    '--amll-fullscreen-active-color-b': rgbaString(secondary.active, 1),
+    '--amll-fullscreen-inactive-color-b': rgbaString(secondary.inactive, 1),
+    '--amll-fullscreen-sub-active-color-b': rgbaString(secondary.subActive, 1),
+    '--amll-fullscreen-sub-inactive-color-b': rgbaString(secondary.subInactive, 1),
+    '--amll-fullscreen-bg-color-b': rgbaString(secondary.wash, 0.18),
+    '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, 0.52),
+    '--amll-side-active-color': rgbaString(readableAccentTextColor(primarySeed), 0.92),
+    '--amll-side-inactive-color': rgbaString(readableAccentTextColor(primarySeed), 0.58)
+  } as React.CSSProperties
 }
 
 function harmonizedShapeTints(colors: RgbColor[]): [string, string, string] {
@@ -1221,6 +1284,7 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
   return {
     ...fallback,
     '--cover-accent': rgbaString(first, 0.34),
+    '--cover-accent-secondary': rgbaString(second, 0.34),
     '--cover-accent-border': rgbaString(first, 0.22),
     '--cover-accent-text': hexString(readableAccentTextColor(first)),
     '--cover-accent-shadow': rgbaString(first, 0.1),
@@ -1980,6 +2044,7 @@ function App(): React.ReactElement {
   const [sidebarWidth, setSidebarWidth] = React.useState(DEFAULT_SIDEBAR_WIDTH)
   const [viewportWidth, setViewportWidth] = React.useState(() => window.innerWidth)
   const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
+  const [homeAmbientEpoch, setHomeAmbientEpoch] = React.useState(0)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [settingsCategory, setSettingsCategory] = React.useState<SettingsCategoryKey>('appearance')
   const [nowPlayingSettingsTab, setNowPlayingSettingsTab] = React.useState<NowPlayingSettingsTab>('general')
@@ -2061,6 +2126,7 @@ function App(): React.ReactElement {
   const smoothedLedValuesRef = React.useRef<number[]>([])
   const lastPlaybackTimeRef = React.useRef(0)
   const loadedAudioTrackRef = React.useRef<string>('')
+  const previousRouteNameRef = React.useRef<AppRoute['name']>('home')
   const albums = React.useMemo(() => albumById(homeSnapshot), [homeSnapshot])
   const currentTrack = React.useMemo(
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
@@ -2077,18 +2143,21 @@ function App(): React.ReactElement {
   const currentArtworkUrl = React.useMemo(() => currentTrack ? trackArtwork(currentTrack, albums) : '', [albums, currentTrack])
   const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
   const effectiveCoverThemeStyle = globalArtworkTintEnabled ? coverThemeStyle : coverThemeFor(null, albums)
+  const lyricColorStyle = React.useMemo(() => fullscreenLyricColorStyleFromTheme(effectiveCoverThemeStyle), [effectiveCoverThemeStyle])
   const desktopStyle = React.useMemo(() => ({
     ...effectiveCoverThemeStyle,
+    ...lyricColorStyle,
     '--lyrics-font-size': `${lyricsFontSize}px`,
     '--lyrics-translation-font-size': `${lyricsTranslationFontSize}px`,
     '--amll-render-scale': String(lyricRenderScaleForQuality(lyricsRenderQuality))
-  }) as React.CSSProperties, [effectiveCoverThemeStyle, lyricsFontSize, lyricsRenderQuality, lyricsTranslationFontSize])
+  }) as React.CSSProperties, [effectiveCoverThemeStyle, lyricColorStyle, lyricsFontSize, lyricsRenderQuality, lyricsTranslationFontSize])
   const fullscreenCoverThemeStyle = React.useMemo(() => ({
     ...effectiveCoverThemeStyle,
+    ...lyricColorStyle,
     '--lyrics-font-size': `${fullscreenLyricsFontSize}px`,
     '--lyrics-translation-font-size': `${fullscreenLyricsTranslationFontSize}px`,
     '--amll-render-scale': String(lyricRenderScaleForQuality(fullscreenLyricsRenderQuality))
-  }) as React.CSSProperties, [effectiveCoverThemeStyle, fullscreenLyricsFontSize, fullscreenLyricsRenderQuality, fullscreenLyricsTranslationFontSize])
+  }) as React.CSSProperties, [effectiveCoverThemeStyle, fullscreenLyricsFontSize, fullscreenLyricsRenderQuality, fullscreenLyricsTranslationFontSize, lyricColorStyle])
   const selectedVisualizerMode = selectedNowPlayingSkin === 'coverLed'
     ? classicVisualizerMode
     : selectedNowPlayingSkin === 'appleStyle'
@@ -3016,6 +3085,13 @@ function App(): React.ReactElement {
     setPlaybackTime(0)
   }, [homeSnapshot.tracks.length, playNextTrack])
 
+  React.useEffect(() => {
+    if (route.name === 'home' && previousRouteNameRef.current !== 'home') {
+      setHomeAmbientEpoch((value) => value + 1)
+    }
+    previousRouteNameRef.current = route.name
+  }, [route.name])
+
   return (
     <div
       className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''} lyrics-bg-${lyricsBackgroundMode} ${followSystemAppearance ? 'appearance-system' : `appearance-manual appearance-${manualAppearance}`}`}
@@ -3032,7 +3108,7 @@ function App(): React.ReactElement {
           } as React.CSSProperties
         }
       >
-        <HomeAmbientShapesLayer isActive={route.name === 'home'} />
+        {route.name === 'home' ? <HomeAmbientShapesLayer key={homeAmbientEpoch} isActive /> : null}
         <Sidebar
           snapshot={homeSnapshot}
           route={route}
@@ -4779,6 +4855,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   const artwork = trackArtwork(track, albums)
   const artworkFrame = artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]
   const [pixelStretchBackground, setPixelStretchBackground] = React.useState<string | null>(null)
+  const [amllColorPhase, setAmllColorPhase] = React.useState(0)
   const useCoverGradientBlur = skinID === 'fullscreen.coverGradientBlur'
   const nowPlayingSkinID: NowPlayingSkinID = skinID === 'fullscreen.coverGradientBlur' ? 'coverLed' : skinID
   const showBKBackground = artBackgroundEnabled && !useCoverGradientBlur && nowPlayingSkinID !== 'appleStyle'
@@ -4795,8 +4872,12 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
     }
   }, [artwork])
 
+  React.useEffect(() => {
+    setAmllColorPhase(0)
+  }, [track?.id])
+
   return (
-    <section className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} no-drag`} style={bkThemeStyle}>
+    <section className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} amll-color-phase-${amllColorPhase % 2} no-drag`} style={bkThemeStyle}>
       {useCoverGradientBlur ? (
         <>
           {pixelStretchBackground ? <img className="fullscreen-lyrics-stretch-bg" src={pixelStretchBackground} alt="" decoding="async" /> : null}
@@ -4805,7 +4886,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       ) : nowPlayingSkinID === 'appleStyle' ? (
         <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
       ) : showBKBackground ? (
-        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} />
+        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onColorPhaseChange={setAmllColorPhase} />
       ) : (
         <UnifiedMeshBackground />
       )}
@@ -5104,11 +5185,13 @@ const CassetteNowPlayingArtwork = React.memo(function CassetteNowPlayingArtwork(
 const BKArtBackground = React.memo(function BKArtBackground({
   track,
   isPlaying,
-  themeStyle
+  themeStyle,
+  onColorPhaseChange
 }: {
   track: Track | null | undefined
   isPlaying: boolean
   themeStyle: React.CSSProperties
+  onColorPhaseChange?: (phase: number) => void
 }): React.ReactElement {
   const trackSeed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
   const transitionSeedRef = React.useRef(0)
@@ -5200,6 +5283,10 @@ const BKArtBackground = React.memo(function BKArtBackground({
     setIsDotExiting(false)
     setIsRevealing(true)
   }, [currentSurface, trackSeed])
+
+  React.useEffect(() => {
+    onColorPhaseChange?.(currentSurface.phaseOffset)
+  }, [currentSurface.phaseOffset, onColorPhaseChange])
 
   return (
     <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">

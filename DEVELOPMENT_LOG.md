@@ -88,6 +88,8 @@
 - 左侧最大化入口的全屏状态继续修正：`isFullscreenLyricsOpen` 直接传入 mini-player 并写到 `fullscreen-controls-active` class，底栏按钮显示不再依赖祖先选择器是否命中。
 - 底部进度垫层圆角修正：进度不再用 `scaleX` 压缩整块 pill，改为写入百分比宽度变量并使用 `border-radius: 999px`，避免播放初始阶段显示成方形。
 - 底部进度暂停态和快捷键修正：暂停时进度垫层保留为淡色不再消失；全局 Space 键在非输入/按钮焦点下切换播放暂停，并阻止页面滚动。
+- 参考 macOS `FullscreenPlayerView` / `SemanticPaletteFactory.fullscreenLyricsColorSet` 移植 AMLL 配色：改为读取专辑第一/第二主色 `--cover-accent`、`--cover-accent-secondary`，生成 A/B 两套 active、inactive、subActive、subInactive 和深色糊底/辉光色；BK 刷油漆切换 `phaseOffset` 时回调全屏歌词页同步切换 AMLL 颜色，避免背景主色变换时歌词停在旧主色。
+- Home 点缀层改为只在主页挂载：资料库、专辑、艺人、播放页等非 Home 路由不再渲染点缀；从其他页面返回 Home 时递增重建 key，重新生成点缀位置、数量和初始布局，效果等同重新打开软件进入主页。
 - 右侧歌词玻璃继续按 `glass-html/index.html` 参数校正：歌词栏 tint 改为纯透明 `--glass-alpha: 0`，保留边缘/内高光和阴影；主体高斯层铺满整块，左侧液态折射层固定宽度并在右端 mask 渐隐，去掉交界处内部阴影。`npm run typecheck` 与 `npm run build` 已通过。
 - 右侧歌词玻璃拼接试验：左侧液态折射玻璃与右侧纯透明高斯玻璃比例改为 2:5；歌词栏玻璃阴影全部清零，右侧高斯块轻微覆盖液态块内部边缘，左侧液态层用 `clip-path`/`contain: paint` 限制 SVG filter 外扩。`npm run typecheck` 与 `npm run build` 已通过。
 - 右侧歌词玻璃接缝继续柔化：左右分块改为 18px 交叉渐变，右侧主体高斯调整为 `5px/126%`，左侧液态层右端同步渐隐，消除明显竖向接缝。Home 艺人/专辑横向卡片增加专用遮罩，超过右侧歌词栏 2:5 分块缝隙的内容会在 190px 过渡区内渐隐并截止。`npm run typecheck` 与 `npm run build` 已通过。
