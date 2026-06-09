@@ -3809,30 +3809,34 @@ input {
   --glass-shadow: rgba(16, 36, 52, 0.052);
   --glass-inner-shadow: rgba(0, 0, 0, 0.031);
   --glass-inner-highlight: rgba(255, 255, 255, 0.2);
+  --lyrics-edge-glass-width: 52px;
+  --lyrics-edge-overlap: 14px;
   contain: layout paint;
 }
 
 .lyrics-side-panel::before {
   content: "";
   position: absolute;
-  inset: 0;
-  z-index: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: calc(var(--lyrics-edge-glass-width) - var(--lyrics-edge-overlap));
+  z-index: 1;
   border: 1px solid var(--glass-border);
   border-top: 0;
   border-right: 0;
   border-bottom: 0;
   border-left: 0;
-  background-color: rgba(255, 255, 255, var(--glass-alpha));
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  backdrop-filter: var(--filter-url);
-  -webkit-backdrop-filter: var(--filter-url);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.018) 18%, transparent 48%),
+    rgba(255, 255, 255, var(--glass-alpha));
+  backdrop-filter: blur(8px) saturate(136%);
+  -webkit-backdrop-filter: blur(8px) saturate(136%);
   box-shadow:
     0 1px 15px var(--glass-inner-shadow) inset,
     0 -1px 12px var(--glass-inner-highlight) inset;
   pointer-events: none;
   transform: translateZ(0);
-  will-change: transform;
 }
 
 .lyrics-bg-sidebar .lyrics-side-panel {
@@ -3876,7 +3880,35 @@ input {
 }
 
 .lyrics-side-panel::after {
-  display: none;
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  display: block;
+  width: calc(var(--lyrics-edge-glass-width) + var(--lyrics-edge-overlap));
+  border-left: 1px solid var(--glass-border);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.12) 18%, rgba(255, 255, 255, 0.035) 58%, transparent 100%),
+    rgba(255, 255, 255, var(--glass-alpha));
+  backdrop-filter: blur(8px) saturate(136%) var(--filter-url);
+  -webkit-backdrop-filter: blur(8px) saturate(136%) var(--filter-url);
+  box-shadow:
+    1px 0 14px rgba(0, 0, 0, 0.034) inset,
+    -1px 0 12px rgba(255, 255, 255, 0.16) inset,
+    7px 0 14px rgba(255, 255, 255, 0.058) inset;
+  pointer-events: none;
+  transform: translateZ(0);
+}
+
+.lyrics-bg-clear .lyrics-side-panel::after {
+  backdrop-filter: blur(8px) saturate(136%);
+  -webkit-backdrop-filter: blur(8px) saturate(136%);
+}
+
+.lyrics-side-panel > * {
+  z-index: 2;
 }
 
 .lyrics-side-bg {
