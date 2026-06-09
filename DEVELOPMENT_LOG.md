@@ -84,3 +84,4 @@
 - Home 艺人/专辑遮罩截止点回退到右侧歌词栏左边界，保留 190px 渐隐过渡，不再延伸到歌词栏内部 2:5 分块缝隙。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL 性能优化第一轮：增加轻量时间戳检测，只有当前歌曲存在同步歌词且侧栏/全屏歌词打开时才保持 0.25s 播放时间刷新；无歌词/纯文本歌词状态降为 2s 刷新，避免歌词栏和 AMLL 跟随播放时间持续重渲染。AMLL 动画按渲染质量降级：低质量关闭 blur/scale/spring，中等关闭 spring，高质量保留完整 spring。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL 字体精度降级：给 side/fullscreen AMLL 包一层按质量缩放的 frame，低/中质量先在更小字号下排版再缩放回去，从而降低文字渲染精度；高质量保持原字号。`npm run typecheck` 与 `npm run build` 已通过。
+- 设置页右上角关闭按钮去玻璃化：移除 `settings-close` 的液态玻璃背景、`lg-circle` 折射和阴影，只保留透明图标按钮。`npm run typecheck` 与 `npm run build` 已通过。
