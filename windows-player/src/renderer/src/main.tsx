@@ -782,19 +782,19 @@ function harmonizedBKShapeTints(colors: RgbColor[]): [string, string, string] {
   const isNearGray = avgS < 0.18
   if (isNearGray) {
     return [
-      hsbCss(8, 0.24, 0.94, 0.82),
-      hsbCss(205, 0.22, 0.96, 0.78),
-      hsbCss(292, 0.2, 0.94, 0.74)
+      hsbCss(8, 0.20, 0.93, 0.78),
+      hsbCss(205, 0.18, 0.95, 0.74),
+      hsbCss(292, 0.17, 0.93, 0.70)
     ]
   }
 
   const primaryHue = firstHsl.h
   const accentHue = Math.abs(normalizeHue(secondHsl.h - primaryHue)) > 26 ? secondHsl.h : normalizeHue(primaryHue + 58)
-  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.24 + 0.16, 0.22, 0.44)
+  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.18 + 0.13, 0.18, 0.34)
   return [
-    hsbCss(primaryHue + 4, baseSaturation, 0.95, 0.82),
-    hsbCss(accentHue - 3, clampNumber(baseSaturation + 0.02, 0, 0.46), 0.96, 0.78),
-    hsbCss(thirdHsl.h + 6, clampNumber(baseSaturation * 0.78, 0.20, 0.40), 0.94, 0.74)
+    hsbCss(primaryHue + 4, baseSaturation, 0.94, 0.78),
+    hsbCss(accentHue - 3, clampNumber(baseSaturation + 0.015, 0, 0.36), 0.95, 0.74),
+    hsbCss(thirdHsl.h + 6, clampNumber(baseSaturation * 0.76, 0.16, 0.30), 0.93, 0.70)
   ]
 }
 
@@ -805,17 +805,17 @@ function harmonizedDotTints(colors: RgbColor[]): [string, string, string] {
   const avgS = (firstHsl.s + secondHsl.s + thirdHsl.s) / 3
   if (avgS < 0.18) {
     return [
-      hsbCss(8, 0.35, 0.96, 0.92),
-      hsbCss(205, 0.30, 0.98, 0.88),
-      hsbCss(292, 0.27, 0.96, 0.84)
+      hsbCss(8, 0.28, 0.95, 0.84),
+      hsbCss(205, 0.24, 0.97, 0.80),
+      hsbCss(292, 0.22, 0.95, 0.76)
     ]
   }
 
-  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.38 + 0.25, 0.40, 0.66)
+  const baseSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s, thirdHsl.s) * 0.28 + 0.18, 0.30, 0.52)
   return [
-    hsbCss(firstHsl.h + 180, baseSaturation, 0.98, 0.92),
-    hsbCss(secondHsl.h + 184, clampNumber(baseSaturation + 0.02, 0, 0.70), 0.98, 0.88),
-    hsbCss(thirdHsl.h + 176, clampNumber(baseSaturation * 0.86, 0.36, 0.62), 0.96, 0.84)
+    hsbCss(firstHsl.h + 180, baseSaturation, 0.96, 0.84),
+    hsbCss(secondHsl.h + 184, clampNumber(baseSaturation + 0.015, 0, 0.54), 0.96, 0.80),
+    hsbCss(thirdHsl.h + 176, clampNumber(baseSaturation * 0.84, 0.26, 0.48), 0.94, 0.76)
   ]
 }
 
@@ -963,8 +963,8 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
   const firstHsl = rgbToHsl(first)
   const secondHsl = rgbToHsl(second)
   const thirdHsl = rgbToHsl(third)
-  const backgroundSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s) * 0.24 + 0.18, 0.22, 0.42)
-  const overlaySaturation = clampNumber(Math.max(secondHsl.s, thirdHsl.s, firstHsl.s) * 0.28 + 0.20, 0.26, 0.48)
+  const backgroundSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s) * 0.18 + 0.14, 0.17, 0.32)
+  const overlaySaturation = clampNumber(Math.max(secondHsl.s, thirdHsl.s, firstHsl.s) * 0.20 + 0.16, 0.20, 0.38)
 
   return {
     ...fallback,
@@ -977,7 +977,7 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
     '--ambient-shape-3': shapeTints[2],
     '--bk-bg-tone-1': hsbCss(firstHsl.h, backgroundSaturation, 0.99, 0.98),
     '--bk-bg-tone-2': hsbCss(secondHsl.h + 4, overlaySaturation, 0.98, 0.94),
-    '--bk-bg-tone-3': hsbCss(thirdHsl.h - 5, clampNumber(overlaySaturation + 0.02, 0, 0.50), 0.96, 0.9),
+    '--bk-bg-tone-3': hsbCss(thirdHsl.h - 5, clampNumber(overlaySaturation + 0.015, 0, 0.40), 0.95, 0.86),
     '--bk-shape-tint-1': bkShapeTints[0],
     '--bk-shape-tint-2': bkShapeTints[1],
     '--bk-shape-tint-3': bkShapeTints[2],
@@ -4779,9 +4779,9 @@ const BKImagePhase = React.memo(function BKImagePhase({
           const a = pixels[index + 3]
           const luma = clampNumber(((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 - 0.5) * 1.08 + 0.5, 0, 1)
           const mapped = mixRgb(firstTone, secondTone, luma)
-          const originalSoft = saturateRgb({ r, g, b }, 0.12)
-          const composed = mixRgb(originalSoft, mapped, 0.84)
-          const boosted = saturateRgb(composed, 0.96)
+          const originalSoft = saturateRgb({ r, g, b }, 0.08)
+          const composed = mixRgb(originalSoft, mapped, 0.78)
+          const boosted = saturateRgb(composed, 0.82)
           pixels[index] = boosted.r
           pixels[index + 1] = boosted.g
           pixels[index + 2] = boosted.b

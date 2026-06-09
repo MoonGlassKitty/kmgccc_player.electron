@@ -39,3 +39,4 @@
 - 左侧导航栏艺人/专辑按 Swift Sidebar 改为 disclosure 层级：标题行只控制折叠展开，展开后显示“查看全部”和具体艺人/专辑子项。
 - 封面查找按 Swift/QQMusicApi 源补齐：主进程接入 `musicu.fcg` QQMusic 搜索结构，网易云专辑搜索返回多候选，并将远程封面下载校验成 data URL 后再交给渲染层保存/显示，避免热链封面失败。
 - 艺人“生成封面”按 Swift `ArtistArtworkGenerator` 参数重写：优先从该艺人歌曲封面抽取调色板，使用 HSB clamp、稳定角度、低饱和 fallback、高光和对比文字；专辑“使用歌曲封面”改为取专辑内歌曲封面。
+- BK 背景按 Swift 状态分支校正：dot 阶段不再透出动态背景图和大块径向底纹，只保留主题纯色底与轻量渐变层；image/油漆阶段继续使用 tinted background 变换，并整体降低 BK 背景、dot、shape 的饱和度。

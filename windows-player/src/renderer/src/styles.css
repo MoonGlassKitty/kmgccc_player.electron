@@ -137,7 +137,7 @@ input {
     radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 96%, transparent), transparent 38%),
     radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 90%, transparent), transparent 46%),
     linear-gradient(135deg, color-mix(in srgb, var(--bk-bg-tone-1) 96%, #ffffff), color-mix(in srgb, var(--bk-bg-tone-2) 88%, var(--bk-bg-tone-1)));
-  filter: saturate(1.08);
+  filter: saturate(0.94);
 }
 
 .bk-art-surface {
@@ -216,10 +216,7 @@ input {
 
 .bk-dot-surface {
   opacity: 1;
-  background:
-    radial-gradient(circle at 34% 22%, color-mix(in srgb, var(--bk-bg-tone-1) 90%, transparent), transparent 36%),
-    radial-gradient(circle at 72% 76%, color-mix(in srgb, var(--bk-bg-tone-3, var(--bk-bg-tone-2)) 54%, transparent), transparent 46%),
-    color-mix(in srgb, var(--bk-bg-tone-2) 88%, var(--bk-bg-tone-1));
+  background: var(--bk-bg-tone-1);
 }
 
 .bk-art-surface.style-image .bk-dot-surface {
@@ -239,8 +236,8 @@ input {
   inset: -3%;
   background-size: cover;
   background-position: center;
-  filter: contrast(1.03) saturate(1.02);
-  opacity: 0.92;
+  filter: contrast(1.02) saturate(0.92);
+  opacity: 0.88;
   mix-blend-mode: normal;
   transition: opacity 180ms linear;
 }
@@ -276,7 +273,7 @@ input {
 }
 
 .bk-art-surface.frozen-image-phase.phase-a-visible .phase-a {
-  opacity: 0.45;
+  opacity: 0.42;
 }
 
 .bk-art-surface.frozen-image-phase.phase-a-visible .phase-b {
@@ -288,7 +285,7 @@ input {
 }
 
 .bk-art-surface.frozen-image-phase.phase-b-visible .phase-b {
-  opacity: 0.45;
+  opacity: 0.42;
 }
 
 .bk-image-surface::after {
@@ -304,10 +301,8 @@ input {
 .bk-dot-gradient {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at 18% 22%, color-mix(in srgb, var(--bk-dot-tint-1, var(--bk-shape-tint-1)) 48%, transparent), transparent 36%),
-    radial-gradient(circle at 78% 72%, color-mix(in srgb, var(--bk-bg-tone-3, var(--bk-bg-tone-2)) 50%, transparent), transparent 42%),
-    linear-gradient(135deg, rgba(12, 17, 22, 0.18), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(135deg, var(--bk-bg-tone-1), var(--bk-bg-tone-2));
+  opacity: 0.18;
 }
 
 .bk-dot-window {
@@ -326,7 +321,7 @@ input {
   background-size: 30px 30px;
   background-position: -60px -60px;
   opacity: 0.9;
-  filter: blur(0.15px) saturate(1.12);
+  filter: blur(0.15px) saturate(0.88);
   -webkit-mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), #000 0 var(--dot-inner-radius-scaled), transparent calc(var(--dot-inner-radius-scaled) + 1px));
   mask-image: radial-gradient(circle at var(--dot-x) var(--dot-y), #000 0 var(--dot-inner-radius-scaled), transparent calc(var(--dot-inner-radius-scaled) + 1px));
   -webkit-mask-mode: alpha;
@@ -358,7 +353,7 @@ input {
   opacity: 0.9;
   filter:
     drop-shadow(0 22px 36px rgba(0, 0, 0, 0.18))
-    saturate(0.88)
+    saturate(0.78)
     brightness(1.02);
   mix-blend-mode: screen;
   -webkit-mask-size: contain;
