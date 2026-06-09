@@ -156,6 +156,7 @@ declare global {
     }
     statuses: {
       track: 'completed' | 'noResults' | 'failed'
+      artist: 'completed' | 'noResults' | 'failed'
       lyrics: 'completed' | 'noResults' | 'failed'
       album: 'completed' | 'noResults' | 'failed'
     }

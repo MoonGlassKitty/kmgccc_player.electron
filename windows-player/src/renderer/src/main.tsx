@@ -141,6 +141,12 @@ type ImportSyncState = {
   progress: number
   processedCount: number
   totalCount: number
+  results?: {
+    track?: 'completed' | 'noResults' | 'failed'
+    artist?: 'completed' | 'noResults' | 'failed'
+    lyrics?: 'completed' | 'noResults' | 'failed'
+    album?: 'completed' | 'noResults' | 'failed'
+  }
 }
 
 const albumArtwork =
@@ -153,6 +159,36 @@ const DEFAULT_SIDEBAR_WIDTH = 320
 const COLLAPSED_SIDEBAR_WIDTH = 82
 const MAX_ARTWORK_THUMBNAIL_CACHE_SIZE = 240
 const artworkThumbnailCache = new Map<string, Promise<string | null> | string | null>()
+
+type ImportSyncFieldStatus = NonNullable<ImportSyncState['results']>[keyof NonNullable<ImportSyncState['results']>]
+
+function mergeImportSyncStatus(current: ImportSyncFieldStatus | undefined, next: ImportSyncFieldStatus | undefined): ImportSyncFieldStatus | undefined {
+  if (!next) return current
+  if (!current) return next
+  if (current === 'failed' || next === 'failed') return 'failed'
+  if (current === 'completed' || next === 'completed') return 'completed'
+  return 'noResults'
+}
+
+function importSyncResultSummary(results: NonNullable<ImportSyncState['results']>): string {
+  const failed: string[] = []
+  const missing: string[] = []
+  const names: Record<keyof NonNullable<ImportSyncState['results']>, string> = {
+    track: '歌曲信息',
+    artist: '歌手信息',
+    album: '专辑信息',
+    lyrics: '歌词'
+  }
+  for (const key of Object.keys(names) as Array<keyof NonNullable<ImportSyncState['results']>>) {
+    if (results[key] === 'failed') failed.push(names[key])
+    if (results[key] === 'noResults') missing.push(names[key])
+  }
+  if (!failed.length && !missing.length) return '歌曲信息、歌手信息、专辑信息与歌词已补全'
+  return [
+    failed.length ? `${failed.join('、')}补全失败` : '',
+    missing.length ? `${missing.join('、')}未找到` : ''
+  ].filter(Boolean).join('；')
+}
 
 function mediaUrlForLocalPath(audioPath: string): string {
   const bytes = new TextEncoder().encode(audioPath)
@@ -1034,7 +1070,7 @@ function amllLyricToneSet(seed: RgbColor): {
   }
 }
 
-function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties, toneBlend = 0): React.CSSProperties {
+function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties, toneBlend = 0, toneSeed?: RgbColor | null): React.CSSProperties {
   const toneOne = parseCssRgbColor(themeStyle['--bk-bg-tone-1' as keyof React.CSSProperties])
   const toneTwo = parseCssRgbColor(themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties])
   const primarySeed = toneOne ?? parseCssRgbColor(themeStyle['--cover-accent' as keyof React.CSSProperties]) ?? { r: 22, g: 128, b: 173 }
@@ -1044,11 +1080,12 @@ function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties, ton
     parseCssRgbColor(themeStyle['--cover-accent-secondary' as keyof React.CSSProperties]) ??
     parseCssRgbColor(themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties]) ??
     primarySeed
+  const currentSeed = toneSeed ?? mixRgb(primarySeed, secondarySeed, toneBlend)
   const primary = amllLyricToneSet(primarySeed)
   const secondary = amllLyricToneSet(secondarySeed)
-  const blended = amllLyricToneSet(mixRgb(primarySeed, secondarySeed, toneBlend))
-  const sideActiveSeed = readableAccentTextColor(mixRgb(primarySeed, secondarySeed, toneBlend))
-  const sideInactiveSeed = readableAccentTextColor(mixRgb(primarySeed, secondarySeed, clampNumber(toneBlend * 0.72, 0, 1)))
+  const blended = amllLyricToneSet(currentSeed)
+  const sideActiveSeed = readableAccentTextColor(currentSeed)
+  const sideInactiveSeed = readableAccentTextColor(toneSeed ?? mixRgb(primarySeed, secondarySeed, clampNumber(toneBlend * 0.72, 0, 1)))
   return {
     '--amll-fullscreen-active-color': rgbaString(blended.active, 1),
     '--amll-fullscreen-inactive-color': rgbaString(blended.inactive, 1),
@@ -1077,17 +1114,17 @@ function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties, ton
   } as React.CSSProperties
 }
 
-function fullscreenLyricColorStyleFromBKTheme(themeStyle: React.CSSProperties, toneBlend = 0): React.CSSProperties {
+function fullscreenLyricColorStyleFromBKTheme(themeStyle: React.CSSProperties, toneBlend = 0, toneSeed?: RgbColor | null): React.CSSProperties {
   const toneOne = parseCssRgbColor(themeStyle['--bk-bg-tone-1' as keyof React.CSSProperties])
   const toneTwo = parseCssRgbColor(themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties])
-  if (!toneOne || !toneTwo) return fullscreenLyricColorStyleFromTheme(themeStyle, toneBlend)
+  if (!toneOne || !toneTwo) return fullscreenLyricColorStyleFromTheme(themeStyle, toneBlend, toneSeed)
   const backgroundSeed = toneOne
   const secondarySeed = toneTwo
   const primary = amllLyricToneSet(backgroundSeed)
   const secondary = amllLyricToneSet(secondarySeed)
-  const blended = amllLyricToneSet(mixRgb(backgroundSeed, secondarySeed, toneBlend))
+  const blended = amllLyricToneSet(toneSeed ?? mixRgb(backgroundSeed, secondarySeed, toneBlend))
   return {
-    ...fullscreenLyricColorStyleFromTheme(themeStyle, toneBlend),
+    ...fullscreenLyricColorStyleFromTheme(themeStyle, toneBlend, toneSeed),
     '--amll-fullscreen-active-color': rgbaString(blended.active, 1),
     '--amll-fullscreen-inactive-color': rgbaString(blended.inactive, 1),
     '--amll-fullscreen-sub-active-color': rgbaString(blended.subActive, 1),
@@ -2156,7 +2193,7 @@ function App(): React.ReactElement {
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
-  const [lyricToneBlend, setLyricToneBlend] = React.useState(0)
+  const [lyricToneSeed, setLyricToneSeed] = React.useState<RgbColor | null>(null)
   const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
   const [playbackQueueIds, setPlaybackQueueIds] = React.useState<string[]>(() => fallbackHomeSnapshot.tracks.map((track) => track.id))
   const [isPlaying, setIsPlaying] = React.useState(false)
@@ -2192,7 +2229,7 @@ function App(): React.ReactElement {
   const currentArtworkUrl = React.useMemo(() => currentTrack ? trackArtwork(currentTrack, albums) : '', [albums, currentTrack])
   const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
   const effectiveCoverThemeStyle = globalArtworkTintEnabled ? coverThemeStyle : coverThemeFor(null, albums)
-  const lyricColorStyle = React.useMemo(() => fullscreenLyricColorStyleFromTheme(effectiveCoverThemeStyle, lyricToneBlend), [effectiveCoverThemeStyle, lyricToneBlend])
+  const lyricColorStyle = React.useMemo(() => fullscreenLyricColorStyleFromTheme(effectiveCoverThemeStyle, 0, lyricToneSeed), [effectiveCoverThemeStyle, lyricToneSeed])
   const lyricFontStyle = React.useMemo(() => ({
     '--lyrics-main-font-family': cssFontFamily(lyricsFontNameZh, lyricsFontNameEn),
     '--lyrics-english-font-family': cssFontFamily(lyricsFontNameEn),
@@ -2739,6 +2776,7 @@ function App(): React.ReactElement {
     }
 
     let completedCount = 0
+    const syncResults: NonNullable<ImportSyncState['results']> = {}
     try {
       for (const [index, importedTrack] of importedTracks.entries()) {
         setImportSyncState({
@@ -2755,6 +2793,10 @@ function App(): React.ReactElement {
         const result = await window.kmgccc?.syncTrackInfo(importedTrack)
         if (!result) throw new Error('sync unavailable')
         completedCount += 1
+        syncResults.track = mergeImportSyncStatus(syncResults.track, result.statuses.track)
+        syncResults.artist = mergeImportSyncStatus(syncResults.artist, result.statuses.artist)
+        syncResults.lyrics = mergeImportSyncStatus(syncResults.lyrics, result.statuses.lyrics)
+        syncResults.album = mergeImportSyncStatus(syncResults.album, result.statuses.album)
         setHomeSnapshot((snapshot) => snapshotWithSyncedTrack(snapshot, result))
         if (index === 0) setCurrentId(result.track.id)
       }
@@ -2763,22 +2805,24 @@ function App(): React.ReactElement {
       setImportSyncState({
         title: importedTracks.length === 1 ? importedTracks[0].title : `已导入 ${importedTracks.length} 首歌曲`,
         artist: importedTracks.length === 1 ? importedTracks[0].artist : '',
-        detail: '已补全可用的歌曲信息、专辑信息与歌词',
+        detail: importSyncResultSummary(syncResults),
         status: 'completed',
         progress: 1,
         processedCount: completedCount,
-        totalCount: importedTracks.length
+        totalCount: importedTracks.length,
+        results: syncResults
       })
       window.setTimeout(() => setImportSyncState(null), 1400)
     } catch {
       setImportSyncState({
         title: importedTracks.length === 1 ? importedTracks[0].title : '批量导入',
         artist: importedTracks.length === 1 ? importedTracks[0].artist : '',
-        detail: '补全失败，已保留本地导入信息',
+        detail: completedCount > 0 ? `补全中断，已保留本地导入信息；${importSyncResultSummary(syncResults)}` : '补全失败，已保留本地导入信息',
         status: 'failed',
         progress: 1,
         processedCount: completedCount,
-        totalCount: importedTracks.length
+        totalCount: importedTracks.length,
+        results: syncResults
       })
     }
   }, [applyHomeSnapshot, deferImportEnrichment])
@@ -3428,8 +3472,8 @@ function App(): React.ReactElement {
             onSeek={seekToLyricTime}
             onArtworkFrameAdvance={() => setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)}
             renderQuality={fullscreenLyricsRenderQuality}
-            lyricToneBlend={lyricToneBlend}
-            onLyricToneBlendChange={setLyricToneBlend}
+            lyricToneSeed={lyricToneSeed}
+            onLyricToneSeedChange={setLyricToneSeed}
           />
         ) : null}
         {libraryDialog ? (
@@ -4258,6 +4302,19 @@ const ImportSyncCard = React.memo(function ImportSyncCard({
   onCancel: () => void
 }): React.ReactElement {
   const statusText = state.status === 'running' ? '进行中' : state.status === 'completed' ? '完成' : '失败'
+  const resultItems = [
+    ['歌曲信息', state.results?.track],
+    ['歌手信息', state.results?.artist],
+    ['专辑信息', state.results?.album],
+    ['歌词', state.results?.lyrics]
+  ] as const
+  const labelForResult = (status: ImportSyncFieldStatus | undefined): string => {
+    if (state.status === 'running' && !status) return '等待'
+    if (status === 'completed') return '已补全'
+    if (status === 'failed') return '失败'
+    if (status === 'noResults') return '未找到'
+    return '未返回'
+  }
   return (
     <div className="import-sync-backdrop no-drag">
       <div className="import-sync-card">
@@ -4284,6 +4341,16 @@ const ImportSyncCard = React.memo(function ImportSyncCard({
             <em>{state.detail}</em>
           </div>
         </div>
+        {state.results || state.status !== 'running' ? (
+          <div className="import-sync-results">
+            {resultItems.map(([label, result]) => (
+              <span key={label} className={`import-sync-result ${result ?? 'pending'}`}>
+                <b>{label}</b>
+                {labelForResult(result)}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <button type="button" onClick={onCancel}>
           取消
         </button>
@@ -4891,8 +4958,8 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   onSeek,
   onArtworkFrameAdvance,
   renderQuality = 'balanced',
-  lyricToneBlend,
-  onLyricToneBlendChange
+  lyricToneSeed,
+  onLyricToneSeedChange
 }: LyricsSurfaceProps & {
   bkThemeStyle: React.CSSProperties
   volume: number
@@ -4910,8 +4977,8 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   appleMeshSpeed: AppleMeshSpeed
   cassetteKmgLookEnabled: boolean
   onArtworkFrameAdvance: () => void
-  lyricToneBlend: number
-  onLyricToneBlendChange: (blend: number) => void
+  lyricToneSeed: RgbColor | null
+  onLyricToneSeedChange: (seed: RgbColor) => void
 }): React.ReactElement {
   const lines = React.useMemo(() => parseLyrics(track), [track])
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
@@ -4927,9 +4994,9 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   const fullscreenPageStyle = React.useMemo(
     () => ({
       ...bkThemeStyle,
-      ...fullscreenLyricColorStyleFromBKTheme(activeBKThemeStyle, lyricToneBlend)
+      ...fullscreenLyricColorStyleFromBKTheme(activeBKThemeStyle, 0, lyricToneSeed)
     }) as React.CSSProperties,
-    [activeBKThemeStyle, bkThemeStyle, lyricToneBlend]
+    [activeBKThemeStyle, bkThemeStyle, lyricToneSeed]
   )
 
   React.useEffect(() => {
@@ -4959,7 +5026,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       ) : nowPlayingSkinID === 'appleStyle' ? (
         <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
       ) : showBKBackground ? (
-        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onColorPhaseChange={setAmllColorPhase} onColorThemeChange={setActiveBKThemeStyle} onToneBlendChange={onLyricToneBlendChange} />
+        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onColorPhaseChange={setAmllColorPhase} onColorThemeChange={setActiveBKThemeStyle} onToneSeedChange={onLyricToneSeedChange} />
       ) : (
         <UnifiedMeshBackground />
       )}
@@ -5261,14 +5328,14 @@ const BKArtBackground = React.memo(function BKArtBackground({
   themeStyle,
   onColorPhaseChange,
   onColorThemeChange,
-  onToneBlendChange
+  onToneSeedChange
 }: {
   track: Track | null | undefined
   isPlaying: boolean
   themeStyle: React.CSSProperties
   onColorPhaseChange?: (phase: number) => void
   onColorThemeChange?: (themeStyle: React.CSSProperties) => void
-  onToneBlendChange?: (blend: number) => void
+  onToneSeedChange?: (seed: RgbColor) => void
 }): React.ReactElement {
   const trackSeed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
   const transitionSeedRef = React.useRef(0)
@@ -5282,7 +5349,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const [isRevealing, setIsRevealing] = React.useState(false)
   const currentSurfaceRef = React.useRef(currentSurface)
   currentSurfaceRef.current = currentSurface
-  const lyricToneBlendRef = React.useRef(0)
+  const lyricToneSeedRef = React.useRef<RgbColor | null>(null)
   const lastTrackSeedRef = React.useRef(trackSeed)
   const previousTrackRef = React.useRef<Track | null | undefined>(track)
   const didMountRef = React.useRef(false)
@@ -5368,12 +5435,12 @@ const BKArtBackground = React.memo(function BKArtBackground({
   }, [currentSurface.phaseOffset, currentSurface.themeStyle, onColorPhaseChange, onColorThemeChange])
 
   React.useEffect(() => {
-    if (!onToneBlendChange) return
-    const target = currentSurface.phaseOffset % 2
-    const from = lyricToneBlendRef.current
-    if (Math.abs(target - from) < 0.01) {
-      lyricToneBlendRef.current = target
-      onToneBlendChange(target)
+    if (!onToneSeedChange) return
+    const target = bkSurfaceLyricSeed(currentSurface)
+    const from = lyricToneSeedRef.current ?? (previousSurface ? bkSurfaceLyricSeed(previousSurface) : target)
+    if (colorDistance(from, target) < 3) {
+      lyricToneSeedRef.current = target
+      onToneSeedChange(target)
       return
     }
     let frame = 0
@@ -5383,12 +5450,11 @@ const BKArtBackground = React.memo(function BKArtBackground({
     const tick = (timestamp: number): void => {
       const progress = clampNumber((timestamp - startedAt) / duration, 0, 1)
       const eased = progress * progress * (3 - 2 * progress)
-      const blend = from + (target - from) * eased
-      const rounded = Math.round(blend * 100) / 100
-      if (Math.abs(rounded - lastPublished) >= 0.02 || progress >= 1) {
-        lastPublished = rounded
-        lyricToneBlendRef.current = rounded
-        onToneBlendChange(rounded)
+      const seed = mixRgb(from, target, eased)
+      if (colorDistance(lastPublished, seed) >= 4 || progress >= 1) {
+        lastPublished = seed
+        lyricToneSeedRef.current = seed
+        onToneSeedChange(seed)
       }
       if (progress < 1) frame = window.requestAnimationFrame(tick)
     }
@@ -5396,7 +5462,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
     return () => {
       if (frame) window.cancelAnimationFrame(frame)
     }
-  }, [currentSurface.phaseOffset, onToneBlendChange])
+  }, [currentSurface, onToneSeedChange, previousSurface])
 
   return (
     <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
@@ -5446,6 +5512,25 @@ function freezeBKSurfaceForTransition(surface: BKSurfaceState): BKSurfaceState {
     ...surface,
     frozenImagePhase: currentBKImagePhase(surface)
   }
+}
+
+function bkSurfaceLyricSeed(surface: BKSurfaceState): RgbColor {
+  const toneOne = parseCssRgbColor(surface.themeStyle['--bk-bg-tone-1' as keyof React.CSSProperties]) ?? { r: 132, g: 199, b: 221 }
+  const toneTwo = parseCssRgbColor(surface.themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties]) ?? toneOne
+  if (surface.style === 'image') {
+    const phase = surface.frozenImagePhase ?? currentBKImagePhase(surface)
+    const firstPaintTone = darkenRgb(toneOne, 0.18)
+    return mixRgb(firstPaintTone, toneTwo, phase === 'a' ? 0.38 : 0.68)
+  }
+  const dotBlendByStyle: Record<BKSurfaceStyle, number> = {
+    image: 0.48,
+    'dot-a': 0.08,
+    'dot-b': 0.24,
+    'dot-c': 0.12,
+    'dot-d': 0.30,
+    'dot-e': 0.16
+  }
+  return mixRgb(toneOne, toneTwo, dotBlendByStyle[surface.style])
 }
 
 function isBKDotStyle(style: BKSurfaceStyle): boolean {

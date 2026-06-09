@@ -126,6 +126,7 @@ type TrackMetadataSyncResult = {
   }
   statuses: {
     track: 'completed' | 'noResults' | 'failed'
+    artist: 'completed' | 'noResults' | 'failed'
     lyrics: 'completed' | 'noResults' | 'failed'
     album: 'completed' | 'noResults' | 'failed'
   }
@@ -1465,6 +1466,7 @@ async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSync
   let syncedTrack = { ...track }
   const statuses: TrackMetadataSyncResult['statuses'] = {
     track: track.convertedFromNcm ? 'completed' : 'noResults',
+    artist: 'noResults',
     lyrics: 'noResults',
     album: track.convertedFromNcm ? 'completed' : 'noResults'
   }
@@ -1492,6 +1494,7 @@ async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSync
       syncedTrack.artistId = ids.artistId
       syncedTrack.albumId = ids.albumId
       statuses.track = 'completed'
+      statuses.artist = syncedTrack.artist ? 'completed' : 'noResults'
       statuses.album = syncedTrack.artworkUrl ? 'completed' : 'noResults'
     } else if (!syncedTrack.artworkUrl) {
       const artworkUrl = await fetchNetEaseAlbumArtwork(syncedTrack)
@@ -1506,6 +1509,7 @@ async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSync
     }
   } catch {
     statuses.track = statuses.track === 'completed' ? statuses.track : 'failed'
+    statuses.artist = statuses.artist === 'completed' ? statuses.artist : 'failed'
     statuses.album = statuses.album === 'completed' ? statuses.album : 'failed'
   }
 
@@ -1531,11 +1535,35 @@ async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSync
       syncedTrack.artistId = ids.artistId
       syncedTrack.albumId = ids.albumId
       statuses.track = 'completed'
+      statuses.artist = syncedTrack.artist ? 'completed' : 'noResults'
       statuses.album = syncedTrack.artworkUrl ? 'completed' : 'noResults'
     }
   } catch {
     statuses.track = 'failed'
+    statuses.artist = 'failed'
     statuses.album = 'failed'
+  }
+
+  try {
+    const artistMetadata = await lookupArtistMetadata({ name: syncedTrack.artist })
+    if (artistMetadata) {
+      syncedTrack = {
+        ...syncedTrack,
+        artist: typeof artistMetadata.name === 'string' && artistMetadata.name.trim() ? artistMetadata.name.trim() : syncedTrack.artist,
+        artistGenreTags: Array.isArray(artistMetadata.genreTags) ? artistMetadata.genreTags.filter((tag): tag is string => typeof tag === 'string') : syncedTrack.artistGenreTags,
+        artistMetadataSource: typeof artistMetadata.metadataSource === 'string' ? artistMetadata.metadataSource : syncedTrack.artistMetadataSource,
+        artistMetadataFetchedAt: typeof artistMetadata.metadataFetchedAt === 'string' ? artistMetadata.metadataFetchedAt : syncedTrack.artistMetadataFetchedAt,
+        artistMetadataConfidence: typeof artistMetadata.metadataConfidence === 'number' ? artistMetadata.metadataConfidence : syncedTrack.artistMetadataConfidence
+      }
+      const ids = idsForMetadata(syncedTrack.artist, syncedTrack.album)
+      syncedTrack.artistId = ids.artistId
+      syncedTrack.albumId = ids.albumId
+      statuses.artist = 'completed'
+    } else if (statuses.artist !== 'completed') {
+      statuses.artist = 'noResults'
+    }
+  } catch {
+    statuses.artist = statuses.artist === 'completed' ? statuses.artist : 'failed'
   }
 
   try {

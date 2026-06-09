@@ -2160,6 +2160,46 @@ input {
   font-weight: 720;
 }
 
+.import-sync-results {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.import-sync-result {
+  display: grid;
+  gap: 5px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(12, 38, 52, 0.055);
+  color: rgba(16, 45, 62, 0.64);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.import-sync-result b {
+  color: rgba(16, 45, 62, 0.92);
+  font-size: 14px;
+  font-weight: 840;
+}
+
+.import-sync-result.completed {
+  background: rgba(54, 182, 109, 0.12);
+  color: #1d7f4c;
+}
+
+.import-sync-result.failed {
+  background: rgba(216, 90, 90, 0.12);
+  color: #b64444;
+}
+
+.import-sync-result.noResults {
+  background: rgba(12, 38, 52, 0.07);
+  color: rgba(16, 45, 62, 0.58);
+}
+
 .import-sync-card > button {
   justify-self: end;
   align-self: end;

@@ -101,3 +101,5 @@
 - AMLL 性能优化第一轮：增加轻量时间戳检测，只有当前歌曲存在同步歌词且侧栏/全屏歌词打开时才保持 0.25s 播放时间刷新；无歌词/纯文本歌词状态降为 2s 刷新，避免歌词栏和 AMLL 跟随播放时间持续重渲染。AMLL 动画按渲染质量降级：低质量关闭 blur/scale/spring，中等关闭 spring，高质量保留完整 spring。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL 字体精度降级：给 side/fullscreen AMLL 包一层按质量缩放的 frame，低/中质量先在更小字号下排版再缩放回去，从而降低文字渲染精度；高质量保持原字号。`npm run typecheck` 与 `npm run build` 已通过。
 - 设置页右上角关闭按钮去玻璃化：移除 `settings-close` 的液态玻璃背景、`lg-circle` 折射和阴影，只保留透明图标按钮。`npm run typecheck` 与 `npm run build` 已通过。
+- AMLL 背景配色同步改为 BK 可见色 seed：不再用 `phaseOffset % 2` 猜第一/第二主题色比例，而是由 `BKArtBackground` 按当前 surface、冻结 image phase 和 dot 类型计算实际背景主导 RGB seed，并在刷漆/surface 切换时 3s 平滑推给侧栏与全屏 AMLL 配色。
+- 导入补全反馈补齐：`syncTrackInfo` 增加歌手信息查询与 artist 状态，导入卡片显示歌曲信息、歌手信息、专辑信息、歌词四项的已补全/未找到/失败状态，批量导入完成文案也会明确列出未找到或失败的项目。`npm run typecheck` 与 `npm run build` 已通过。
