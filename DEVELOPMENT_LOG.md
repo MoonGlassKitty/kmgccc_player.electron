@@ -92,6 +92,7 @@
 - 歌词字体设置修正：原先中文/英文/翻译字体只保存并用于设置预览，没有写入实际歌词样式。现在 `desktopStyle` 与 `fullscreenCoverThemeStyle` 输出主歌词、英文、翻译字体族和字重 CSS 变量，侧栏 AMLL、全屏 AMLL 以及普通歌词 fallback 都绑定这些变量，设置里的字体选择会真正影响歌词渲染。
 - AMLL 颜色继承修正：AMLL React wrapper 会把 core `.amll-lyric-player` 节点追加为子节点，原先主要在 wrapper/祖先上设置 `--amll-lp-color`，实际 core 根节点可能继续使用自身默认色。现在增加 `.fullscreen-amll-player .amll-lyric-player` 与 `.amll-lyrics-player.side .amll-lyric-player` 规则，直接在 AMLL core 根节点写入当前实时计算的 `--amll-lp-color`、hover 背景、字体和过渡，确保一首歌内背景主色变化时 AMLL 主色真正跟着切换。
 - AMLL 背景主色切换继续修正：之前为了避免蓝底红字把第一/第二 BK tone 预先混合，导致实际只在同一色相附近轻微变化。现在 A 色直接取 `--bk-bg-tone-1`，B 色直接取 `--bk-bg-tone-2`，`lyricToneBlend` 只负责两者之间的平滑插值，不再提前把两种主题色混成单一颜色。
+- AMLL 色相切换同步修正：歌词颜色不再按时间循环。`BKArtBackground` 现在只在刷漆切换 surface、`currentSurface.phaseOffset` 变化时触发 `onToneBlendChange`，从上一背景主色按 3s smoothstep 过渡到下一背景主色；如果本次刷漆没有换主色，歌词颜色保持不动，避免自己走自己的节奏。
 - Home 点缀层改为只在主页挂载：资料库、专辑、艺人、播放页等非 Home 路由不再渲染点缀；从其他页面返回 Home 时递增重建 key，重新生成点缀位置、数量和初始布局，效果等同重新打开软件进入主页。
 - 右侧歌词玻璃继续按 `glass-html/index.html` 参数校正：歌词栏 tint 改为纯透明 `--glass-alpha: 0`，保留边缘/内高光和阴影；主体高斯层铺满整块，左侧液态折射层固定宽度并在右端 mask 渐隐，去掉交界处内部阴影。`npm run typecheck` 与 `npm run build` 已通过。
 - 右侧歌词玻璃拼接试验：左侧液态折射玻璃与右侧纯透明高斯玻璃比例改为 2:5；歌词栏玻璃阴影全部清零，右侧高斯块轻微覆盖液态块内部边缘，左侧液态层用 `clip-path`/`contain: paint` 限制 SVG filter 外扩。`npm run typecheck` 与 `npm run build` 已通过。

@@ -3150,28 +3150,6 @@ function App(): React.ReactElement {
     previousRouteNameRef.current = route.name
   }, [route.name])
 
-  React.useEffect(() => {
-    if (!currentTrackHasTimedLyrics) {
-      setLyricToneBlend(0)
-      return
-    }
-    let frame = 0
-    let lastPublished = -1
-    const tick = (timestamp: number): void => {
-      const phase = (1 - Math.cos((timestamp % 4200) / 4200 * Math.PI * 2)) / 2
-      const rounded = Math.round(phase * 100) / 100
-      if (Math.abs(rounded - lastPublished) >= 0.02) {
-        lastPublished = rounded
-        setLyricToneBlend(rounded)
-      }
-      frame = window.requestAnimationFrame(tick)
-    }
-    frame = window.requestAnimationFrame(tick)
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame)
-    }
-  }, [currentTrackHasTimedLyrics])
-
   return (
     <div
       className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''} lyrics-bg-${lyricsBackgroundMode} ${followSystemAppearance ? 'appearance-system' : `appearance-manual appearance-${manualAppearance}`}`}
@@ -3451,6 +3429,7 @@ function App(): React.ReactElement {
             onArtworkFrameAdvance={() => setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)}
             renderQuality={fullscreenLyricsRenderQuality}
             lyricToneBlend={lyricToneBlend}
+            onLyricToneBlendChange={setLyricToneBlend}
           />
         ) : null}
         {libraryDialog ? (
@@ -4912,7 +4891,8 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   onSeek,
   onArtworkFrameAdvance,
   renderQuality = 'balanced',
-  lyricToneBlend
+  lyricToneBlend,
+  onLyricToneBlendChange
 }: LyricsSurfaceProps & {
   bkThemeStyle: React.CSSProperties
   volume: number
@@ -4931,6 +4911,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   cassetteKmgLookEnabled: boolean
   onArtworkFrameAdvance: () => void
   lyricToneBlend: number
+  onLyricToneBlendChange: (blend: number) => void
 }): React.ReactElement {
   const lines = React.useMemo(() => parseLyrics(track), [track])
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
@@ -4978,7 +4959,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       ) : nowPlayingSkinID === 'appleStyle' ? (
         <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
       ) : showBKBackground ? (
-        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onColorPhaseChange={setAmllColorPhase} onColorThemeChange={setActiveBKThemeStyle} />
+        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onColorPhaseChange={setAmllColorPhase} onColorThemeChange={setActiveBKThemeStyle} onToneBlendChange={onLyricToneBlendChange} />
       ) : (
         <UnifiedMeshBackground />
       )}
@@ -5279,13 +5260,15 @@ const BKArtBackground = React.memo(function BKArtBackground({
   isPlaying,
   themeStyle,
   onColorPhaseChange,
-  onColorThemeChange
+  onColorThemeChange,
+  onToneBlendChange
 }: {
   track: Track | null | undefined
   isPlaying: boolean
   themeStyle: React.CSSProperties
   onColorPhaseChange?: (phase: number) => void
   onColorThemeChange?: (themeStyle: React.CSSProperties) => void
+  onToneBlendChange?: (blend: number) => void
 }): React.ReactElement {
   const trackSeed = React.useMemo(() => hashString(track?.id ?? 'kmgccc-now-playing'), [track?.id])
   const transitionSeedRef = React.useRef(0)
@@ -5299,6 +5282,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const [isRevealing, setIsRevealing] = React.useState(false)
   const currentSurfaceRef = React.useRef(currentSurface)
   currentSurfaceRef.current = currentSurface
+  const lyricToneBlendRef = React.useRef(0)
   const lastTrackSeedRef = React.useRef(trackSeed)
   const previousTrackRef = React.useRef<Track | null | undefined>(track)
   const didMountRef = React.useRef(false)
@@ -5382,6 +5366,37 @@ const BKArtBackground = React.memo(function BKArtBackground({
     onColorPhaseChange?.(currentSurface.phaseOffset)
     onColorThemeChange?.(currentSurface.themeStyle)
   }, [currentSurface.phaseOffset, currentSurface.themeStyle, onColorPhaseChange, onColorThemeChange])
+
+  React.useEffect(() => {
+    if (!onToneBlendChange) return
+    const target = currentSurface.phaseOffset % 2
+    const from = lyricToneBlendRef.current
+    if (Math.abs(target - from) < 0.01) {
+      lyricToneBlendRef.current = target
+      onToneBlendChange(target)
+      return
+    }
+    let frame = 0
+    let lastPublished = from
+    const startedAt = performance.now()
+    const duration = 3000
+    const tick = (timestamp: number): void => {
+      const progress = clampNumber((timestamp - startedAt) / duration, 0, 1)
+      const eased = progress * progress * (3 - 2 * progress)
+      const blend = from + (target - from) * eased
+      const rounded = Math.round(blend * 100) / 100
+      if (Math.abs(rounded - lastPublished) >= 0.02 || progress >= 1) {
+        lastPublished = rounded
+        lyricToneBlendRef.current = rounded
+        onToneBlendChange(rounded)
+      }
+      if (progress < 1) frame = window.requestAnimationFrame(tick)
+    }
+    frame = window.requestAnimationFrame(tick)
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [currentSurface.phaseOffset, onToneBlendChange])
 
   return (
     <div className={`bk-art-background ${isPlaying ? 'running' : 'frozen'} ${previousSurface !== null ? 'transitioning' : ''}`} aria-hidden="true">
