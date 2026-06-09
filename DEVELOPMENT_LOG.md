@@ -69,3 +69,4 @@
 - 修正 mini track/BK 播放页入口仍强制收缩左侧导航栏的问题：`openNowPlaying` 不再写入 `setIsSidebarCollapsed(true)`，主歌词/播放页入口会保留 Home 当前左栏展开状态；全屏歌词期间的透明侧栏展开逻辑保持不变。`npm run typecheck` 与 `npm run build` 已通过。
 - BK 同专辑同色切歌增加“干漆”过渡：BK 背景组件保存上一首 track/theme 快照，切歌时若 albumId 相同且 `--bk-bg-tone-1/2` 色距很小，则只把新刷入 surface 的 BK 油漆 tone 加深一档，增强单色专辑内切歌时的刷漆可见度；shape/dot tint 不受影响。`npm run typecheck` 与 `npm run build` 已通过。
 - BK 干漆同色过渡补主题色变体：同专辑同色触发时按 track seed 稳定选择第一主题色或第二主题色作为刷入主色，并互换辅助 tone，避免连续切歌只出现单调的同色加深。`npm run typecheck` 与 `npm run build` 已通过。
+- 统一漏网主题色：底部状态栏队列/播放/切歌/随机/音量滑杆、音乐足迹统计卡/排行条/日历点、侧栏资料库/播放列表 active 态和底部圆按钮、设置页 tab/开关/滑杆/segment/action 按钮都改为读取 `--cover-accent*` 当前主题变量，减少固定蓝色残留。`npm run typecheck` 与 `npm run build` 已通过。
