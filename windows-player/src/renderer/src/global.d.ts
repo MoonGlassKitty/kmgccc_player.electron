@@ -169,6 +169,7 @@ declare global {
       lookupAlbumMetadata: (values: Record<string, unknown>) => Promise<Record<string, unknown> | null>
       lookupArtistMetadata: (values: Record<string, unknown>) => Promise<Record<string, unknown> | null>
       lookupLyrics: (values: Record<string, unknown>) => Promise<{ lyricsText?: string; syncedLyrics?: string } | null>
+      lookupCover: (values: Record<string, unknown>) => Promise<Array<{ artworkUrl: string; source: string; label?: string }>>
       clearLibrary: () => Promise<HomeSnapshot>
       updateTrack: (track: LocalAudioImport) => Promise<HomeSnapshot>
       deleteTrack: (trackId: string) => Promise<HomeSnapshot>

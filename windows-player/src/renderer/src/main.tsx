@@ -376,6 +376,20 @@ function parseCommaTags(value?: string): string[] {
     .filter(Boolean)
 }
 
+function createArtistPlaceholderArtwork(artistName: string): string {
+  const name = artistName.trim() || '未知艺人'
+  let hash = 0
+  for (const char of name) hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0
+  const hue = Math.abs(hash) % 360
+  const hue2 = (hue + 58 + (name.length % 80)) % 360
+  const escapedName = name
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="hsl(${hue} 72% 58%)"/><stop offset="1" stop-color="hsl(${hue2} 68% 42%)"/></linearGradient><radialGradient id="h" cx="25%" cy="20%" r="70%"><stop stop-color="rgba(255,255,255,.24)"/><stop offset="1" stop-color="rgba(255,255,255,0)"/></radialGradient></defs><rect width="640" height="640" fill="url(#g)"/><rect width="640" height="640" fill="url(#h)"/><text x="320" y="330" text-anchor="middle" dominant-baseline="middle" fill="rgba(255,255,255,.88)" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="64" font-weight="650">${escapedName}</text></svg>`
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`
+}
+
 function albumById(snapshot: HomeSnapshot): Map<string, HomeAlbumCard> {
   return new Map(snapshot.albums.map((album) => [album.id, album]))
 }
@@ -2724,6 +2738,17 @@ const LibraryDialog = React.memo(function LibraryDialog({
       setIsMetadataLookupInFlight(false)
     }
   }, [state, values])
+  const lookupCover = React.useCallback(async (kind: 'track' | 'album' | 'artist') => {
+    if (!window.kmgccc?.lookupCover) return []
+    const candidates = await window.kmgccc.lookupCover({
+      kind,
+      title: values.title,
+      artist: kind === 'artist' ? values.name : values.artist,
+      album: kind === 'album' ? values.title : values.album,
+      duration: state.kind === 'editTrack' ? state.track.duration : 0
+    })
+    return candidates.map((candidate) => candidate.artworkUrl).filter(Boolean)
+  }, [state, values])
 
   const title =
     state.kind === 'editTrack' ? '编辑歌曲信息'
@@ -2757,7 +2782,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
           <p className="library-dialog-message">{detail}</p>
         ) : state.kind === 'editTrack' ? (
           <div className="library-dialog-form metadata-sheet-body">
-            <MetadataArtworkSection title="插图" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} removeLabel="移除插图" onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={handleTrackMetadataLookup} isSearchingArtwork={isMetadataLookupInFlight} />
+            <MetadataArtworkSection title="插图" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} removeLabel="移除插图" onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={() => lookupCover('track')} />
             <span className="metadata-divider" />
             <MetadataSectionTitle icon={<Info size={16} />} title="元数据" />
             <LibraryDialogField label="歌曲标题" value={values.title ?? ''} onChange={(value) => update('title', value)} />
@@ -2775,7 +2800,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
           </div>
         ) : state.kind === 'editAlbum' ? (
           <div className="library-dialog-form metadata-sheet-body">
-            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="使用歌曲封面" fallbackArtworkUrl={state.album.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={handleAlbumMetadataLookup} isSearchingArtwork={isMetadataLookupInFlight} />
+            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="使用歌曲封面" fallbackArtworkUrl={state.album.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={() => lookupCover('album')} />
             <span className="metadata-divider" />
             <LibraryDialogField label="专辑名称" value={values.title ?? ''} onChange={(value) => update('title', value)} />
             <LibraryDialogField label="介绍" multiline placeholder="添加专辑介绍..." value={values.description ?? ''} onChange={(value) => update('description', value)} />
@@ -2798,7 +2823,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
           </div>
         ) : state.kind === 'editArtist' ? (
           <div className="library-dialog-form metadata-sheet-body">
-            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="生成封面" fallbackArtworkUrl={state.artist.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={handleArtistMetadataLookup} isSearchingArtwork={isMetadataLookupInFlight} />
+            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="生成封面" fallbackArtworkUrl={state.artist.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={() => lookupCover('artist')} onGenerateArtwork={() => update('artworkUrl', createArtistPlaceholderArtwork(values.name ?? state.artist.name))} />
             <span className="metadata-divider" />
             <LibraryDialogField label="艺人名称" value={values.name ?? ''} onChange={(value) => update('name', value)} />
             <LibraryDialogField label="介绍" multiline value={values.description ?? ''} onChange={(value) => update('description', value)} />
@@ -2871,7 +2896,7 @@ function MetadataArtworkSection({
   fallbackArtworkUrl,
   onArtworkChange,
   onSearchArtwork,
-  isSearchingArtwork = false
+  onGenerateArtwork
 }: {
   title: string
   artworkUrl?: string
@@ -2880,10 +2905,13 @@ function MetadataArtworkSection({
   removeLabel?: string
   fallbackArtworkUrl?: string
   onArtworkChange: (url: string) => void
-  onSearchArtwork?: () => void | Promise<void>
-  isSearchingArtwork?: boolean
+  onSearchArtwork?: () => Promise<string[]>
+  onGenerateArtwork?: () => void
 }): React.ReactElement {
   const inputRef = React.useRef<HTMLInputElement | null>(null)
+  const [candidates, setCandidates] = React.useState<string[]>([])
+  const [isSearching, setIsSearching] = React.useState(false)
+  const [message, setMessage] = React.useState('')
   const handleFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0]
     if (!file) return
@@ -2894,6 +2922,28 @@ function MetadataArtworkSection({
     reader.readAsDataURL(file)
     event.currentTarget.value = ''
   }, [onArtworkChange])
+  const handleSearch = React.useCallback(async () => {
+    if (!onSearchArtwork) return
+    setIsSearching(true)
+    setMessage('')
+    try {
+      const nextCandidates = await onSearchArtwork()
+      setCandidates(nextCandidates)
+      if (nextCandidates[0]) onArtworkChange(nextCandidates[0])
+      setMessage(nextCandidates.length ? '' : '没有找到可用封面')
+    } catch {
+      setMessage('封面查找失败')
+    } finally {
+      setIsSearching(false)
+    }
+  }, [onArtworkChange, onSearchArtwork])
+  const handleGenerate = React.useCallback(() => {
+    if (onGenerateArtwork) {
+      onGenerateArtwork()
+      return
+    }
+    onArtworkChange(fallbackArtworkUrl || '')
+  }, [fallbackArtworkUrl, onArtworkChange, onGenerateArtwork])
 
   return (
     <section className="metadata-artwork-section">
@@ -2905,10 +2955,20 @@ function MetadataArtworkSection({
         <div className="metadata-artwork-actions">
           <input ref={inputRef} className="metadata-artwork-file" type="file" accept="image/*" onChange={handleFileChange} />
           <button className="metadata-pill-button" type="button" onClick={() => inputRef.current?.click()}><Upload size={14} />选择图片</button>
-          <button className="metadata-pill-button" type="button" disabled={isSearchingArtwork} onClick={() => { void onSearchArtwork?.() }}><Search size={14} />{isSearchingArtwork ? '查找中...' : '查找封面'}</button>
-          {generateLabel ? <button className="metadata-pill-button" type="button" disabled={!fallbackArtworkUrl} onClick={() => onArtworkChange(fallbackArtworkUrl || '')}><Sparkles size={14} />{generateLabel}</button> : null}
+          <button className="metadata-pill-button" type="button" disabled={isSearching || !onSearchArtwork} onClick={() => { void handleSearch() }}><Search size={14} />{isSearching ? '查找中...' : '查找封面'}</button>
+          {generateLabel ? <button className="metadata-pill-button" type="button" disabled={!fallbackArtworkUrl && !onGenerateArtwork} onClick={handleGenerate}><Sparkles size={14} />{generateLabel}</button> : null}
           {hasArtwork && removeLabel ? <button className="metadata-pill-button" type="button" onClick={() => onArtworkChange('')}><Trash2 size={14} />{removeLabel}</button> : null}
+          {message ? <span className="metadata-artwork-message">{message}</span> : null}
         </div>
+        {candidates.length ? (
+          <div className="metadata-cover-candidates">
+            {candidates.map((candidate) => (
+              <button className={candidate === artworkUrl ? 'active' : ''} key={candidate} type="button" onClick={() => onArtworkChange(candidate)}>
+                <img src={candidate} alt="" decoding="async" />
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </section>
   )

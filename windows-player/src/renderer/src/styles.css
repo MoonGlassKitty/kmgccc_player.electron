@@ -2052,6 +2052,42 @@ input {
   gap: 8px;
 }
 
+.metadata-artwork-message {
+  color: rgba(35, 39, 43, 0.54);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.metadata-cover-candidates {
+  display: flex;
+  max-width: 220px;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.metadata-cover-candidates button {
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.06);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.metadata-cover-candidates button.active {
+  box-shadow:
+    0 0 0 2px rgba(190, 135, 50, 0.80),
+    0 2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.metadata-cover-candidates img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .metadata-artwork-file {
   display: none;
 }

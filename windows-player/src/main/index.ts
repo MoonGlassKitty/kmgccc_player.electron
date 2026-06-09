@@ -158,6 +158,19 @@ type ItunesArtistSearchResult = {
   artistLinkUrl?: string
 }
 
+type NetEaseArtistSearchResult = {
+  name?: string
+  id?: number
+  picUrl?: string
+  img1v1Url?: string
+}
+
+type CoverLookupCandidate = {
+  artworkUrl: string
+  source: string
+  label?: string
+}
+
 type NetEaseSongSearchResult = {
   name?: string
   id?: number
@@ -1014,6 +1027,74 @@ async function lookupArtistMetadata(values: Record<string, unknown>): Promise<Re
   }
 }
 
+function uniqueCoverCandidates(candidates: CoverLookupCandidate[]): CoverLookupCandidate[] {
+  const seen = new Set<string>()
+  return candidates.filter((candidate) => {
+    if (!candidate.artworkUrl || seen.has(candidate.artworkUrl)) return false
+    seen.add(candidate.artworkUrl)
+    return true
+  })
+}
+
+async function lookupCoverCandidates(values: Record<string, unknown>): Promise<CoverLookupCandidate[]> {
+  const kind = typeof values.kind === 'string' ? values.kind : 'track'
+  const title = typeof values.title === 'string' ? values.title.trim() : ''
+  const artist = typeof values.artist === 'string' ? values.artist.trim() : ''
+  const album = typeof values.album === 'string' ? values.album.trim() : ''
+  const duration = typeof values.duration === 'number' && Number.isFinite(values.duration) ? values.duration : 0
+  const ids = idsForMetadata(artist || '未知艺人', album || '未知专辑')
+  const track: LocalAudioImport = {
+    id: `cover-${createHash('sha1').update(`${kind}|${title}|${artist}|${album}|${duration}`).digest('hex').slice(0, 12)}`,
+    title: title || album || artist || '未知歌曲',
+    artist: artist || '未知艺人',
+    artistId: ids.artistId,
+    album: album || '未知专辑',
+    albumId: ids.albumId,
+    duration,
+    sourcePath: '',
+    sourceUrl: ''
+  }
+  const candidates: CoverLookupCandidate[] = []
+
+  if (kind === 'artist') {
+    const term = artist || title
+    if (!term) return []
+    const url = new URL('https://music.163.com/api/search/get/web')
+    url.searchParams.set('type', '100')
+    url.searchParams.set('s', term)
+    url.searchParams.set('limit', '8')
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0' },
+      signal: AbortSignal.timeout(12000)
+    })
+    if (response.ok) {
+      const payload = (await response.json()) as { result?: { artists?: NetEaseArtistSearchResult[] } }
+      for (const item of payload.result?.artists ?? []) {
+        const artworkUrl = upgradeNetEaseArtworkUrl(item.picUrl || item.img1v1Url)
+        if (artworkUrl) candidates.push({ artworkUrl, source: 'netease', label: item.name })
+      }
+    }
+    return uniqueCoverCandidates(candidates)
+  }
+
+  const netease = kind === 'album'
+    ? await fetchNetEaseAlbumArtwork(track)
+    : (await fetchNetEaseSongMetadata(track))?.artworkUrl || await fetchNetEaseAlbumArtwork(track)
+  if (netease) candidates.push({ artworkUrl: netease, source: 'netease', label: kind === 'album' ? album : title })
+
+  let itunesArtwork: string | undefined
+  if (kind === 'album') {
+    const itunesAlbum = await lookupAlbumMetadata({ title: album, artist })
+    itunesArtwork = typeof itunesAlbum?.artworkUrl === 'string' ? itunesAlbum.artworkUrl : undefined
+  } else {
+    const itunesTrack = await fetchItunesMetadata(track)
+    itunesArtwork = upgradeArtworkUrl(itunesTrack?.artworkUrl100)
+  }
+  if (itunesArtwork) candidates.push({ artworkUrl: itunesArtwork, source: 'itunes', label: kind === 'album' ? album : title })
+
+  return uniqueCoverCandidates(candidates)
+}
+
 function scoreLyricsCandidate(track: LocalAudioImport, candidate: LrcLibResult): number {
   let score = 0
   if (candidate.trackName?.toLowerCase() === track.title.toLowerCase()) score += 4
@@ -1429,6 +1510,9 @@ ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, un
     sourcePath: '',
     sourceUrl: ''
   })
+})
+ipcMain.handle('library:lookup-cover', async (_event, values: Record<string, unknown>) => {
+  return lookupCoverCandidates(values)
 })
 ipcMain.handle('library:clear', () => {
   rmSync(libraryStorePath(), { force: true })
