@@ -7,7 +7,7 @@
     system-ui,
     sans-serif;
   color: #092638;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.22);
   font-synthesis: none;
   text-rendering: auto;
   -webkit-font-smoothing: antialiased;
