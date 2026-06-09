@@ -1019,6 +1019,16 @@ function boostThemeColor(color: RgbColor): RgbColor {
   })
 }
 
+function daytimeThemeColor(color: RgbColor, index = 0): RgbColor {
+  const hsl = rgbToHsl(color)
+  const hueOffset = index === 0 ? 0 : index === 1 ? 4 : -5
+  return hslToRgb({
+    h: hsl.h + hueOffset,
+    s: clampNumber(hsl.s * 1.08 + 0.10, 0.34, 0.78),
+    l: clampNumber(hsl.l * 0.72 + 0.25, 0.58, 0.74)
+  })
+}
+
 function readableAccentTextColor(color: RgbColor): RgbColor {
   const hsl = rgbToHsl(color)
   return hslToRgb({
@@ -1385,18 +1395,21 @@ async function extractArtworkThemeColors(artworkUrl: string): Promise<RgbColor[]
 }
 
 function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSProperties): React.CSSProperties {
-  const first = colors[0]
-  const second = colors[1] ?? colors[0]
-  const third = colors[2] ?? colors[1] ?? colors[0]
-  if (!first || !second || !third) return fallback
+  const rawFirst = colors[0]
+  const rawSecond = colors[1] ?? colors[0]
+  const rawThird = colors[2] ?? colors[1] ?? colors[0]
+  if (!rawFirst || !rawSecond || !rawThird) return fallback
+  const first = daytimeThemeColor(rawFirst, 0)
+  const second = daytimeThemeColor(rawSecond, 1)
+  const third = daytimeThemeColor(rawThird, 2)
   const shapeTints = harmonizedShapeTints([first, second, third])
   const bkShapeTints = harmonizedBKShapeTints([first, second, third])
   const dotTints = harmonizedDotTints([first, second, third])
   const firstHsl = rgbToHsl(first)
   const secondHsl = rgbToHsl(second)
   const thirdHsl = rgbToHsl(third)
-  const backgroundSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s) * 0.18 + 0.14, 0.17, 0.32)
-  const overlaySaturation = clampNumber(Math.max(secondHsl.s, thirdHsl.s, firstHsl.s) * 0.20 + 0.16, 0.20, 0.38)
+  const backgroundSaturation = clampNumber(Math.max(firstHsl.s, secondHsl.s) * 0.20 + 0.16, 0.24, 0.34)
+  const overlaySaturation = clampNumber(Math.max(secondHsl.s, thirdHsl.s, firstHsl.s) * 0.22 + 0.17, 0.28, 0.40)
 
   return {
     ...fallback,

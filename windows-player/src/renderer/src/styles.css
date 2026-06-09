@@ -372,6 +372,10 @@ input {
   will-change: opacity;
 }
 
+.appearance-light .bk-dot-window {
+  opacity: calc(var(--dot-opacity) * 0.45);
+}
+
 .bk-dot-grid {
   position: absolute;
   inset: -60px;

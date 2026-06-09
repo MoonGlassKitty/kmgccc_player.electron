@@ -140,3 +140,4 @@
 - 艺术封面 BPM 视觉提前：封面描边节拍判定读取音频时间时增加 100ms 视觉提前量，让专辑描边切换更贴近听感，不改 BPM 检测与缓存结果。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL/网易云逐字歌词源接入：为本地曲目保存 `neteaseSongId`，NCM 解包读取 `musicId`、网易云元数据匹配保存 song id；歌词补全先按 NCM ID 请求 AMLL TTML DB 的 raw/bikonoo/dimeta 镜像，失败后接网易云 lyric v1，若返回 yrc 则转成现有 parser 可吃的逐字增强 LRC，最后再回退 LRCLIB。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL DB 歌词搜索源补齐：按站点前端实际接口 `POST /api/search-lyrics` 增加 title/all/id 搜索，并从 `/raw-lyrics/{file}` 下载 TTML；搜索结果用标题、歌手、专辑和 NCM ID 打分过滤，直链镜像补上 `amll-ttml-db.stevexmh.net/ncm/{id}`，避免本地曲目没有 NCM ID 或直链缺失时直接掉到无歌词。`npm run typecheck` 与 `npm run build` 已通过。
+- 白天模式主题色地板：封面取色后的白天主题色统一经过最低饱和/亮度约束，避免低饱和封面把 BK、歌词栏和控件主题拖成灰黑；白天 BK 滚珠窗口透明度乘以 0.45，深色模式继续走独立覆盖。
