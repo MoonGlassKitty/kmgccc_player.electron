@@ -81,3 +81,4 @@
 - 右侧歌词玻璃继续按 `glass-html/index.html` 参数校正：歌词栏 tint 改为纯透明 `--glass-alpha: 0`，保留边缘/内高光和阴影；主体高斯层铺满整块，左侧液态折射层固定宽度并在右端 mask 渐隐，去掉交界处内部阴影。`npm run typecheck` 与 `npm run build` 已通过。
 - 右侧歌词玻璃拼接试验：左侧液态折射玻璃与右侧纯透明高斯玻璃比例改为 2:5；歌词栏玻璃阴影全部清零，右侧高斯块轻微覆盖液态块内部边缘，左侧液态层用 `clip-path`/`contain: paint` 限制 SVG filter 外扩。`npm run typecheck` 与 `npm run build` 已通过。
 - 右侧歌词玻璃接缝继续柔化：左右分块改为 18px 交叉渐变，右侧主体高斯调整为 `5px/126%`，左侧液态层右端同步渐隐，消除明显竖向接缝。Home 艺人/专辑横向卡片增加专用遮罩，超过右侧歌词栏 2:5 分块缝隙的内容会在 190px 过渡区内渐隐并截止。`npm run typecheck` 与 `npm run build` 已通过。
+- Home 艺人/专辑遮罩截止点回退到右侧歌词栏左边界，保留 190px 渐隐过渡，不再延伸到歌词栏内部 2:5 分块缝隙。`npm run typecheck` 与 `npm run build` 已通过。

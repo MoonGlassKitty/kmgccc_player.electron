@@ -3378,7 +3378,7 @@ input {
 }
 
 .home-clip-carousel-section .home-card-grid {
-  --home-carousel-clip-edge: calc(100% - var(--lyrics-width) - 44px + (var(--lyrics-width) * 2 / 7));
+  --home-carousel-clip-edge: calc(100% - var(--lyrics-width) - 44px);
   --home-carousel-clip-fade: 190px;
   mask-image: linear-gradient(
     90deg,
