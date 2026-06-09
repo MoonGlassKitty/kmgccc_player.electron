@@ -121,3 +121,4 @@
 - 全屏 BK 改为专用滚珠态：全屏歌词页的 BK 不再进入普通 image/dot 随机状态机，只循环 dot surface；底层保留现有两主题色染色油漆纹理作为非单色背景，并提高全屏 BK/dot 饱和度。全屏 AMLL 在 dot 循环和曲目切换后继续触发可见背景取色，歌词列下方再叠一层柔和模糊垫子，降低滚珠经过时对歌词可读性的干扰。`npm run typecheck` 与 `npm run build` 已通过。
 - 磁带皮肤按 Swift 补齐素材层：从 `EncryptedArtAssets/XCAssets` 解出 `lighthole/darkhole` 并导入 Electron；磁带外壳现在浅/深色分别使用 `tape/tapedark`，按 Swift 坐标叠加旋转孔位和 9 根主题色波形胶囊，保留原 shell/artwork mask/gray/paper/outline 层级。`npm run typecheck` 与 `npm run build` 已通过。
 - 歌词栏开关动画修正：撤掉对歌词栏玻璃/模糊节点本体的动画承载方式，新增外层 `lyrics-sidebar-slot` 只负责滑入/滑出，内部 `.lyrics-side-panel` 保持原来的分块玻璃、blur 和滤镜参数不变，避免开关动画把歌词栏模糊效果吃掉或产生断层。`npm run typecheck` 与 `npm run build` 已通过。
+- 磁带波形胶囊显示修正：中间 9 根主题色胶囊不再依赖 CSS `calc(100% * var(...))` 乘法计算高度，改为 React 直接写入百分比高度变量，避免 Chromium 丢弃无效 height 导致胶囊不显示或高度不更新。`npm run typecheck` 与 `npm run build` 已通过。

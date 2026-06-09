@@ -5620,8 +5620,7 @@ const CassetteNowPlayingArtwork = React.memo(function CassetteNowPlayingArtwork(
             className="cassette-waveform-bar"
             style={
               {
-                '--cassette-wave-index': index,
-                '--cassette-wave-value': value,
+                '--cassette-wave-height': `${Math.max(7.2, value * 100)}%`,
                 '--cassette-wave-primary': `${100 - index * 6}%`,
                 '--cassette-wave-secondary': `${index * 6}%`
               } as React.CSSProperties

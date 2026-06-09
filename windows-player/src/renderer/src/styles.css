@@ -736,7 +736,7 @@ input {
 
 .cassette-waveform-bar {
   width: 4.85%;
-  height: max(7.2%, calc(100% * var(--cassette-wave-value)));
+  height: var(--cassette-wave-height);
   border-radius: 999px;
   background: color-mix(
     in srgb,
