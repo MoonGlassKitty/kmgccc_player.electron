@@ -144,3 +144,4 @@
 - QQ 音乐逐字歌词源接入：参考 Swift 的 LDDC 搜索策略（默认 QM/KG/NE、verbatim、自动门槛）先补 QQ 分支；主进程用 PC 歌词搜索 `fcg_search_pc_lrc.fcg` 匹配 songid，再用 `lyric_download.fcg?lrctype=4` 下载 QRC，通过 `@applemusic-like-lyrics/lyric` 解密/解析为现有 AMLL parser 可吃的内联逐字 LRC。网易云只有逐行时会继续尝试 QQ，`Home / acloudyskye` 已验证可拿到 QQ QRC 逐字。`npm run typecheck` 与 `npm run build` 已通过。
 - QQ 逐字歌词落盘修正：歌词搜索/编辑应用现在会把 QQ 返回的逐字同时写入 `syncedLyrics` 和 `lyricsText`，避免只写 `lyricsText` 导致播放器仍优先读旧的同步字段而看起来像“没生效”。`npm run typecheck` 与 `npm run build` 已通过。
 - 窗口播放主封面/BPM/翻译修正：艺术封面 BPM 归一化改为超过 90 就持续除 2；窗口/全屏歌词复用的打节拍主封面改为直接按视窗宽度缩放，普通最大 735px、全屏覆盖最大 695px；QQ QRC 歌词改为生成带 `ttm:role="x-translation"` 的 TTML，渲染端 TTML parser 会把翻译 span 填入 AMLL `translatedLyric`。`npm run typecheck` 与 `npm run build` 已通过。
+- 导入元数据自动封面/平台歌词搜索修正：导入后同步会自动按网易云查找并落盘专辑封面与艺人头像，同专辑/同艺人使用 Promise 缓存避免批量导入时重复请求；右键手动查找头像复用同一网易云艺人候选函数。歌词编辑弹窗的平台按钮现在真正分流到 AMLL DB、QQ 音乐、网易云，酷狗未接入时返回空而不是伪装成统一搜索。`npm run typecheck` 与 `npm run build` 已通过。

@@ -153,6 +153,8 @@ type AudioImportBatchResult = {
   tracks: LocalAudioImport[]
 }
 
+type LyricsLookupPlatform = 'auto' | 'amll' | 'qq' | 'kugou' | 'netease'
+
 type ItunesSearchResult = {
   trackName?: string
   artistName?: string
@@ -194,6 +196,11 @@ type RawCoverLookupCandidate = CoverLookupCandidate & {
   matchedTitle?: string
   matchedArtist?: string
   matchedAlbum?: string
+}
+
+type MetadataArtworkSyncCache = {
+  albumArtworkByKey: Map<string, Promise<CoverLookupCandidate | null>>
+  artistArtworkByKey: Map<string, Promise<CoverLookupCandidate | null>>
 }
 
 type NetEaseSongSearchResult = {
@@ -1279,6 +1286,33 @@ async function fetchNetEaseAlbumArtworkCandidates(track: LocalAudioImport): Prom
   return candidates.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
 }
 
+async function fetchNetEaseArtistArtworkCandidates(term: string): Promise<RawCoverLookupCandidate[]> {
+  const query = term.trim()
+  if (!query) return []
+
+  const url = new URL('https://music.163.com/api/search/get/web')
+  url.searchParams.set('type', '100')
+  url.searchParams.set('s', query)
+  url.searchParams.set('limit', '8')
+  const response = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0' },
+    signal: AbortSignal.timeout(12000)
+  })
+  if (!response.ok) return []
+
+  const payload = (await response.json()) as { result?: { artists?: NetEaseArtistSearchResult[] } }
+  return (payload.result?.artists ?? [])
+    .map((item, index) => ({
+      artworkUrl: upgradeNetEaseArtworkUrl(item.picUrl || item.img1v1Url) || '',
+      source: 'netease',
+      label: item.name,
+      matchedArtist: item.name,
+      confidence: textSimilarityScore(query, item.name) + Math.max(0, 0.18 - index * 0.02)
+    }))
+    .filter((candidate) => candidate.artworkUrl && (candidate.confidence ?? 0) >= 0.55)
+    .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+}
+
 async function fetchItunesMetadata(track: LocalAudioImport): Promise<ItunesSearchResult | null> {
   const queryParts = [track.title, isUnknown(track.artist) ? '' : track.artist, isUnknown(track.album) ? '' : track.album]
   const term = queryParts.join(' ').trim()
@@ -1394,6 +1428,58 @@ async function materializeCoverCandidates(candidates: RawCoverLookupCandidate[])
   return uniqueCoverCandidates(materialized)
 }
 
+const metadataArtworkSyncCache: MetadataArtworkSyncCache = {
+  albumArtworkByKey: new Map(),
+  artistArtworkByKey: new Map()
+}
+
+function metadataArtworkKey(...values: Array<string | undefined>): string {
+  return values
+    .map((value) => value?.trim().toLowerCase().replace(/\s+/g, ' ') || '')
+    .join('|')
+}
+
+async function lookupSyncedAlbumArtwork(track: LocalAudioImport, cache = metadataArtworkSyncCache): Promise<CoverLookupCandidate | null> {
+  if (isUnknown(track.album) && isUnknown(track.title)) return null
+  const key = metadataArtworkKey(track.artist, track.album || track.title)
+  const existing = cache.albumArtworkByKey.get(key)
+  if (existing) return existing
+
+  const lookup = (async () => {
+    const candidates: RawCoverLookupCandidate[] = []
+    const [albumCandidates, songMetadata] = await Promise.allSettled([
+      fetchNetEaseAlbumArtworkCandidates(track),
+      fetchNetEaseSongMetadata(track)
+    ])
+    if (albumCandidates.status === 'fulfilled') candidates.push(...albumCandidates.value)
+    if (songMetadata.status === 'fulfilled' && songMetadata.value?.artworkUrl) {
+      candidates.push({
+        artworkUrl: songMetadata.value.artworkUrl,
+        source: 'netease',
+        label: songMetadata.value.album || songMetadata.value.title || track.album || track.title,
+        matchedTitle: songMetadata.value.title,
+        matchedArtist: songMetadata.value.artist,
+        matchedAlbum: songMetadata.value.album,
+        confidence: songMetadata.value.score
+      })
+    }
+    return (await materializeCoverCandidates(candidates))[0] ?? null
+  })()
+  cache.albumArtworkByKey.set(key, lookup)
+  return lookup
+}
+
+async function lookupSyncedArtistArtwork(track: LocalAudioImport, cache = metadataArtworkSyncCache): Promise<CoverLookupCandidate | null> {
+  if (isUnknown(track.artist)) return null
+  const key = metadataArtworkKey(track.artist)
+  const existing = cache.artistArtworkByKey.get(key)
+  if (existing) return existing
+
+  const lookup = (async () => (await materializeCoverCandidates(await fetchNetEaseArtistArtworkCandidates(track.artist)))[0] ?? null)()
+  cache.artistArtworkByKey.set(key, lookup)
+  return lookup
+}
+
 async function lookupCoverCandidates(values: Record<string, unknown>): Promise<CoverLookupCandidate[]> {
   const kind = typeof values.kind === 'string' ? values.kind : 'track'
   const title = typeof values.title === 'string' ? values.title.trim() : ''
@@ -1419,25 +1505,7 @@ async function lookupCoverCandidates(values: Record<string, unknown>): Promise<C
     if (!term) return []
     const [qqmusicArtists, neteaseArtists] = await Promise.allSettled([
       fetchQQMusicCoverCandidates(track, 'artist'),
-      (async (): Promise<RawCoverLookupCandidate[]> => {
-        const url = new URL('https://music.163.com/api/search/get/web')
-        url.searchParams.set('type', '100')
-        url.searchParams.set('s', term)
-        url.searchParams.set('limit', '8')
-        const response = await fetch(url, {
-          headers: { 'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0' },
-          signal: AbortSignal.timeout(12000)
-        })
-        if (!response.ok) return []
-        const payload = (await response.json()) as { result?: { artists?: NetEaseArtistSearchResult[] } }
-        return (payload.result?.artists ?? []).map((item, index) => ({
-          artworkUrl: upgradeNetEaseArtworkUrl(item.picUrl || item.img1v1Url) || '',
-          source: 'netease',
-          label: item.name,
-          matchedArtist: item.name,
-          confidence: textSimilarityScore(term, item.name) + Math.max(0, 0.18 - index * 0.02)
-        })).filter((candidate) => candidate.artworkUrl)
-      })()
+      fetchNetEaseArtistArtworkCandidates(term)
     ])
     if (qqmusicArtists.status === 'fulfilled') candidates.push(...qqmusicArtists.value)
     if (neteaseArtists.status === 'fulfilled') {
@@ -1965,7 +2033,24 @@ async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult 
   }
 }
 
-async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSyncResult> {
+async function fetchLyricsForPlatform(track: LocalAudioImport, platform: LyricsLookupPlatform): Promise<LyricsLookupResult | null> {
+  if (platform === 'auto') return fetchLyrics(track)
+  if (platform === 'amll') {
+    return (await fetchAmllTtmlLyrics(track).catch(() => null)) ?? (await fetchAmllDbSearchLyrics(track).catch(() => null))
+  }
+  if (platform === 'qq') {
+    const qqMusicLyrics = await fetchQQMusicLyrics(track).catch(() => null)
+    if (!qqMusicLyrics) return null
+    const netEaseLyrics = await fetchNetEaseLyrics(track).catch(() => null)
+    return { ...netEaseLyrics, ...qqMusicLyrics }
+  }
+  if (platform === 'netease') {
+    return fetchNetEaseLyrics(track).catch(() => null)
+  }
+  return null
+}
+
+async function syncTrackInfo(track: LocalAudioImport, artworkCache = metadataArtworkSyncCache): Promise<TrackMetadataSyncResult> {
   let syncedTrack = { ...track }
   const statuses: TrackMetadataSyncResult['statuses'] = {
     track: track.convertedFromNcm ? 'completed' : 'noResults',
@@ -2072,6 +2157,53 @@ async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSync
   }
 
   try {
+    if (!syncedTrack.albumArtworkUrl && !syncedTrack.artworkUrl) {
+      const albumArtwork = await lookupSyncedAlbumArtwork(syncedTrack, artworkCache)
+      if (albumArtwork) {
+        syncedTrack = {
+          ...syncedTrack,
+          artworkUrl: albumArtwork.artworkUrl,
+          albumArtworkUrl: albumArtwork.artworkUrl,
+          albumMetadataSource: albumArtwork.source,
+          albumMetadataFetchedAt: new Date().toISOString(),
+          albumMetadataConfidence: syncedTrack.albumMetadataConfidence ?? 0.78
+        }
+        statuses.album = 'completed'
+      } else if (statuses.album !== 'completed') {
+        statuses.album = 'noResults'
+      }
+    } else if (syncedTrack.artworkUrl && !syncedTrack.albumArtworkUrl) {
+      syncedTrack = {
+        ...syncedTrack,
+        albumArtworkUrl: syncedTrack.artworkUrl
+      }
+      statuses.album = 'completed'
+    }
+  } catch {
+    statuses.album = statuses.album === 'completed' ? statuses.album : 'failed'
+  }
+
+  try {
+    if (!syncedTrack.artistArtworkUrl) {
+      const artistArtwork = await lookupSyncedArtistArtwork(syncedTrack, artworkCache)
+      if (artistArtwork) {
+        syncedTrack = {
+          ...syncedTrack,
+          artistArtworkUrl: artistArtwork.artworkUrl,
+          artistMetadataSource: artistArtwork.source,
+          artistMetadataFetchedAt: new Date().toISOString(),
+          artistMetadataConfidence: syncedTrack.artistMetadataConfidence ?? 0.78
+        }
+        statuses.artist = 'completed'
+      } else if (statuses.artist !== 'completed') {
+        statuses.artist = 'noResults'
+      }
+    }
+  } catch {
+    statuses.artist = statuses.artist === 'completed' ? statuses.artist : 'failed'
+  }
+
+  try {
     const lyrics = await fetchLyrics(syncedTrack)
     if (lyrics) {
       syncedTrack = { ...syncedTrack, ...lyrics }
@@ -2088,7 +2220,7 @@ async function syncTrackInfo(track: LocalAudioImport): Promise<TrackMetadataSync
       title: syncedTrack.album,
       artist: syncedTrack.artist,
       artistId: syncedTrack.artistId,
-      artworkUrl: syncedTrack.artworkUrl
+      artworkUrl: syncedTrack.albumArtworkUrl || syncedTrack.artworkUrl
     },
     statuses
   }
@@ -2377,10 +2509,14 @@ ipcMain.handle('settings:clear-index-cache', () => getHomeSnapshot())
 ipcMain.handle('settings:clear-external-playback-cache', () => true)
 ipcMain.handle('settings:complete-library-metadata', async (): Promise<{ completed: number; snapshot: ReturnType<typeof getHomeSnapshot> }> => {
   const library = loadPersistedLibrary()
+  const artworkCache: MetadataArtworkSyncCache = {
+    albumArtworkByKey: new Map(),
+    artistArtworkByKey: new Map()
+  }
   let completed = 0
   for (const track of library.tracks) {
     try {
-      const result = await syncTrackInfo(track)
+      const result = await syncTrackInfo(track, artworkCache)
       upsertPersistedTrack(result.track)
       completed += 1
     } catch {
@@ -2443,9 +2579,11 @@ ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, un
   const duration = typeof values.duration === 'number' && Number.isFinite(values.duration) ? values.duration : 0
   const neteaseSongId = positiveInteger(values.neteaseSongId)
   const qqMusicSongId = typeof values.qqMusicSongId === 'string' ? values.qqMusicSongId.trim() : undefined
+  const platformValue = typeof values.platform === 'string' ? values.platform : 'auto'
+  const platform: LyricsLookupPlatform = ['amll', 'qq', 'kugou', 'netease'].includes(platformValue) ? platformValue as LyricsLookupPlatform : 'auto'
   if (!title) return null
   const ids = idsForMetadata(artist || '未知艺人', album || '未知专辑')
-  return fetchLyrics({
+  return fetchLyricsForPlatform({
     id: `lookup-${createHash('sha1').update(`${title}|${artist}|${album}|${duration}`).digest('hex').slice(0, 12)}`,
     title,
     artist: artist || '未知艺人',
@@ -2457,7 +2595,7 @@ ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, un
     qqMusicSongId,
     sourcePath: '',
     sourceUrl: ''
-  })
+  }, platform)
 })
 ipcMain.handle('library:lookup-cover', async (_event, values: Record<string, unknown>) => {
   return lookupCoverCandidates(values)
