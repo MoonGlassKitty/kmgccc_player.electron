@@ -4239,26 +4239,10 @@ input {
   border-radius: 0 16px 16px 0;
 }
 
-.lyrics-sidebar-slot {
+.lyrics-side-panel {
   position: relative;
   grid-column: 3;
   grid-row: 1;
-  align-self: stretch;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  z-index: var(--layer-sidebars);
-  animation: lyricsSidebarSlideIn 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  will-change: transform, opacity;
-}
-
-.app-shell.lyrics-sidebar-closing .lyrics-sidebar-slot {
-  animation: lyricsSidebarSlideOut 320ms cubic-bezier(0.55, 0.08, 0.2, 1) both;
-  pointer-events: none;
-}
-
-.lyrics-side-panel {
-  position: relative;
   align-self: stretch;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
@@ -4285,28 +4269,6 @@ input {
   --glass-inner-highlight: rgba(255, 255, 255, 0);
   --lyrics-edge-glass-width: calc(100% * 2 / 7);
   contain: layout paint;
-}
-
-@keyframes lyricsSidebarSlideIn {
-  from {
-    opacity: 0;
-    transform: translate3d(28%, 0, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes lyricsSidebarSlideOut {
-  from {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-  to {
-    opacity: 0;
-    transform: translate3d(100%, 0, 0);
-  }
 }
 
 .lyrics-side-panel::before {

@@ -122,3 +122,4 @@
 - 磁带皮肤按 Swift 补齐素材层：从 `EncryptedArtAssets/XCAssets` 解出 `lighthole/darkhole` 并导入 Electron；磁带外壳现在浅/深色分别使用 `tape/tapedark`，按 Swift 坐标叠加旋转孔位和 9 根主题色波形胶囊，保留原 shell/artwork mask/gray/paper/outline 层级。`npm run typecheck` 与 `npm run build` 已通过。
 - 歌词栏开关动画修正：撤掉对歌词栏玻璃/模糊节点本体的动画承载方式，新增外层 `lyrics-sidebar-slot` 只负责滑入/滑出，内部 `.lyrics-side-panel` 保持原来的分块玻璃、blur 和滤镜参数不变，避免开关动画把歌词栏模糊效果吃掉或产生断层。`npm run typecheck` 与 `npm run build` 已通过。
 - 磁带波形胶囊显示修正：中间 9 根主题色胶囊不再依赖 CSS `calc(100% * var(...))` 乘法计算高度，改为 React 直接写入百分比高度变量，避免 Chromium 丢弃无效 height 导致胶囊不显示或高度不更新。`npm run typecheck` 与 `npm run build` 已通过。
+- 歌词栏开关结构恢复到动画前版本：移除右歌词栏外层 slot、closing 状态和 transform/opacity keyframe，恢复为 `isLyricsSidebarOpen` 直接挂载的原结构；保留 app-shell `grid-template-columns` 过渡作为不破坏 backdrop-filter 的开关动画，歌词栏玻璃/模糊分块参数回到动画前状态。`npm run typecheck` 与 `npm run build` 已通过。

@@ -2212,8 +2212,6 @@ function App(): React.ReactElement {
   const [settingsActionStatus, setSettingsActionStatus] = React.useState<SettingsActionStatus>(null)
   const [artworkFrameIndex, setArtworkFrameIndex] = React.useState(0)
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
-  const [isLyricsSidebarRendered, setIsLyricsSidebarRendered] = React.useState(false)
-  const [isLyricsSidebarClosing, setIsLyricsSidebarClosing] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
   const [lyricToneSeed, setLyricToneSeed] = React.useState<RgbColor | null>(null)
@@ -2238,7 +2236,6 @@ function App(): React.ReactElement {
   const previousRouteNameRef = React.useRef<AppRoute['name']>('home')
   const previousEntryTargetRef = React.useRef<EntryRevealTarget | 'other'>('home')
   const entryRevealTimersRef = React.useRef<number[]>([])
-  const lyricsSidebarCloseTimerRef = React.useRef<number | null>(null)
   const albums = React.useMemo(() => albumById(homeSnapshot), [homeSnapshot])
   const currentTrack = React.useMemo(
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
@@ -2320,15 +2317,15 @@ function App(): React.ReactElement {
   }, [])
   const lyricPlaybackOffsetSeconds = (lyricsGlobalAdvanceMs + lookaheadMs) / 1000
   const effectiveLyricPlaybackTime = Math.max(0, playbackTime + lyricPlaybackOffsetSeconds)
-  const lyricsWidth = isLyricsSidebarRendered ? lyricsSidebarWidth : 0
+  const lyricsWidth = isLyricsSidebarOpen ? lyricsSidebarWidth : 0
   const adaptiveSidebarWidth = React.useMemo(() => {
     if (isFullscreenLyricsOpen) return Math.max(sidebarWidth, DEFAULT_SIDEBAR_WIDTH)
     if (isSidebarCollapsed) return COLLAPSED_SIDEBAR_WIDTH
-    const contentTargetWidth = isLyricsSidebarRendered ? 760 : 820
+    const contentTargetWidth = isLyricsSidebarOpen ? 760 : 820
     const availableSidebarWidth = viewportWidth - lyricsWidth - contentTargetWidth
     if (availableSidebarWidth < 180) return COLLAPSED_SIDEBAR_WIDTH
     return clampNumber(Math.min(sidebarWidth, availableSidebarWidth), 180, sidebarWidth)
-  }, [isFullscreenLyricsOpen, isLyricsSidebarRendered, isSidebarCollapsed, lyricsWidth, sidebarWidth, viewportWidth])
+  }, [isFullscreenLyricsOpen, isLyricsSidebarOpen, isSidebarCollapsed, lyricsWidth, sidebarWidth, viewportWidth])
   const isSidebarVisuallyCollapsed = !isFullscreenLyricsOpen && (isSidebarCollapsed || adaptiveSidebarWidth <= 118)
   const openContextMenu = React.useCallback((event: React.MouseEvent, items: ContextMenuItem[]) => {
     event.preventDefault()
@@ -3008,24 +3005,8 @@ function App(): React.ReactElement {
     setLibraryDialog(null)
   }, [applyHomeSnapshot, libraryDialog])
   const toggleLyricsSidebar = React.useCallback(() => {
-    if (lyricsSidebarCloseTimerRef.current !== null) {
-      window.clearTimeout(lyricsSidebarCloseTimerRef.current)
-      lyricsSidebarCloseTimerRef.current = null
-    }
-    if (isLyricsSidebarOpen) {
-      setIsLyricsSidebarOpen(false)
-      setIsLyricsSidebarClosing(true)
-      lyricsSidebarCloseTimerRef.current = window.setTimeout(() => {
-        setIsLyricsSidebarRendered(false)
-        setIsLyricsSidebarClosing(false)
-        lyricsSidebarCloseTimerRef.current = null
-      }, 340)
-      return
-    }
-    setIsLyricsSidebarRendered(true)
-    setIsLyricsSidebarClosing(false)
-    window.requestAnimationFrame(() => setIsLyricsSidebarOpen(true))
-  }, [isLyricsSidebarOpen])
+    setIsLyricsSidebarOpen((value) => !value)
+  }, [])
   const toggleFullscreenLyrics = React.useCallback(() => {
     setIsFullscreenLyricsOpen((value) => !value)
   }, [])
@@ -3276,9 +3257,6 @@ function App(): React.ReactElement {
     for (const timer of entryRevealTimersRef.current) {
       window.clearTimeout(timer)
     }
-    if (lyricsSidebarCloseTimerRef.current !== null) {
-      window.clearTimeout(lyricsSidebarCloseTimerRef.current)
-    }
   }, [])
 
   return (
@@ -3289,7 +3267,7 @@ function App(): React.ReactElement {
       <audio ref={audioRef} onLoadedMetadata={updateAudioMetadata} onTimeUpdate={updateAudioTime} onEnded={handleAudioEnded} />
       <LiquidGlassFilters />
       <div
-        className={`app-shell ${isSidebarVisuallyCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarRendered ? 'lyrics-sidebar-visible' : ''} ${isLyricsSidebarClosing ? 'lyrics-sidebar-closing' : ''} ${route.name === 'nowPlaying' ? 'now-playing-route' : ''} ${dockProgressVisible ? 'dock-progress-visible' : 'dock-progress-hidden'} home-material-${homeCardMaterialMode} ${entryReveal ? `page-entry-${entryReveal.target} page-entry-${entryReveal.phase}` : ''}`}
+        className={`app-shell ${isSidebarVisuallyCollapsed ? 'sidebar-collapsed' : ''} ${isLyricsSidebarOpen ? 'lyrics-sidebar-visible' : ''} ${route.name === 'nowPlaying' ? 'now-playing-route' : ''} ${dockProgressVisible ? 'dock-progress-visible' : 'dock-progress-hidden'} home-material-${homeCardMaterialMode} ${entryReveal ? `page-entry-${entryReveal.target} page-entry-${entryReveal.phase}` : ''}`}
         style={
           {
             '--sidebar-width': `${isSidebarVisuallyCollapsed ? COLLAPSED_SIDEBAR_WIDTH : adaptiveSidebarWidth}px`,
@@ -3408,20 +3386,18 @@ function App(): React.ReactElement {
           ) : null}
           {importSyncState ? <ImportSyncCard state={importSyncState} onCancel={() => setImportSyncState(null)} /> : null}
         </main>
-        {isLyricsSidebarRendered ? (
-          <div className="lyrics-sidebar-slot">
-            <LyricsSidePanel
-              track={currentTrack}
-              albums={albums}
-              playbackTime={effectiveLyricPlaybackTime}
-              isPlaying={isPlaying}
-              onSeek={seekToLyricTime}
-              onResizeStart={handleLyricsResizeStart}
-              renderQuality={lyricsRenderQuality}
-              reduceHighlight={isDiscreteWordHighlightEnabled}
-              colorStyle={desktopStyle}
-            />
-          </div>
+        {isLyricsSidebarOpen ? (
+          <LyricsSidePanel
+            track={currentTrack}
+            albums={albums}
+            playbackTime={effectiveLyricPlaybackTime}
+            isPlaying={isPlaying}
+            onSeek={seekToLyricTime}
+            onResizeStart={handleLyricsResizeStart}
+            renderQuality={lyricsRenderQuality}
+            reduceHighlight={isDiscreteWordHighlightEnabled}
+            colorStyle={desktopStyle}
+          />
         ) : null}
         {isSettingsOpen ? (
           <SettingsPanel
