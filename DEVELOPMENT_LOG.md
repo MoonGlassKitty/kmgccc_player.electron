@@ -54,3 +54,4 @@
 - 修正主页板块顺序设置样式：保留“艺人”文案，按源程序截图补左侧图标、大号浅灰胶囊行、右侧三横拖拽柄和浅灰列表容器。窗口/全屏播放 LED 改成扁平化圆点条，默认值同步 Swift `LEDDefaults`；播放页 LED 接入 WebAudio `AnalyserNode`，`ledCount`、`ledBrightnessLevels`、`ledCutoffHz`、`ledSpeed` 现在会实际影响显示。`npm run typecheck` 与 `npm run build` 已通过。
 - LED 外观继续校正：外层恢复液态玻璃 pill，未点亮的 LED 点默认完全透明，只有亮度值大于 0 时才显色；保留 analyser 驱动和设置页预览共用样式。`npm run typecheck` 与 `npm run build` 已通过。
 - LED 默认态再次微调：压低外层液态玻璃乳白底，未点亮灯不再实心发灰，只保留极淡白色轮廓；播放/预览点亮时才填入主题色。`npm run typecheck` 与 `npm run build` 已通过。
+- LED 默认态按反馈改为灰色实心灯底，点亮时混入主题色；外层底部液态玻璃乳白底进一步压低到几乎没有，只保留很淡轮廓。`npm run typecheck` 与 `npm run build` 已通过。
