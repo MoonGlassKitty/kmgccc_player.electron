@@ -103,3 +103,4 @@
 - 设置页右上角关闭按钮去玻璃化：移除 `settings-close` 的液态玻璃背景、`lg-circle` 折射和阴影，只保留透明图标按钮。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL 背景配色同步改为 BK 可见色 seed：不再用 `phaseOffset % 2` 猜第一/第二主题色比例，而是由 `BKArtBackground` 按当前 surface、冻结 image phase 和 dot 类型计算实际背景主导 RGB seed，并在刷漆/surface 切换时 3s 平滑推给侧栏与全屏 AMLL 配色。
 - 导入补全反馈补齐：`syncTrackInfo` 增加歌手信息查询与 artist 状态，导入卡片显示歌曲信息、歌手信息、专辑信息、歌词四项的已补全/未找到/失败状态，批量导入完成文案也会明确列出未找到或失败的项目。`npm run typecheck` 与 `npm run build` 已通过。
+- AMLL BK 取色触发点修正：BK image phase 生成染色图时同步缓存平均色，歌词 seed 优先读取该平均色；刷漆过程中不再提前混色抢跑，改为 `bkPaintReveal` 动画结束后的下一帧立刻取当前已刷完背景色推给 AMLL，并在非刷漆状态低频刷新 image phase 颜色。`npm run typecheck` 与 `npm run build` 已通过。

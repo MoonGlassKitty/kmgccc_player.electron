@@ -5350,6 +5350,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const currentSurfaceRef = React.useRef(currentSurface)
   currentSurfaceRef.current = currentSurface
   const lyricToneSeedRef = React.useRef<RgbColor | null>(null)
+  const publishToneSeedRef = React.useRef<() => void>(() => undefined)
   const lastTrackSeedRef = React.useRef(trackSeed)
   const previousTrackRef = React.useRef<Track | null | undefined>(track)
   const didMountRef = React.useRef(false)
@@ -5420,6 +5421,7 @@ const BKArtBackground = React.memo(function BKArtBackground({
   const handleRevealEnd = React.useCallback(() => {
     setPreviousSurface(null)
     setIsRevealing(false)
+    window.requestAnimationFrame(() => publishToneSeedRef.current())
   }, [])
   const handleDotComplete = React.useCallback(() => {
     transitionSeedRef.current += 1
@@ -5436,32 +5438,19 @@ const BKArtBackground = React.memo(function BKArtBackground({
 
   React.useEffect(() => {
     if (!onToneSeedChange) return
-    const target = bkSurfaceLyricSeed(currentSurface)
-    const from = lyricToneSeedRef.current ?? (previousSurface ? bkSurfaceLyricSeed(previousSurface) : target)
-    if (colorDistance(from, target) < 3) {
-      lyricToneSeedRef.current = target
-      onToneSeedChange(target)
-      return
-    }
-    let frame = 0
-    let lastPublished = from
-    const startedAt = performance.now()
-    const duration = 3000
-    const tick = (timestamp: number): void => {
-      const progress = clampNumber((timestamp - startedAt) / duration, 0, 1)
-      const eased = progress * progress * (3 - 2 * progress)
-      const seed = mixRgb(from, target, eased)
-      if (colorDistance(lastPublished, seed) >= 4 || progress >= 1) {
-        lastPublished = seed
-        lyricToneSeedRef.current = seed
-        onToneSeedChange(seed)
+    const publishSample = (): void => {
+      const currentSeed = bkSurfaceLyricSeed(currentSurface)
+      const previousPublished = lyricToneSeedRef.current
+      if (!previousPublished || colorDistance(previousPublished, currentSeed) >= 3) {
+        lyricToneSeedRef.current = currentSeed
+        onToneSeedChange(currentSeed)
       }
-      if (progress < 1) frame = window.requestAnimationFrame(tick)
     }
-    frame = window.requestAnimationFrame(tick)
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame)
-    }
+    publishToneSeedRef.current = publishSample
+    if (previousSurface) return
+    publishSample()
+    const interval = window.setInterval(publishSample, 900)
+    return () => window.clearInterval(interval)
   }, [currentSurface, onToneSeedChange, previousSurface])
 
   return (
@@ -5519,6 +5508,11 @@ function bkSurfaceLyricSeed(surface: BKSurfaceState): RgbColor {
   const toneTwo = parseCssRgbColor(surface.themeStyle['--bk-bg-tone-2' as keyof React.CSSProperties]) ?? toneOne
   if (surface.style === 'image') {
     const phase = surface.frozenImagePhase ?? currentBKImagePhase(surface)
+    const toneOneValue = bkThemeCssValue(surface.themeStyle, '--bk-bg-tone-1')
+    const toneTwoValue = bkThemeCssValue(surface.themeStyle, '--bk-bg-tone-2')
+    const source = bkBackgroundAssets[(surface.phaseOffset + surface.seed + (phase === 'a' ? 0 : 1)) % bkBackgroundAssets.length]
+    const sampled = tintedBKAverageCache.get(bkImagePhaseCacheKey(source, toneOneValue, toneTwoValue))
+    if (sampled) return sampled
     const firstPaintTone = darkenRgb(toneOne, 0.18)
     return mixRgb(firstPaintTone, toneTwo, phase === 'a' ? 0.38 : 0.68)
   }
@@ -5632,6 +5626,7 @@ const BKArtSurface = React.memo(function BKArtSurface({
 })
 
 const tintedBKCache = new Map<string, string>()
+const tintedBKAverageCache = new Map<string, RgbColor>()
 
 function bkThemeCssValue(themeStyle: React.CSSProperties, key: string): string {
   const value = (themeStyle as Record<string, unknown>)[key]
@@ -5867,6 +5862,10 @@ const BKImagePhase = React.memo(function BKImagePhase({
         context.drawImage(image, 0, 0, width, height)
         const data = context.getImageData(0, 0, width, height)
         const pixels = data.data
+        let sampledRed = 0
+        let sampledGreen = 0
+        let sampledBlue = 0
+        let sampledCount = 0
         for (let index = 0; index < pixels.length; index += 4) {
           const r = pixels[index]
           const g = pixels[index + 1]
@@ -5881,6 +5880,19 @@ const BKImagePhase = React.memo(function BKImagePhase({
           pixels[index + 1] = boosted.g
           pixels[index + 2] = boosted.b
           pixels[index + 3] = a
+          if (a > 16 && index % 16 === 0) {
+            sampledRed += boosted.r
+            sampledGreen += boosted.g
+            sampledBlue += boosted.b
+            sampledCount += 1
+          }
+        }
+        if (sampledCount > 0) {
+          tintedBKAverageCache.set(cacheKey, {
+            r: Math.round(sampledRed / sampledCount),
+            g: Math.round(sampledGreen / sampledCount),
+            b: Math.round(sampledBlue / sampledCount)
+          })
         }
         context.putImageData(data, 0, 0)
         const output = canvas.toDataURL('image/webp', 0.9)
