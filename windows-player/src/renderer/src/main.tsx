@@ -5189,6 +5189,8 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   const artworkFrame = artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]
   const pageRef = React.useRef<HTMLElement | null>(null)
   const isSamplingBackgroundRef = React.useRef(false)
+  const hasSampledFullscreenBackgroundRef = React.useRef(false)
+  const publishedFullscreenToneTrackRef = React.useRef<string | null>(null)
   const [pixelStretchBackground, setPixelStretchBackground] = React.useState<string | null>(null)
   const [amllColorPhase, setAmllColorPhase] = React.useState(0)
   const [activeBKThemeStyle, setActiveBKThemeStyle] = React.useState<React.CSSProperties>(bkThemeStyle)
@@ -5218,12 +5220,16 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   React.useEffect(() => {
     setAmllColorPhase(0)
     setActiveBKThemeStyle(bkThemeStyle)
+    hasSampledFullscreenBackgroundRef.current = false
+    publishedFullscreenToneTrackRef.current = null
   }, [bkThemeStyle, track?.id])
 
   const sampleFullscreenBackgroundColor = React.useCallback(async (): Promise<void> => {
     const page = pageRef.current
     if (!page || !window.kmgccc?.sampleWindowColor) return
     if (isSamplingBackgroundRef.current) return
+    if (hasSampledFullscreenBackgroundRef.current) return
+    hasSampledFullscreenBackgroundRef.current = true
     isSamplingBackgroundRef.current = true
     const rect = page.getBoundingClientRect()
     try {
@@ -5241,6 +5247,21 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
     }
   }, [onLyricToneSeedChange])
 
+  React.useEffect(() => {
+    if (!showBKBackground) return
+    const timer = window.setTimeout(() => {
+      void sampleFullscreenBackgroundColor()
+    }, 520)
+    return () => window.clearTimeout(timer)
+  }, [sampleFullscreenBackgroundColor, showBKBackground, track?.id])
+
+  const publishInitialFullscreenToneSeed = React.useCallback((seed: RgbColor): void => {
+    const toneTrackKey = track?.id ?? 'kmgccc-empty-track'
+    if (publishedFullscreenToneTrackRef.current === toneTrackKey) return
+    publishedFullscreenToneTrackRef.current = toneTrackKey
+    onLyricToneSeedChange(seed)
+  }, [onLyricToneSeedChange, track?.id])
+
   return (
     <section ref={pageRef} className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} amll-color-phase-${amllColorPhase % 2} no-drag`} style={fullscreenPageStyle}>
       {useCoverGradientBlur ? (
@@ -5251,7 +5272,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       ) : nowPlayingSkinID === 'appleStyle' ? (
         <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
       ) : showBKBackground ? (
-        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} mode="fullscreenDotOnly" onColorPhaseChange={setAmllColorPhase} onColorThemeChange={setActiveBKThemeStyle} onToneSeedChange={onLyricToneSeedChange} onPaintRevealComplete={sampleFullscreenBackgroundColor} />
+        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} mode="fullscreenDotOnly" onColorPhaseChange={setAmllColorPhase} onColorThemeChange={setActiveBKThemeStyle} onToneSeedChange={publishInitialFullscreenToneSeed} />
       ) : (
         <UnifiedMeshBackground />
       )}

@@ -123,3 +123,4 @@
 - 歌词栏开关动画修正：撤掉对歌词栏玻璃/模糊节点本体的动画承载方式，新增外层 `lyrics-sidebar-slot` 只负责滑入/滑出，内部 `.lyrics-side-panel` 保持原来的分块玻璃、blur 和滤镜参数不变，避免开关动画把歌词栏模糊效果吃掉或产生断层。`npm run typecheck` 与 `npm run build` 已通过。
 - 磁带波形胶囊显示修正：中间 9 根主题色胶囊不再依赖 CSS `calc(100% * var(...))` 乘法计算高度，改为 React 直接写入百分比高度变量，避免 Chromium 丢弃无效 height 导致胶囊不显示或高度不更新。`npm run typecheck` 与 `npm run build` 已通过。
 - 歌词栏开关结构恢复到动画前版本：移除右歌词栏外层 slot、closing 状态和 transform/opacity keyframe，恢复为 `isLyricsSidebarOpen` 直接挂载的原结构；保留 app-shell `grid-template-columns` 过渡作为不破坏 backdrop-filter 的开关动画，歌词栏玻璃/模糊分块参数回到动画前状态。`npm run typecheck` 与 `npm run build` 已通过。
+- 全屏歌词背景垫层重写：去掉歌词后方自带颜色的彩色光斑，改为透明 backdrop-filter 模糊层和软 mask，让滚珠经过歌词后方时被化成较轻的光晕；全屏 BK 歌词取色改为进入/切歌后渲染稳定再单次采样，BK 滚珠循环不再反复触发窗口取色或歌词色 seed 更新；全屏专用 BK 背景/油漆纹理/dot grid 降低饱和度，避免滚珠本体过艳。`npm run typecheck` 与 `npm run build` 已通过。

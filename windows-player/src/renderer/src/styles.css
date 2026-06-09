@@ -223,7 +223,7 @@ input {
 }
 
 .bk-art-background.mode-fullscreenDotOnly {
-  filter: saturate(1.06);
+  filter: saturate(0.9);
   background:
     radial-gradient(circle at 18% 24%, color-mix(in srgb, var(--bk-bg-tone-1) 98%, transparent), transparent 42%),
     radial-gradient(circle at 74% 64%, color-mix(in srgb, var(--bk-bg-tone-2) 94%, transparent), transparent 48%),
@@ -245,7 +245,7 @@ input {
 
 .bk-art-background.mode-fullscreenDotOnly .bk-image-phase {
   opacity: 0.74;
-  filter: contrast(1.02) saturate(1.08) brightness(1.01);
+  filter: contrast(1.01) saturate(0.9) brightness(1.0);
 }
 
 .bk-art-background.mode-fullscreenDotOnly .bk-art-surface .phase-a {
@@ -265,12 +265,12 @@ input {
     radial-gradient(circle at 30% 22%, color-mix(in srgb, var(--bk-bg-tone-1) 30%, transparent), transparent 38%),
     radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 28%, transparent), transparent 44%);
   opacity: 0.20;
-  filter: saturate(1.08);
+  filter: saturate(0.88);
 }
 
 .bk-art-background.mode-fullscreenDotOnly .bk-dot-grid {
   opacity: 0.96;
-  filter: blur(0.1px) saturate(1.06) contrast(1.02);
+  filter: blur(0.1px) saturate(0.88) contrast(1.01);
 }
 
 .bk-art-background.mode-fullscreenDotOnly .bk-dot-grid.small {
@@ -4704,37 +4704,34 @@ input {
 .fullscreen-lyrics-lines::before {
   content: "";
   position: absolute;
-  top: clamp(42px, 6vh, 84px);
-  right: clamp(-24px, -2vw, -10px);
-  bottom: clamp(84px, 11vh, 138px);
-  left: clamp(-38px, -3vw, -14px);
+  top: clamp(12px, 3.4vh, 56px);
+  right: clamp(-48px, -3.2vw, -18px);
+  bottom: clamp(48px, 7.8vh, 112px);
+  left: clamp(-64px, -4.2vw, -24px);
   z-index: 0;
-  border-radius: 34px;
-  background:
-    radial-gradient(circle at 36% 20%, color-mix(in srgb, var(--cover-accent) 34%, rgba(255, 255, 255, 0.22)), transparent 28%),
-    radial-gradient(circle at 72% 58%, color-mix(in srgb, var(--cover-accent-text) 26%, rgba(255, 255, 255, 0.16)), transparent 34%),
-    radial-gradient(circle at 30% 84%, rgba(255, 255, 255, 0.12), transparent 30%),
-    rgba(12, 18, 24, 0.18);
-  filter: blur(22px) saturate(1.16);
-  opacity: 0.82;
+  border-radius: 42px;
+  background: rgba(255, 255, 255, 0.001);
+  backdrop-filter: blur(12px) saturate(0.94);
+  -webkit-backdrop-filter: blur(12px) saturate(0.94);
+  mask-image: radial-gradient(ellipse 88% 74% at 52% 50%, #000 0 40%, rgba(0, 0, 0, 0.72) 58%, rgba(0, 0, 0, 0.24) 78%, transparent 100%);
+  opacity: 0.7;
   pointer-events: none;
 }
 
 .fullscreen-lyrics-lines::after {
   content: "";
   position: absolute;
-  top: clamp(72px, 10vh, 118px);
-  right: clamp(-8px, -0.8vw, 0px);
-  bottom: clamp(112px, 14vh, 172px);
-  left: clamp(-22px, -1.8vw, -8px);
+  top: clamp(58px, 8.8vh, 112px);
+  right: clamp(-18px, -1.2vw, 0px);
+  bottom: clamp(92px, 12.8vh, 164px);
+  left: clamp(-38px, -2.6vw, -12px);
   z-index: 0;
-  border-radius: 38px;
-  background:
-    radial-gradient(circle at 48% 18%, rgba(255, 255, 255, 0.22), transparent 30%),
-    radial-gradient(circle at 58% 64%, color-mix(in srgb, var(--amll-fullscreen-bg-color) 86%, rgba(255, 255, 255, 0.12)), transparent 42%),
-    rgba(8, 14, 20, 0.14);
-  filter: blur(34px) saturate(1.18);
-  opacity: 0.78;
+  border-radius: 48px;
+  background: rgba(255, 255, 255, 0.001);
+  backdrop-filter: blur(24px) saturate(0.92);
+  -webkit-backdrop-filter: blur(24px) saturate(0.92);
+  mask-image: radial-gradient(ellipse 76% 62% at 52% 50%, #000 0 42%, rgba(0, 0, 0, 0.64) 62%, rgba(0, 0, 0, 0.18) 82%, transparent 100%);
+  opacity: 0.5;
   pointer-events: none;
 }
 
