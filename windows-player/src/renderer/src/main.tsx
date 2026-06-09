@@ -1962,7 +1962,7 @@ function App(): React.ReactElement {
 
   const writeMiniProgressRatio = React.useCallback((seconds: number, duration: number) => {
     const ratio = duration > 0 ? clampNumber(seconds / duration, 0, 1) : 0
-    document.querySelector<HTMLElement>('.mini-timeline-layer')?.style.setProperty('--mini-player-progress-ratio', String(ratio))
+    document.querySelector<HTMLElement>('.mini-player')?.style.setProperty('--mini-player-progress-ratio', String(ratio))
   }, [])
 
   const seekTo = React.useCallback((seconds: number) => {
@@ -2388,6 +2388,18 @@ function App(): React.ReactElement {
     } else {
       audio.pause()
     }
+  }, [currentTrack?.duration, currentTrack?.sourceUrl, isPlaying, writeMiniProgressRatio])
+
+  React.useEffect(() => {
+    if (!isPlaying) return
+    const tick = () => {
+      const audio = audioRef.current
+      const duration = Number.isFinite(audio?.duration) && audio && audio.duration > 0 ? audio.duration : currentTrack?.duration ?? 0
+      writeMiniProgressRatio(audio?.currentTime || 0, duration)
+    }
+    tick()
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
   }, [currentTrack?.duration, currentTrack?.sourceUrl, isPlaying, writeMiniProgressRatio])
 
   React.useEffect(() => {
@@ -6054,7 +6066,6 @@ const MiniPlayer = React.memo(function MiniPlayer({
   const queueTracks = tracks.length ? tracks : [track]
   const safePlaybackDuration = Math.max(1, playbackDuration)
   const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
-  const progressRemainingSeconds = isPlaying && playbackDuration > 0 ? Math.max(0.25, playbackDuration - playbackTime) : 0.25
   const seekFromProgressClientX = React.useCallback((clientX: number) => {
     const rail = progressRailRef.current
     if (!rail) return
@@ -6085,32 +6096,26 @@ const MiniPlayer = React.memo(function MiniPlayer({
     }
   }, [])
 
-  const progressStyle = { '--mini-player-progress-ratio': progress / 100, '--mini-player-progress-duration': `${progressRemainingSeconds}s` } as React.CSSProperties
+  const miniPlayerStyle = { '--filter-url': 'url(#lg-mini)', '--mini-player-progress-ratio': progress / 100 } as React.CSSProperties
 
   return (
     <>
       <div
         className={`mini-timeline-layer no-drag ${isPlaying ? 'playing' : ''}`}
-        style={progressStyle}
+        ref={progressRailRef}
+        role="slider"
+        aria-label="播放进度"
+        aria-valuemax={safePlaybackDuration}
+        aria-valuemin={0}
+        aria-valuenow={Math.min(playbackTime, safePlaybackDuration)}
+        tabIndex={0}
+        onPointerDown={handleProgressPointerDown}
+        onPointerUp={handleProgressPointerUp}
+        onPointerCancel={handleProgressPointerCancel}
       >
-        <span className="mini-timeline-fill" aria-hidden="true" />
-        <div
-          className="mini-progress-rail"
-          ref={progressRailRef}
-          role="slider"
-          aria-label="播放进度"
-          aria-valuemax={safePlaybackDuration}
-          aria-valuemin={0}
-          aria-valuenow={Math.min(playbackTime, safePlaybackDuration)}
-          tabIndex={0}
-          onPointerDown={handleProgressPointerDown}
-          onPointerUp={handleProgressPointerUp}
-          onPointerCancel={handleProgressPointerCancel}
-        >
-          <span className="mini-progress-line" aria-hidden="true" />
-        </div>
+        <span className="mini-progress-line" aria-hidden="true" />
       </div>
-      <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={{ '--filter-url': 'url(#lg-mini)' } as React.CSSProperties}>
+      <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={miniPlayerStyle}>
       <button className="mini-track" type="button" aria-label="打开窗口播放" onClick={onOpenNowPlaying}>
         <img src={trackArtwork(track, albums)} alt="" decoding="async" />
         <div>

@@ -44,3 +44,4 @@
 - BK dot 调回中值：dot 色相改为浅第一主题色附近，降低反色感；运动 travel 小幅收窄、duration 放慢，对比度和透明度从偏强值回收。
 - BK image/油漆状态染色调整：tinted background 的色阶从浅第一主题色改为深一些的第一主题色到第二主题色，增强刷漆时的色彩分层，dot 状态不受影响。
 - 底部时间条性能隔离：播放进度动画从连续 linear 改为低频 steps，时间条层使用独立 3D 合成和 isolation，普通播放时 React playbackTime 刷新从 8s 降到 30s，减少与 BK shape/dot 动画抢帧。
+- 底部时间条按合并层重写：移除额外透明 rail/fill 子层，播放进度改由底栏 `.mini-player::before` 自身绘制；`mini-timeline-layer` 只保留底部透明 slider 命中层，避免独立时间条动画与 BK/home 点缀抢帧或盖住播放按钮。
