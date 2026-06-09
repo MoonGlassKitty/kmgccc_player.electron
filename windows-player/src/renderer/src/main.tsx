@@ -2333,7 +2333,7 @@ function App(): React.ReactElement {
     }
     return audioAnalyserRef.current
   }, [])
-  const analyzeArtworkBeat = React.useCallback(async (track: Track): Promise<ArtworkBeat> => {
+  const analyzeArtworkBeat = React.useCallback(async (track: Track, onCandidate?: (beat: ArtworkBeat) => void): Promise<ArtworkBeat> => {
     if (!track.sourceUrl) throw new Error('Track sourceUrl is empty')
     const AudioContextCtor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
     if (!AudioContextCtor) throw new Error('AudioContext is not available')
@@ -2342,11 +2342,34 @@ function App(): React.ReactElement {
     const response = await fetch(track.sourceUrl)
     const arrayBuffer = await response.arrayBuffer()
     const audioBuffer = await context.decodeAudioData(arrayBuffer.slice(0))
-    const result = await guess(audioBuffer, { minTempo: 45, maxTempo: 130 })
-    return {
-      bpm: normalizeArtworkPulseBpm(result.bpm),
-      offset: clampNumber(result.offset || 0, 0, Math.max(0, audioBuffer.duration))
+    const durations = Array.from(new Set(
+      [12, 20, 32, 48, Math.min(audioBuffer.duration, 72)]
+        .filter((duration) => duration > 4 && duration <= audioBuffer.duration)
+        .map((duration) => Math.round(duration * 10) / 10)
+    ))
+    if (!durations.length) durations.push(audioBuffer.duration)
+    let bestBeat: ArtworkBeat | null = null
+    let stableBeat: ArtworkBeat | null = null
+    let stableCount = 0
+    for (const duration of durations) {
+      const result = await guess(audioBuffer, 0, duration, { minTempo: 45, maxTempo: 130 })
+      const beat = {
+        bpm: normalizeArtworkPulseBpm(result.bpm),
+        offset: clampNumber(result.offset || 0, 0, Math.max(0, audioBuffer.duration))
+      }
+      onCandidate?.(beat)
+      if (bestBeat && Math.abs(bestBeat.bpm - beat.bpm) <= 1) {
+        stableCount += 1
+      } else {
+        stableCount = 1
+      }
+      bestBeat = beat
+      if (stableCount >= 2) {
+        stableBeat = beat
+        break
+      }
     }
+    return stableBeat ?? bestBeat ?? { bpm: 96, offset: 0 }
   }, [])
   const lyricPlaybackOffsetSeconds = (lyricsGlobalAdvanceMs + lookaheadMs) / 1000
   const effectiveLyricPlaybackTime = Math.max(0, playbackTime + lyricPlaybackOffsetSeconds)
@@ -2424,7 +2447,10 @@ function App(): React.ReactElement {
     const detectionTrackId = currentTrack.id
     if (beatCacheRef.current[detectionTrackId]) return
     let cancelled = false
-    void analyzeArtworkBeat(currentTrack)
+    void analyzeArtworkBeat(currentTrack, (candidate) => {
+      if (cancelled || beatCacheRef.current[detectionTrackId]) return
+      setTrackBeatById((previous) => ({ ...previous, [detectionTrackId]: candidate }))
+    })
       .then((beat) => {
         if (cancelled) return
         beatCacheRef.current = { ...beatCacheRef.current, [detectionTrackId]: beat }
