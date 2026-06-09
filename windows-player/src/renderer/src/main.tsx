@@ -539,9 +539,8 @@ const ARTWORK_PULSE_VISUAL_ADVANCE_SECONDS = 0.1
 
 function normalizeArtworkPulseBpm(rawTempo: number): number {
   let bpm = rawTempo
-  while (bpm > 180) bpm /= 2
-  if (bpm > 130) bpm /= 2
-  return clampNumber(Math.round(bpm), 45, 130)
+  while (bpm > 90) bpm /= 2
+  return clampNumber(Math.round(bpm), 45, 90)
 }
 const playlistCoverBases = [playlistCover1, playlistCover2, playlistCover3, playlistCover4]
 
@@ -4907,6 +4906,7 @@ type ParsedLyricLine = {
   id: string
   time: number | null
   text: string
+  translation?: string
   words?: ParsedLyricWord[]
 }
 
@@ -4974,7 +4974,11 @@ function parseTTMLLyrics(rawLyrics: string): ParsedLyricLine[] {
     const begin = parseLyricTimestamp(paragraph.getAttribute('begin') ?? '')
     const end = parseLyricTimestamp(paragraph.getAttribute('end') ?? '')
     const spans = Array.from(paragraph.getElementsByTagName('span'))
-    const words = spans
+    const translation = spans
+      .find((span) => span.getAttribute('ttm:role') === 'x-translation' || span.getAttribute('role') === 'x-translation')
+      ?.textContent?.trim()
+    const wordSpans = spans.filter((span) => span.getAttribute('ttm:role') !== 'x-translation' && span.getAttribute('role') !== 'x-translation')
+    const words = wordSpans
       .map((span) => {
         const start = parseLyricTimestamp(span.getAttribute('begin') ?? '')
         const finish = parseLyricTimestamp(span.getAttribute('end') ?? '')
@@ -4987,7 +4991,7 @@ function parseTTMLLyrics(rawLyrics: string): ParsedLyricLine[] {
         } satisfies ParsedLyricWord
       })
       .filter((word): word is ParsedLyricWord => word !== null)
-    const text = escapeLyricText(paragraph.textContent ?? '')
+    const text = escapeLyricText(wordSpans.map((span) => span.textContent ?? '').join(''))
     if (!text) return
     const lineStartMs = begin !== null ? Math.round(begin * 1000) : words[0]?.startTime
     const lineEndMs = end !== null ? Math.round(end * 1000) : words[words.length - 1]?.endTime
@@ -4999,6 +5003,7 @@ function parseTTMLLyrics(rawLyrics: string): ParsedLyricLine[] {
       id: `ttml-${index}-${lineStartMs}`,
       time: lineStartMs / 1000,
       text,
+      translation,
       words: words.length ? words.map((word, wordIndex) => ({
         ...word,
         endTime: Math.min(word.endTime, lineEndMs ?? word.endTime + 1200),
@@ -5083,7 +5088,7 @@ function amllLyricLinesFromParsed(lines: ParsedLyricLine[], trackDuration: numbe
 
     return {
       words,
-      translatedLyric: '',
+      translatedLyric: line.translation ?? '',
       romanLyric: '',
       startTime,
       endTime,

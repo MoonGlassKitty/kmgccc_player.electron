@@ -464,7 +464,7 @@ input {
   align-items: center;
   justify-content: center;
   gap: 24px;
-  width: clamp(var(--mini-player-min-width), calc(100% - var(--sidebar-width) - var(--lyrics-width) - var(--mini-player-side-gap)), var(--mini-player-max-width));
+  width: clamp(520px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - var(--mini-player-side-gap)), 1120px);
   min-height: min(620px, calc(100% - 180px));
   transform: translate(-50%, calc(-50% + 18px));
   pointer-events: none;
@@ -472,7 +472,7 @@ input {
 
 .now-playing-cover {
   position: relative;
-  width: clamp(250px, min(56vh, 39vw), 440px);
+  width: clamp(250px, 30vw, 735px);
   aspect-ratio: 1;
   padding: 0;
   border: 0;
@@ -4672,7 +4672,7 @@ input {
   align-items: center;
   justify-content: center;
   gap: clamp(16px, 2.6vh, 28px);
-  width: min(48vw, 650px);
+  width: clamp(360px, 48vw, 820px);
   min-width: 0;
   min-height: min(680px, calc(100vh - 178px));
   margin: clamp(-24px, -2.4vh, 0px) 0 clamp(28px, 5vh, 70px) clamp(18px, 4vw, 86px);
@@ -4681,7 +4681,7 @@ input {
 
 .fullscreen-lyrics-artwork-stage .now-playing-cover,
 .fullscreen-lyrics-artwork-stage .apple-style-cover {
-  width: clamp(300px, min(58vh, 36vw), 520px);
+  width: clamp(300px, 34vw, 695px);
 }
 
 .fullscreen-lyrics-artwork-stage .rotating-cover {

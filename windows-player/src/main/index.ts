@@ -1557,7 +1557,7 @@ function qrcXmlContent(xml: string, tag: string): string {
   return xml.match(new RegExp(`<${tag}\\b[^>]*>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*<\\/${tag}>`, 'i'))?.[1]?.trim() ?? ''
 }
 
-async function downloadQQMusicQrc(songId: string): Promise<{ origHex: string; translationHex: string; romanHex: string } | null> {
+async function downloadQQMusicQrc(songId: string): Promise<{ origHex: string; translationText: string; romanText: string } | null> {
   const url = new URL('https://c.y.qq.com/qqmusic/fcgi-bin/lyric_download.fcg')
   url.searchParams.set('version', '15')
   url.searchParams.set('miniversion', '82')
@@ -1577,8 +1577,8 @@ async function downloadQQMusicQrc(songId: string): Promise<{ origHex: string; tr
   if (!origHex) return null
   return {
     origHex,
-    translationHex: qrcXmlContent(text, 'contentts'),
-    romanHex: qrcXmlContent(text, 'contentroma')
+    translationText: qrcXmlContent(text, 'contentts'),
+    romanText: qrcXmlContent(text, 'contentroma')
   }
 }
 
@@ -1601,6 +1601,70 @@ function amllLyricLinesToInlineLrc(lines: AmllParsedLyricLine[]): string {
     .join('\n')
 }
 
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+function parseLrcTimestampMs(timestamp: string): number | null {
+  const match = timestamp.match(/^(\d+):(\d{2})(?:[.:](\d{1,3}))?$/)
+  if (!match) return null
+  const minutes = Number(match[1])
+  const seconds = Number(match[2])
+  const fraction = match[3] ? Number(match[3].padEnd(3, '0').slice(0, 3)) : 0
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || !Number.isFinite(fraction)) return null
+  return minutes * 60000 + seconds * 1000 + fraction
+}
+
+function parseTranslationLrc(translationText: string): Array<{ timeMs: number; text: string }> {
+  return translationText
+    .split(/\r?\n/)
+    .map((line) => {
+      const match = line.match(/^\[([0-9]+:[0-9]{2}(?:[.:][0-9]{1,3})?)\](.*)$/)
+      if (!match) return null
+      const timeMs = parseLrcTimestampMs(match[1])
+      const text = match[2]?.trim()
+      if (timeMs === null || !text || text === '//') return null
+      return { timeMs, text }
+    })
+    .filter((entry): entry is { timeMs: number; text: string } => entry !== null)
+}
+
+function translationForQrcLine(lineStartMs: number, translations: Array<{ timeMs: number; text: string }>): string {
+  let selected = ''
+  let selectedDistance = Number.POSITIVE_INFINITY
+  for (const translation of translations) {
+    const distance = Math.abs(translation.timeMs - lineStartMs)
+    if (distance <= 650 && distance < selectedDistance) {
+      selected = translation.text
+      selectedDistance = distance
+    }
+  }
+  return selected
+}
+
+function amllLyricLinesToTtml(lines: AmllParsedLyricLine[], translationText: string): string {
+  const translations = parseTranslationLrc(translationText)
+  const timedLines = lines.filter((line) => Number.isFinite(line.startTime) && Number.isFinite(line.endTime) && line.words.length)
+  const bodyBegin = timedLines[0]?.startTime ?? 0
+  const bodyEnd = timedLines[timedLines.length - 1]?.endTime ?? Math.max(bodyBegin + 1000, 0)
+  const paragraphs = timedLines.map((line, index) => {
+    const lineTranslation = translationForQrcLine(line.startTime, translations)
+    const spans = line.words
+      .filter((word) => word.word)
+      .map((word) => `<span begin="${formatLyricTimestampFromMs(word.startTime)}" end="${formatLyricTimestampFromMs(word.endTime)}">${escapeXml(word.word)}</span>`)
+      .join('')
+    const translationSpan = lineTranslation ? `<span ttm:role="x-translation" xml:lang="zh-CN">${escapeXml(lineTranslation)}</span>` : ''
+    return `<p begin="${formatLyricTimestampFromMs(line.startTime)}" end="${formatLyricTimestampFromMs(line.endTime)}" ttm:agent="v1" itunes:key="L${index + 1}">${spans}${translationSpan}</p>`
+  }).join('')
+
+  return `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:amll="http://www.example.com/ns/amll" xmlns:itunes="http://music.apple.com/lyric-ttml-internal"><head><metadata><ttm:agent type="person" xml:id="v1" /></metadata></head><body dur="${formatLyricTimestampFromMs(bodyEnd)}"><div begin="${formatLyricTimestampFromMs(bodyBegin)}" end="${formatLyricTimestampFromMs(bodyEnd)}">${paragraphs}</div></body></tt>`
+}
+
 async function fetchQQMusicLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
   const candidates = track.qqMusicSongId
     ? [{ songId: track.qqMusicSongId, title: track.title, artist: track.artist, album: track.album, score: 100 }]
@@ -1612,7 +1676,9 @@ async function fetchQQMusicLyrics(track: LocalAudioImport): Promise<LyricsLookup
       if (!payload?.origHex) continue
       const qrcLyrics = extractQrcLyricContent(decryptQrcHex(payload.origHex))
       const lines = parseQrc(qrcLyrics)
-      const syncedLyrics = amllLyricLinesToInlineLrc(lines)
+      const syncedLyrics = payload.translationText
+        ? amllLyricLinesToTtml(lines, payload.translationText)
+        : amllLyricLinesToInlineLrc(lines)
       if (!syncedLyrics.trim() || !lines.some((line) => line.words.length > 1)) continue
       return {
         syncedLyrics,
