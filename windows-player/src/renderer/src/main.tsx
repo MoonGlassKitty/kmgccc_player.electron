@@ -2575,10 +2575,6 @@ function App(): React.ReactElement {
   }, [])
 
   React.useEffect(() => {
-    if (isFullscreenLyricsOpen) setIsSidebarCollapsed(true)
-  }, [isFullscreenLyricsOpen])
-
-  React.useEffect(() => {
     if (!isFullscreenLyricsOpen) return
 
     const handleKeyDown = (event: KeyboardEvent): void => {
