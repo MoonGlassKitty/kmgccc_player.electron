@@ -3858,6 +3858,8 @@ const LibraryDialog = React.memo(function LibraryDialog({
         album: track.album || current.album,
         artworkUrl: track.artworkUrl || current.artworkUrl,
         lyricsText: track.syncedLyrics || track.lyricsText || current.lyricsText,
+        syncedLyrics: track.syncedLyrics || track.lyricsText || current.syncedLyrics,
+        qqMusicSongId: track.qqMusicSongId || current.qqMusicSongId,
         metadataSource: track.metadataSource || current.metadataSource || 'metadata',
         metadataFetchedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
         metadataConfidence: current.metadataConfidence || '0.86'
@@ -4273,6 +4275,8 @@ function TrackLyricsEditor({ values, update }: { values: Record<string, string>;
       const text = result?.syncedLyrics || result?.lyricsText || ''
       if (text.trim()) {
         update('lyricsText', text)
+        update('syncedLyrics', text)
+        if (result?.qqMusicSongId) update('qqMusicSongId', result.qqMusicSongId)
         setSearchMessage('已应用歌词')
       } else {
         setSearchMessage('暂未找到歌词')

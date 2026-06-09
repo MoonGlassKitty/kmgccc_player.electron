@@ -142,3 +142,4 @@
 - AMLL DB 歌词搜索源补齐：按站点前端实际接口 `POST /api/search-lyrics` 增加 title/all/id 搜索，并从 `/raw-lyrics/{file}` 下载 TTML；搜索结果用标题、歌手、专辑和 NCM ID 打分过滤，直链镜像补上 `amll-ttml-db.stevexmh.net/ncm/{id}`，避免本地曲目没有 NCM ID 或直链缺失时直接掉到无歌词。`npm run typecheck` 与 `npm run build` 已通过。
 - 白天模式主题色地板：封面取色后的白天主题色统一经过最低饱和/亮度约束，避免低饱和封面把 BK、歌词栏和控件主题拖成灰黑；白天 BK 滚珠窗口透明度乘以 0.45，深色模式继续走独立覆盖。
 - QQ 音乐逐字歌词源接入：参考 Swift 的 LDDC 搜索策略（默认 QM/KG/NE、verbatim、自动门槛）先补 QQ 分支；主进程用 PC 歌词搜索 `fcg_search_pc_lrc.fcg` 匹配 songid，再用 `lyric_download.fcg?lrctype=4` 下载 QRC，通过 `@applemusic-like-lyrics/lyric` 解密/解析为现有 AMLL parser 可吃的内联逐字 LRC。网易云只有逐行时会继续尝试 QQ，`Home / acloudyskye` 已验证可拿到 QQ QRC 逐字。`npm run typecheck` 与 `npm run build` 已通过。
+- QQ 逐字歌词落盘修正：歌词搜索/编辑应用现在会把 QQ 返回的逐字同时写入 `syncedLyrics` 和 `lyricsText`，避免只写 `lyricsText` 导致播放器仍优先读旧的同步字段而看起来像“没生效”。`npm run typecheck` 与 `npm run build` 已通过。
