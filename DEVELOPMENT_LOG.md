@@ -117,3 +117,4 @@
 - 深色模式 BK 饱和度微调：保持现有亮度/透明度不变，只提高深色 BK 背景、image phase、dot 和点缀元素的主题色混入比例与 saturate 数值，让颜色更饱和但不变亮。`npm run typecheck` 与 `npm run build` 已通过。
 - AMLL 逐词/逐字演唱数据接入：歌词解析新增 TTML `<p>/<span begin/end>` 支持和增强 LRC 内嵌 `<timestamp>` 逐词标签解析；AMLL line 现在在有 word timing 时传入多个 `words`，没有逐词时间时才回退整行 word。逐字节点显式继承当前歌词颜色；“减弱高亮(beta)”接入侧栏/全屏歌词，开启后关闭 AMLL 和普通歌词高亮 glow。`npm run typecheck` 与 `npm run build` 已通过。
 - 全屏歌词背后增加柔和散景垫层：只在右侧全屏歌词列添加不参与交互的模糊光斑 underlay，位于歌词下方/BK 上方，降低滚珠和背景点缀经过时对歌词可读性的影响。`npm run typecheck` 与 `npm run build` 已通过。
+- 右歌词栏和左侧栏开关动画：右侧歌词栏关闭时保留节点与宽度，先整体向右滑出后再卸载释放布局；打开时从右侧滑入。左侧栏收起增加 grid/侧栏/标题栏过渡，文字与播放源从透明压缩到 0，不再直接 `display:none` 瞬切。`npm run typecheck` 与 `npm run build` 已通过。

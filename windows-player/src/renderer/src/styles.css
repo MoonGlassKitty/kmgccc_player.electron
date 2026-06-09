@@ -1809,6 +1809,7 @@ input {
   background: transparent;
   box-shadow: none;
   contain: layout paint;
+  transition: grid-template-columns 340ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .app-shell::before,
@@ -1920,6 +1921,11 @@ input {
   --glass-inner-highlight: rgba(255, 255, 255, 0.2);
   overflow: visible;
   contain: layout;
+  transition:
+    margin 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-radius 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 220ms ease,
+    box-shadow 220ms ease;
 }
 
 .sidebar-resize-handle,
@@ -1974,6 +1980,10 @@ input {
   align-items: center;
   height: 46px;
   padding: 0 18px 0 24px;
+  transition:
+    height 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    padding 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar-toggle {
@@ -2722,6 +2732,13 @@ input {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.5) inset,
     0 0 0 1px rgba(9, 30, 44, 0.055) inset;
+  transform-origin: center top;
+  transition:
+    height 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    margin 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    padding 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease,
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar-source button {
@@ -2770,6 +2787,19 @@ input {
   font-weight: 790;
   text-decoration: none;
   background: transparent;
+}
+
+.sidebar-label span,
+.sidebar-label button,
+.nav-row span,
+.playlist-row > span:not(.playlist-icon) {
+  overflow: hidden;
+  max-width: 220px;
+  white-space: nowrap;
+  transition:
+    max-width 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 170ms ease,
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .nav-row.active {
@@ -3048,12 +3078,26 @@ input {
   height: var(--collapsed-control-size);
 }
 
-.app-shell.sidebar-collapsed .sidebar-source,
+.app-shell.sidebar-collapsed .sidebar-source {
+  height: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px) scale(0.94);
+}
+
 .app-shell.sidebar-collapsed .sidebar-label span,
 .app-shell.sidebar-collapsed .sidebar-label button,
 .app-shell.sidebar-collapsed .nav-row span,
 .app-shell.sidebar-collapsed .playlist-row > span:not(.playlist-icon) {
-  display: none;
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(-8px);
+  pointer-events: none;
 }
 
 .app-shell.sidebar-collapsed .sidebar-nav,
@@ -3191,6 +3235,9 @@ input {
   overflow: hidden;
   contain: layout paint;
   container: content-pane / inline-size;
+  transition:
+    padding 340ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 340ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .route-entry-loader {
@@ -3295,6 +3342,7 @@ input {
   height: 76px;
   padding: 12px calc(var(--lyrics-width) + 28px) 12px calc(var(--sidebar-width) + 28px);
   contain: layout paint;
+  transition: padding 340ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .toolbar-left,
@@ -4072,6 +4120,35 @@ input {
   --glass-inner-highlight: rgba(255, 255, 255, 0);
   --lyrics-edge-glass-width: calc(100% * 2 / 7);
   contain: layout paint;
+  animation: lyricsSidebarSlideIn 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.app-shell.lyrics-sidebar-closing .lyrics-side-panel {
+  animation: lyricsSidebarSlideOut 320ms cubic-bezier(0.55, 0.08, 0.2, 1) both;
+  pointer-events: none;
+}
+
+@keyframes lyricsSidebarSlideIn {
+  from {
+    opacity: 0;
+    transform: translate3d(28%, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes lyricsSidebarSlideOut {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(100%, 0, 0);
+  }
 }
 
 .lyrics-side-panel::before {
