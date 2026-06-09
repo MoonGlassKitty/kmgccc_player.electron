@@ -78,3 +78,4 @@
 - 音乐足迹板块静态化：`home-stats-block` 整块禁用 pointer events，内部卡片和高光层禁用 transition，避免鼠标经过时触发任何 hover、动画或阴影变化。`npm run typecheck` 与 `npm run build` 已通过。
 - Home 性能优化回到音乐足迹本体：撤回横向卡片/播放列表共享外层玻璃方案；统计小卡改为静态半透明层，听歌日历和排行内容保持完整但底层玻璃拆成左右两块单独计算，并修正磨砂材质隐藏伪元素导致分块玻璃不生效的问题。Home 点缀生成位置进一步外移，减少中心卡片吃到点缀。`npm run typecheck` 与 `npm run build` 已通过。
 - 右侧歌词大玻璃优化：拆成固定 52px 左边缘液态块和可伸缩右侧主体高斯块；主体层只做较薄高斯模糊和乳白 tint，左侧液态块继续使用 `lg-sidebar`，并由主体高斯块覆盖内部右边界，避免整块歌词栏/听歌界面右侧面板持续跑大面积位移滤镜，同时不产生内部折射边。`npm run typecheck` 与 `npm run build` 已通过。
+- 右侧歌词玻璃继续按 `glass-html/index.html` 参数校正：歌词栏 tint 改为纯透明 `--glass-alpha: 0`，保留边缘/内高光和阴影；主体高斯层铺满整块，左侧液态折射层固定宽度并在右端 mask 渐隐，去掉交界处内部阴影。`npm run typecheck` 与 `npm run build` 已通过。
