@@ -3393,6 +3393,7 @@ function App(): React.ReactElement {
             onSeek={seekToLyricTime}
             onResizeStart={handleLyricsResizeStart}
             renderQuality={lyricsRenderQuality}
+            reduceHighlight={isDiscreteWordHighlightEnabled}
             colorStyle={desktopStyle}
           />
         ) : null}
@@ -3540,6 +3541,7 @@ function App(): React.ReactElement {
             onSeek={seekToLyricTime}
             onArtworkFrameAdvance={() => setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)}
             renderQuality={fullscreenLyricsRenderQuality}
+            reduceHighlight={fullscreenDiscreteWordHighlightEnabled}
             lyricToneSeed={lyricToneSeed}
             onLyricToneSeedChange={setLyricToneSeed}
           />
@@ -4737,19 +4739,112 @@ type ParsedLyricLine = {
   id: string
   time: number | null
   text: string
+  words?: ParsedLyricWord[]
+}
+
+type ParsedLyricWord = {
+  startTime: number
+  endTime: number
+  word: string
 }
 
 function parseLyricTimestamp(rawTimestamp: string): number | null {
-  const match = rawTimestamp.match(/^(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?$/)
-  if (!match) return null
-  const minutes = Number(match[1])
-  const seconds = Number(match[2])
-  const fraction = match[3] ? Number(`0.${match[3].padEnd(3, '0').slice(0, 3)}`) : 0
-  return minutes * 60 + seconds + fraction
+  const trimmed = rawTimestamp.trim()
+  const unitMatch = trimmed.match(/^(\d+(?:\.\d+)?)(ms|s)$/i)
+  if (unitMatch) {
+    const value = Number(unitMatch[1])
+    return unitMatch[2].toLowerCase() === 'ms' ? value / 1000 : value
+  }
+  const parts = trimmed.split(':')
+  if (parts.length < 2 || parts.length > 3) return null
+  const secondsMatch = parts[parts.length - 1].match(/^(\d{2})(?:[.:](\d{1,3}))?$/)
+  if (!secondsMatch) return null
+  const seconds = Number(secondsMatch[1])
+  const fraction = secondsMatch[2] ? Number(`0.${secondsMatch[2].padEnd(3, '0').slice(0, 3)}`) : 0
+  const minutes = Number(parts[parts.length - 2])
+  const hours = parts.length === 3 ? Number(parts[0]) : 0
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes) || !Number.isFinite(seconds)) return null
+  return hours * 3600 + minutes * 60 + seconds + fraction
+}
+
+function escapeLyricText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+function parseInlineWordTimings(rawText: string, lineStartMs: number, fallbackEndMs: number): ParsedLyricWord[] {
+  const matches = [...rawText.matchAll(/<((?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.:]\d{1,3})?|\d+(?:\.\d+)?(?:ms|s))>/gi)]
+    .map((match) => {
+      const time = parseLyricTimestamp(match[1])
+      if (time === null) return null
+      return { index: match.index ?? 0, length: match[0].length, time }
+    })
+    .filter((entry): entry is { index: number; length: number; time: number } => entry !== null)
+  if (!matches.length) return []
+
+  const words: ParsedLyricWord[] = []
+  matches.forEach((entry, index) => {
+    const segmentStart = entry.index + entry.length
+    const segmentEnd = matches[index + 1]?.index ?? rawText.length
+    const word = rawText.slice(segmentStart, segmentEnd)
+    const cleaned = word.replace(/<[^>]+>/g, '')
+    if (!cleaned.trim()) return
+    const startTime = Math.max(lineStartMs, Math.round(entry.time * 1000))
+    const nextStartTime = matches[index + 1] ? Math.round(matches[index + 1].time * 1000) : fallbackEndMs
+    const endTime = Math.max(startTime + 80, Math.min(nextStartTime - 20, fallbackEndMs))
+    words.push({ startTime, endTime, word: cleaned })
+  })
+  return words
+}
+
+function parseTTMLLyrics(rawLyrics: string): ParsedLyricLine[] {
+  if (!/<(?:tt|p|span)\b/i.test(rawLyrics)) return []
+  const document = new DOMParser().parseFromString(rawLyrics, 'text/xml')
+  if (document.querySelector('parsererror')) return []
+  const paragraphs = Array.from(document.getElementsByTagName('p'))
+  const parsed: ParsedLyricLine[] = []
+  paragraphs.forEach((paragraph, index) => {
+    const begin = parseLyricTimestamp(paragraph.getAttribute('begin') ?? '')
+    const end = parseLyricTimestamp(paragraph.getAttribute('end') ?? '')
+    const spans = Array.from(paragraph.getElementsByTagName('span'))
+    const words = spans
+      .map((span) => {
+        const start = parseLyricTimestamp(span.getAttribute('begin') ?? '')
+        const finish = parseLyricTimestamp(span.getAttribute('end') ?? '')
+        const word = span.textContent ?? ''
+        if (start === null || finish === null || !word.trim()) return null
+        return {
+          startTime: Math.round(start * 1000),
+          endTime: Math.max(Math.round(start * 1000) + 80, Math.round(finish * 1000)),
+          word
+        } satisfies ParsedLyricWord
+      })
+      .filter((word): word is ParsedLyricWord => word !== null)
+    const text = escapeLyricText(paragraph.textContent ?? '')
+    if (!text) return
+    const lineStartMs = begin !== null ? Math.round(begin * 1000) : words[0]?.startTime
+    const lineEndMs = end !== null ? Math.round(end * 1000) : words[words.length - 1]?.endTime
+    if (lineStartMs === undefined) {
+      parsed.push({ id: `ttml-plain-${index}`, time: null, text })
+      return
+    }
+    parsed.push({
+      id: `ttml-${index}-${lineStartMs}`,
+      time: lineStartMs / 1000,
+      text,
+      words: words.length ? words.map((word, wordIndex) => ({
+        ...word,
+        endTime: Math.min(word.endTime, lineEndMs ?? word.endTime + 1200),
+        word: wordIndex === words.length - 1 ? word.word.trimEnd() : word.word
+      })) : undefined
+    })
+  })
+  return parsed.sort((a, b) => (a.time ?? Number.MAX_SAFE_INTEGER) - (b.time ?? Number.MAX_SAFE_INTEGER))
 }
 
 function parseLyrics(track: Track | null | undefined): ParsedLyricLine[] {
   const rawLyrics = track?.syncedLyrics || track?.lyricsText || ''
+  const ttmlLines = parseTTMLLyrics(rawLyrics)
+  if (ttmlLines.length) return ttmlLines
   const rawLines = rawLyrics
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -4769,10 +4864,16 @@ function parseLyrics(track: Track | null | undefined): ParsedLyricLine[] {
     timestampMatches.forEach((match, timestampIndex) => {
       const time = parseLyricTimestamp(match[1])
       if (time === null) return
+      const nextLine = rawLines[lineIndex + 1]
+      const nextLineTimestamp = nextLine ? [...nextLine.matchAll(/\[([0-9]{1,2}:[0-9]{2}(?:[.:][0-9]{1,3})?)\]/g)].map((nextMatch) => parseLyricTimestamp(nextMatch[1])).find((value): value is number => value !== null) : null
+      const lineStartMs = Math.round(time * 1000)
+      const fallbackEndMs = Math.max(lineStartMs + 1200, Math.round((nextLineTimestamp ?? time + 4.2) * 1000) - 80)
+      const words = parseInlineWordTimings(text, lineStartMs, fallbackEndMs)
       parsed.push({
         id: `${lineIndex}-${timestampIndex}-${time}`,
         time,
-        text: text || '♪'
+        text: escapeLyricText(text.replace(/<[^>]+>/g, '')) || '♪',
+        words: words.length ? words : undefined
       })
     })
   })
@@ -4782,7 +4883,7 @@ function parseLyrics(track: Track | null | undefined): ParsedLyricLine[] {
 
 function trackHasTimedLyrics(track: Track | null | undefined): boolean {
   const rawLyrics = track?.syncedLyrics || track?.lyricsText || ''
-  return /\[[0-9]{1,2}:[0-9]{2}(?:[.:][0-9]{1,3})?\]/.test(rawLyrics)
+  return /\[[0-9]{1,2}:[0-9]{2}(?:[.:][0-9]{1,3})?\]/.test(rawLyrics) || /<(?:tt|p|span)\b/i.test(rawLyrics)
 }
 
 function activeLyricIndex(lines: ParsedLyricLine[], playbackTime: number): number {
@@ -4804,9 +4905,16 @@ function amllLyricLinesFromParsed(lines: ParsedLyricLine[], trackDuration: numbe
     const nextStartTime = timedLines[index + 1] ? Math.round(timedLines[index + 1].time * 1000) : null
     const inferredEndTime = nextStartTime !== null ? nextStartTime - 80 : durationMs ?? startTime + 4200
     const endTime = Math.max(startTime + 1200, Math.min(inferredEndTime, startTime + 8200))
+    const words = line.words?.length
+      ? line.words.map((word) => ({
+        ...word,
+        startTime: Math.max(startTime, word.startTime),
+        endTime: Math.min(Math.max(word.startTime + 80, word.endTime), endTime)
+      }))
+      : [{ startTime, endTime, word: line.text }]
 
     return {
-      words: [{ startTime, endTime, word: line.text }],
+      words,
       translatedLyric: '',
       romanLyric: '',
       startTime,
@@ -4824,6 +4932,7 @@ type LyricsSurfaceProps = {
   isPlaying: boolean
   onSeek: (seconds: number) => void
   renderQuality?: LyricsRenderQuality
+  reduceHighlight?: boolean
 }
 
 const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
@@ -4834,6 +4943,7 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   onSeek,
   variant,
   renderQuality = 'balanced',
+  reduceHighlight = false,
   colorStyle
 }: {
   lines: ParsedLyricLine[]
@@ -4843,6 +4953,7 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   onSeek: (seconds: number) => void
   variant: 'side' | 'fullscreen'
   renderQuality?: LyricsRenderQuality
+  reduceHighlight?: boolean
   colorStyle?: React.CSSProperties
 }): React.ReactElement {
   const amllLines = React.useMemo(() => amllLyricLinesFromParsed(lines, track?.duration ?? 0), [lines, track?.duration])
@@ -4894,7 +5005,7 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
 
   return (
     <div
-      className={`amll-lyrics-surface ${variant === 'fullscreen' ? 'fullscreen-amll-shell' : 'side-amll-shell'} ${variant} quality-${renderQuality}`}
+      className={`amll-lyrics-surface ${variant === 'fullscreen' ? 'fullscreen-amll-shell' : 'side-amll-shell'} ${variant} quality-${renderQuality} ${reduceHighlight ? 'reduce-highlight' : ''}`}
       ref={amllShellRef}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
@@ -4928,12 +5039,14 @@ const LyricsLineList = React.memo(function LyricsLineList({
   lines,
   currentLineIndex,
   onSeek,
-  variant
+  variant,
+  reduceHighlight = false
 }: {
   lines: ParsedLyricLine[]
   currentLineIndex: number
   onSeek: (seconds: number) => void
   variant: 'side' | 'fullscreen'
+  reduceHighlight?: boolean
 }): React.ReactElement {
   const activeLineRef = React.useRef<HTMLButtonElement | null>(null)
 
@@ -4943,7 +5056,7 @@ const LyricsLineList = React.memo(function LyricsLineList({
   }, [currentLineIndex])
 
   return (
-    <div className={`lyrics-line-list ${variant}`}>
+    <div className={`lyrics-line-list ${variant} ${reduceHighlight ? 'reduce-highlight' : ''}`}>
       {lines.map((line, index) => (
         <button
           className={`lyrics-line ${index === currentLineIndex ? 'active' : ''} ${line.time === null ? 'plain' : ''}`}
@@ -4977,6 +5090,7 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
   onSeek,
   onResizeStart,
   renderQuality = 'balanced',
+  reduceHighlight = false,
   colorStyle
 }: LyricsSurfaceProps & {
   onResizeStart: (event: React.PointerEvent) => void
@@ -5009,9 +5123,9 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
 
       {lines.length ? (
         hasTimedLyrics ? (
-          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="side" renderQuality={renderQuality} colorStyle={colorStyle} />
+          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="side" renderQuality={renderQuality} reduceHighlight={reduceHighlight} colorStyle={colorStyle} />
         ) : (
-          <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="side" />
+          <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="side" reduceHighlight={reduceHighlight} />
         )
       ) : (
         <LyricsEmptyState />
@@ -5043,6 +5157,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   onSeek,
   onArtworkFrameAdvance,
   renderQuality = 'balanced',
+  reduceHighlight = false,
   lyricToneSeed,
   onLyricToneSeedChange
 }: LyricsSurfaceProps & {
@@ -5158,9 +5273,9 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       </div>
       <div className="fullscreen-lyrics-lines">
         {hasTimedLyrics ? (
-              <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="fullscreen" renderQuality={renderQuality} colorStyle={fullscreenPageStyle} />
+              <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="fullscreen" renderQuality={renderQuality} reduceHighlight={reduceHighlight} colorStyle={fullscreenPageStyle} />
         ) : lines.length ? (
-          <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="fullscreen" />
+          <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="fullscreen" reduceHighlight={reduceHighlight} />
         ) : (
           <LyricsEmptyState />
         )}

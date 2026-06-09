@@ -4605,6 +4605,12 @@ input {
     opacity 240ms ease;
 }
 
+.fullscreen-amll-player .FmKaba_word,
+.amll-lyrics-player.side .FmKaba_word {
+  color: inherit;
+  text-shadow: inherit;
+}
+
 .fullscreen-amll-player .FmKaba_lyricBgLine {
   color: var(--amll-fullscreen-inactive-color, rgba(255, 255, 255, 0.56));
   opacity: 0.58;
@@ -5930,6 +5936,13 @@ input {
   text-shadow:
     0 0 16px rgba(248, 251, 255, 0.20),
     0 4px 22px rgba(190, 220, 255, 0.12);
+}
+
+.amll-lyrics-surface.reduce-highlight .fullscreen-amll-player,
+.amll-lyrics-surface.reduce-highlight .fullscreen-amll-player .amll-lyric-player,
+.amll-lyrics-surface.reduce-highlight .fullscreen-amll-player .FmKaba_word,
+.lyrics-line-list.reduce-highlight .lyrics-line.active {
+  text-shadow: none;
 }
 
 .appearance-dark .mini-player {
