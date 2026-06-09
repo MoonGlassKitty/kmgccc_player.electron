@@ -8433,8 +8433,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
       >
         <span className="mini-progress-line" aria-hidden="true" />
       </div>
-      <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''} ${showFullscreenActions ? 'fullscreen-controls-active' : ''}`} style={miniPlayerStyle}>
-        <div className="mini-fullscreen-actions">
+      {showFullscreenActions ? (
+        <div className="mini-fullscreen-actions glass-panel no-drag" style={miniPlayerStyle}>
           <button type="button" aria-label="缩小到主界面" onClick={onExitFullscreen}>
             <Minimize2 size={22} />
           </button>
@@ -8442,72 +8442,74 @@ const MiniPlayer = React.memo(function MiniPlayer({
             <Palette size={22} />
           </button>
         </div>
-      <button className="mini-track" type="button" aria-label="打开窗口播放" onClick={onOpenNowPlaying}>
-        <ArtworkImage src={trackArtwork(track, albums)} maxSize={72} alt="" />
-        <div>
-          <strong>{track.title}</strong>
-          <span>{track.artist}</span>
-        </div>
-      </button>
-      <button className={`mini-queue-button ${isQueueOpen ? 'active' : ''}`} type="button" aria-label="播放列表" aria-expanded={isQueueOpen} onClick={() => setIsQueueOpen((value) => !value)}>
-        <ListMusic size={18} />
-      </button>
-      {isQueueOpen ? (
-        <div className="mini-queue-popover glass-panel" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
-          <div className="mini-queue-head">
-            <span>播放列表</span>
-            <strong>{queueTracks.length} 首</strong>
-          </div>
-          <div className="mini-queue-list">
-            {queueTracks.map((queueTrack) => (
-              <button
-                className={`mini-queue-row ${queueTrack.id === currentId ? 'current' : ''}`}
-                key={queueTrack.id}
-                type="button"
-                onClick={() => {
-                  onSelectTrack(queueTrack.id)
-                  setIsQueueOpen(false)
-                }}
-              >
-                <ArtworkImage src={trackArtwork(queueTrack, albums)} maxSize={56} alt="" loading="lazy" />
-                <span>
-                  <strong>{queueTrack.title}</strong>
-                  <small>{queueTrack.artist}</small>
-                </span>
-                <time>{formatDuration(queueTrack.duration)}</time>
-              </button>
-            ))}
-          </div>
-        </div>
       ) : null}
-      <div className="mini-controls">
-        <button type="button" aria-label="上一首" onClick={onPrevious}>
-          <SkipBack size={19} fill="currentColor" />
+      <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={miniPlayerStyle}>
+        <button className="mini-track" type="button" aria-label="打开窗口播放" onClick={onOpenNowPlaying}>
+          <ArtworkImage src={trackArtwork(track, albums)} maxSize={72} alt="" />
+          <div>
+            <strong>{track.title}</strong>
+            <span>{track.artist}</span>
+          </div>
         </button>
-        <button type="button" aria-label="播放暂停" onClick={onPlayPause}>
-          {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+        <button className={`mini-queue-button ${isQueueOpen ? 'active' : ''}`} type="button" aria-label="播放列表" aria-expanded={isQueueOpen} onClick={() => setIsQueueOpen((value) => !value)}>
+          <ListMusic size={18} />
         </button>
-        <button type="button" aria-label="下一首" onClick={onNext}>
-          <SkipForward size={19} fill="currentColor" />
+        {isQueueOpen ? (
+          <div className="mini-queue-popover glass-panel" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
+            <div className="mini-queue-head">
+              <span>播放列表</span>
+              <strong>{queueTracks.length} 首</strong>
+            </div>
+            <div className="mini-queue-list">
+              {queueTracks.map((queueTrack) => (
+                <button
+                  className={`mini-queue-row ${queueTrack.id === currentId ? 'current' : ''}`}
+                  key={queueTrack.id}
+                  type="button"
+                  onClick={() => {
+                    onSelectTrack(queueTrack.id)
+                    setIsQueueOpen(false)
+                  }}
+                >
+                  <ArtworkImage src={trackArtwork(queueTrack, albums)} maxSize={56} alt="" loading="lazy" />
+                  <span>
+                    <strong>{queueTrack.title}</strong>
+                    <small>{queueTrack.artist}</small>
+                  </span>
+                  <time>{formatDuration(queueTrack.duration)}</time>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <div className="mini-controls">
+          <button type="button" aria-label="上一首" onClick={onPrevious}>
+            <SkipBack size={19} fill="currentColor" />
+          </button>
+          <button type="button" aria-label="播放暂停" onClick={onPlayPause}>
+            {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+          </button>
+          <button type="button" aria-label="下一首" onClick={onNext}>
+            <SkipForward size={19} fill="currentColor" />
+          </button>
+        </div>
+        <button className={`mode-button ${isShuffleEnabled ? 'active' : ''}`} type="button" aria-pressed={isShuffleEnabled} aria-label="随机" onClick={onToggleShuffle}>
+          <Shuffle size={18} />
         </button>
-      </div>
-      <button className={`mode-button ${isShuffleEnabled ? 'active' : ''}`} type="button" aria-pressed={isShuffleEnabled} aria-label="随机" onClick={onToggleShuffle}>
-        <Shuffle size={18} />
-      </button>
-      <div className="mini-timeline">
-        <label className="volume-track">
-          {volume <= 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          <LiquidGlassSlider
-            ariaLabel="音量"
-            className="volume-liquid-slider"
-            max={1}
-            min={0}
-            step="0.01"
-            value={volume}
-            onChange={onVolumeChange}
-          />
-        </label>
-      </div>
+        <div className="mini-timeline">
+          <label className="volume-track">
+            {volume <= 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            <LiquidGlassSlider
+              ariaLabel="音量"
+              className="volume-liquid-slider"
+              max={1}
+              min={0}
+              step="0.01"
+              value={volume}
+              onChange={onVolumeChange}
+            />
+          </label>
+        </div>
       </div>
     </>
   )

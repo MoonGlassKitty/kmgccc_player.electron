@@ -1994,11 +1994,6 @@ input {
   transition: grid-template-columns 340ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.app-shell.now-playing-route,
-.fullscreen-lyrics-open .app-shell {
-  --mini-player-width: clamp(790px, calc(100% - var(--sidebar-width) - var(--lyrics-width) - var(--mini-player-side-gap)), 900px);
-}
-
 .app-shell::before,
 .app-shell::after {
   content: "";
@@ -2083,6 +2078,7 @@ input {
 .sidebar,
 .lyrics-side-panel,
 .mini-player,
+.mini-fullscreen-actions,
 .toolbar-pill,
 .toolbar-circle,
 .search-field {
@@ -4359,12 +4355,13 @@ input {
   pointer-events: none;
 }
 
-.fullscreen-lyrics-open .content-pane > :not(.mini-player):not(.mini-timeline-layer):not(.mini-player-hover-zone) {
+.fullscreen-lyrics-open .content-pane > :not(.mini-player):not(.mini-fullscreen-actions):not(.mini-timeline-layer):not(.mini-player-hover-zone) {
   opacity: 0;
   pointer-events: none;
 }
 
 .fullscreen-lyrics-open .mini-player,
+.fullscreen-lyrics-open .mini-fullscreen-actions,
 .fullscreen-lyrics-open .mini-timeline-layer,
 .fullscreen-lyrics-open .mini-player-hover-zone {
   pointer-events: auto;
@@ -5234,12 +5231,6 @@ input {
 }
 
 .fullscreen-lyrics-open .mini-player,
-.mini-player.fullscreen-controls-active,
-.app-shell.now-playing-route .mini-player {
-  grid-template-columns: 96px minmax(120px, 180px) 40px 148px 58px minmax(160px, 190px);
-}
-
-.fullscreen-lyrics-open .mini-player,
 .app-shell.now-playing-route .mini-player {
   --glass-alpha: 0;
   --glass-shadow: rgba(12, 33, 48, 0);
@@ -5249,19 +5240,30 @@ input {
 }
 
 .mini-fullscreen-actions {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  position: relative;
-  z-index: 2;
-  flex-shrink: 0;
-}
-
-.fullscreen-lyrics-open .mini-fullscreen-actions,
-.mini-player.fullscreen-controls-active .mini-fullscreen-actions,
-.app-shell.now-playing-route .mini-fullscreen-actions {
+  position: absolute;
+  bottom: var(--mini-player-bottom);
+  left: calc(var(--mini-player-left-edge) - 116px);
+  z-index: var(--layer-floating-glass);
   display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 104px;
+  height: 60px;
+  padding: 8px;
+  border-radius: 30px;
+  --glass-alpha: 0;
+  --glass-border: rgba(255, 255, 255, 0.28);
+  --glass-shadow: rgba(12, 33, 48, 0.032);
+  --glass-inner-shadow: rgba(0, 0, 0, 0.020);
+  --glass-inner-highlight: rgba(255, 255, 255, 0.075);
+  background-color: transparent;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .mini-fullscreen-actions button {
@@ -5319,12 +5321,12 @@ input {
 .fullscreen-lyrics-open .mini-player::before {
   background: var(--cover-accent-text);
   filter: invert(1) saturate(0.15) brightness(1.12);
-  opacity: 0.22;
+  opacity: 0.34;
 }
 
 .app-shell.now-playing-route .mini-player.playing::before,
 .fullscreen-lyrics-open .mini-player.playing::before {
-  opacity: 0.22;
+  opacity: 0.34;
 }
 
 .mini-progress-line {
@@ -5485,20 +5487,42 @@ input {
 }
 
 .fullscreen-lyrics-open .mini-player,
+.fullscreen-lyrics-open .mini-fullscreen-actions,
 .fullscreen-lyrics-open .mini-timeline-layer {
   z-index: 56;
   opacity: 0;
   pointer-events: none;
+}
+
+.fullscreen-lyrics-open .mini-player,
+.fullscreen-lyrics-open .mini-timeline-layer {
   transform: translate(-50%, 24px);
+}
+
+.fullscreen-lyrics-open .mini-fullscreen-actions {
+  transform: translate3d(0, 24px, 0);
+}
+
+.fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-player,
+.fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-fullscreen-actions,
+.fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-timeline-layer,
+.fullscreen-lyrics-open .mini-player:hover,
+.fullscreen-lyrics-open .mini-fullscreen-actions:hover,
+.fullscreen-lyrics-open .mini-timeline-layer:hover {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-player,
 .fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-timeline-layer,
 .fullscreen-lyrics-open .mini-player:hover,
 .fullscreen-lyrics-open .mini-timeline-layer:hover {
-  opacity: 1;
-  pointer-events: auto;
   transform: translate(-50%, 0);
+}
+
+.fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-fullscreen-actions,
+.fullscreen-lyrics-open .mini-fullscreen-actions:hover {
+  transform: translate3d(0, 0, 0);
 }
 
 .fullscreen-lyrics-open .mini-timeline-layer {
