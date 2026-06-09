@@ -2073,6 +2073,11 @@ input {
   text-decoration: none;
 }
 
+.metadata-pill-button:disabled,
+.metadata-token-row button:disabled {
+  opacity: 0.45;
+}
+
 .metadata-lookup {
   justify-self: start;
 }

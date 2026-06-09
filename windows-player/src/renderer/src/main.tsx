@@ -2757,7 +2757,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
           <p className="library-dialog-message">{detail}</p>
         ) : state.kind === 'editTrack' ? (
           <div className="library-dialog-form metadata-sheet-body">
-            <MetadataArtworkSection title="插图" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} removeLabel="移除插图" onArtworkChange={(url) => update('artworkUrl', url)} />
+            <MetadataArtworkSection title="插图" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} removeLabel="移除插图" onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={handleTrackMetadataLookup} isSearchingArtwork={isMetadataLookupInFlight} />
             <span className="metadata-divider" />
             <MetadataSectionTitle icon={<Info size={16} />} title="元数据" />
             <LibraryDialogField label="歌曲标题" value={values.title ?? ''} onChange={(value) => update('title', value)} />
@@ -2775,7 +2775,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
           </div>
         ) : state.kind === 'editAlbum' ? (
           <div className="library-dialog-form metadata-sheet-body">
-            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="使用歌曲封面" fallbackArtworkUrl={state.album.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} />
+            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="使用歌曲封面" fallbackArtworkUrl={state.album.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={handleAlbumMetadataLookup} isSearchingArtwork={isMetadataLookupInFlight} />
             <span className="metadata-divider" />
             <LibraryDialogField label="专辑名称" value={values.title ?? ''} onChange={(value) => update('title', value)} />
             <LibraryDialogField label="介绍" multiline placeholder="添加专辑介绍..." value={values.description ?? ''} onChange={(value) => update('description', value)} />
@@ -2798,7 +2798,7 @@ const LibraryDialog = React.memo(function LibraryDialog({
           </div>
         ) : state.kind === 'editArtist' ? (
           <div className="library-dialog-form metadata-sheet-body">
-            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="生成封面" fallbackArtworkUrl={state.artist.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} />
+            <MetadataArtworkSection title="封面" artworkUrl={values.artworkUrl} hasArtwork={Boolean(values.artworkUrl)} generateLabel="生成封面" fallbackArtworkUrl={state.artist.artworkUrl} onArtworkChange={(url) => update('artworkUrl', url)} onSearchArtwork={handleArtistMetadataLookup} isSearchingArtwork={isMetadataLookupInFlight} />
             <span className="metadata-divider" />
             <LibraryDialogField label="艺人名称" value={values.name ?? ''} onChange={(value) => update('name', value)} />
             <LibraryDialogField label="介绍" multiline value={values.description ?? ''} onChange={(value) => update('description', value)} />
@@ -2869,7 +2869,9 @@ function MetadataArtworkSection({
   generateLabel,
   removeLabel,
   fallbackArtworkUrl,
-  onArtworkChange
+  onArtworkChange,
+  onSearchArtwork,
+  isSearchingArtwork = false
 }: {
   title: string
   artworkUrl?: string
@@ -2878,6 +2880,8 @@ function MetadataArtworkSection({
   removeLabel?: string
   fallbackArtworkUrl?: string
   onArtworkChange: (url: string) => void
+  onSearchArtwork?: () => void | Promise<void>
+  isSearchingArtwork?: boolean
 }): React.ReactElement {
   const inputRef = React.useRef<HTMLInputElement | null>(null)
   const handleFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2901,8 +2905,8 @@ function MetadataArtworkSection({
         <div className="metadata-artwork-actions">
           <input ref={inputRef} className="metadata-artwork-file" type="file" accept="image/*" onChange={handleFileChange} />
           <button className="metadata-pill-button" type="button" onClick={() => inputRef.current?.click()}><Upload size={14} />选择图片</button>
-          <button className="metadata-pill-button" type="button"><Search size={14} />查找封面</button>
-          {generateLabel ? <button className="metadata-pill-button" type="button" onClick={() => onArtworkChange(fallbackArtworkUrl || '')}><Sparkles size={14} />{generateLabel}</button> : null}
+          <button className="metadata-pill-button" type="button" disabled={isSearchingArtwork} onClick={() => { void onSearchArtwork?.() }}><Search size={14} />{isSearchingArtwork ? '查找中...' : '查找封面'}</button>
+          {generateLabel ? <button className="metadata-pill-button" type="button" disabled={!fallbackArtworkUrl} onClick={() => onArtworkChange(fallbackArtworkUrl || '')}><Sparkles size={14} />{generateLabel}</button> : null}
           {hasArtwork && removeLabel ? <button className="metadata-pill-button" type="button" onClick={() => onArtworkChange('')}><Trash2 size={14} />{removeLabel}</button> : null}
         </div>
       </div>
@@ -2965,6 +2969,9 @@ function TrackLyricsEditor({ values, update }: { values: Record<string, string>;
   const offset = Number(values.lyricsTimeOffsetMs || 0)
   const [searchMessage, setSearchMessage] = React.useState('')
   const [isSearching, setIsSearching] = React.useState(false)
+  const [lyricsMode, setLyricsMode] = React.useState<'line' | 'word'>('word')
+  const [includeTranslation, setIncludeTranslation] = React.useState(true)
+  const [lyricsPlatform, setLyricsPlatform] = React.useState<'amll' | 'qq' | 'kugou' | 'netease'>('amll')
   const lyricsInputRef = React.useRef<HTMLInputElement | null>(null)
   const handleLyricsFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0]
@@ -2984,7 +2991,10 @@ function TrackLyricsEditor({ values, update }: { values: Record<string, string>;
       const result = await window.kmgccc.lookupLyrics({
         title: values.title,
         artist: values.artist,
-        album: values.album
+        album: values.album,
+        mode: lyricsMode,
+        includeTranslation,
+        platform: lyricsPlatform
       })
       const text = result?.syncedLyrics || result?.lyricsText || ''
       if (text.trim()) {
@@ -2998,7 +3008,7 @@ function TrackLyricsEditor({ values, update }: { values: Record<string, string>;
     } finally {
       setIsSearching(false)
     }
-  }, [update, values.album, values.artist, values.title])
+  }, [includeTranslation, lyricsMode, lyricsPlatform, update, values.album, values.artist, values.title])
   return (
     <section className="metadata-lyrics-editor">
       <div className="metadata-lyrics-head">
@@ -3027,8 +3037,22 @@ function TrackLyricsEditor({ values, update }: { values: Record<string, string>;
           <LibraryDialogField label="歌曲名" value={values.title ?? ''} onChange={(value) => update('title', value)} />
           <LibraryDialogField label="艺人" value={values.artist ?? ''} onChange={(value) => update('artist', value)} />
         </div>
-        <div className="metadata-token-row"><span>模式</span><button type="button">逐行</button><button className="active" type="button">逐词</button><span>翻译</span><button className="active" type="button">开</button><button type="button">关</button></div>
-        <div className="metadata-token-row"><span>平台</span><button className="active" type="button">AMLL DB</button><button type="button">QQ 音乐</button><button type="button">酷狗</button><button type="button">网易云</button><button className="search" type="button" disabled={isSearching} onClick={handleLyricsSearch}><Search size={14} />{isSearching ? '搜索中...' : '搜索'}</button></div>
+        <div className="metadata-token-row">
+          <span>模式</span>
+          <button className={lyricsMode === 'line' ? 'active' : ''} type="button" onClick={() => setLyricsMode('line')}>逐行</button>
+          <button className={lyricsMode === 'word' ? 'active' : ''} type="button" onClick={() => setLyricsMode('word')}>逐词</button>
+          <span>翻译</span>
+          <button className={includeTranslation ? 'active' : ''} type="button" onClick={() => setIncludeTranslation(true)}>开</button>
+          <button className={!includeTranslation ? 'active' : ''} type="button" onClick={() => setIncludeTranslation(false)}>关</button>
+        </div>
+        <div className="metadata-token-row">
+          <span>平台</span>
+          <button className={lyricsPlatform === 'amll' ? 'active' : ''} type="button" onClick={() => setLyricsPlatform('amll')}>AMLL DB</button>
+          <button className={lyricsPlatform === 'qq' ? 'active' : ''} type="button" onClick={() => setLyricsPlatform('qq')}>QQ 音乐</button>
+          <button className={lyricsPlatform === 'kugou' ? 'active' : ''} type="button" onClick={() => setLyricsPlatform('kugou')}>酷狗</button>
+          <button className={lyricsPlatform === 'netease' ? 'active' : ''} type="button" onClick={() => setLyricsPlatform('netease')}>网易云</button>
+          <button className="search" type="button" disabled={isSearching} onClick={handleLyricsSearch}><Search size={14} />{isSearching ? '搜索中...' : '搜索'}</button>
+        </div>
         {searchMessage ? <span className="metadata-lookup-message">{searchMessage}</span> : null}
       </section>
     </section>
