@@ -4601,12 +4601,10 @@ input {
   padding: 8px 18px;
   border-radius: 30px;
   --glass-alpha: 0.38;
-  --glass-border: transparent;
-  --glass-shadow: transparent;
-  --glass-inner-shadow: transparent;
-  --glass-inner-highlight: transparent;
-  border-color: var(--glass-border);
-  box-shadow: none;
+  --glass-border: rgba(255, 255, 255, 0.28);
+  --glass-shadow: rgba(12, 33, 48, 0.032);
+  --glass-inner-shadow: rgba(0, 0, 0, 0.020);
+  --glass-inner-highlight: rgba(255, 255, 255, 0.075);
   overflow: visible;
   contain: layout style;
   isolation: isolate;
@@ -4679,7 +4677,7 @@ input {
   left: 1px;
   height: 1px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: transparent;
   box-shadow: none;
   pointer-events: none;
 }

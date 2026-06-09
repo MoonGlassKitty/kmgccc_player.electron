@@ -432,9 +432,9 @@ export const LiquidGlassFilters = React.memo(function LiquidGlassFilters(): Reac
         glassThickness={92}
         refractiveIndex={1.3}
         scaleRatio={1}
-        specularOpacity={1}
-        specularSaturation={25}
-        specularWidth={42}
+        specularOpacity={0.38}
+        specularSaturation={8}
+        specularWidth={24}
         dpr={0.6}
       />
       <LiquidGlassFilter
