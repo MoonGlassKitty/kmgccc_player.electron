@@ -768,9 +768,9 @@ function skinPreviewSymbolStyle(skin: FullscreenSkinID): React.CSSProperties | u
 function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<string, HomeAlbumCard>): React.CSSProperties {
   if (!track) {
     return {
-      '--cover-accent': 'rgba(116, 124, 132, 0.34)',
-      '--cover-accent-border': 'rgba(66, 72, 78, 0.22)',
-      '--cover-accent-text': '#68717a',
+      '--cover-accent': 'rgba(116, 124, 132, 0.28)',
+      '--cover-accent-border': 'rgba(66, 72, 78, 0.18)',
+      '--cover-accent-text': '#303840',
       '--cover-accent-shadow': 'rgba(20, 24, 28, 0.08)',
       '--ambient-shape-1': 'rgba(110, 116, 123, 0.3)',
       '--ambient-shape-2': 'rgba(154, 158, 164, 0.24)',
@@ -788,9 +788,9 @@ function coverThemeFor(track: HomeTrack | Track | null | undefined, albums: Map<
 
   const artwork = trackArtwork(track, albums)
   const isAltArtwork = artwork === altArtwork || track?.albumId === 'album-myth' || track?.albumId === 'album-udong'
-  const accent = isAltArtwork ? 'rgba(124, 143, 104, 0.42)' : 'rgba(88, 190, 229, 0.38)'
-  const border = isAltArtwork ? 'rgba(92, 110, 75, 0.34)' : 'rgba(38, 137, 174, 0.24)'
-  const text = isAltArtwork ? '#66754e' : '#1680ad'
+  const accent = isAltArtwork ? 'rgba(124, 143, 104, 0.34)' : 'rgba(88, 190, 229, 0.30)'
+  const border = isAltArtwork ? 'rgba(92, 110, 75, 0.24)' : 'rgba(38, 137, 174, 0.18)'
+  const text = isAltArtwork ? '#354020' : '#075b80'
   const shadow = isAltArtwork ? 'rgba(92, 110, 75, 0.11)' : 'rgba(15, 85, 120, 0.09)'
   const ambient1 = isAltArtwork ? 'rgba(138, 176, 96, 0.5)' : 'rgba(66, 178, 235, 0.54)'
   const ambient2 = isAltArtwork ? 'rgba(224, 132, 142, 0.42)' : 'rgba(238, 106, 142, 0.45)'
@@ -947,6 +947,15 @@ function boostThemeColor(color: RgbColor): RgbColor {
     h: hsl.h,
     s: clampNumber(hsl.s * 1.28 + 0.08, 0, 0.86),
     l: clampNumber(hsl.l * 0.94 + 0.05, 0.22, 0.72)
+  })
+}
+
+function readableAccentTextColor(color: RgbColor): RgbColor {
+  const hsl = rgbToHsl(color)
+  return hslToRgb({
+    h: hsl.h,
+    s: clampNumber(hsl.s * 1.22 + 0.10, 0.18, 0.82),
+    l: clampNumber(hsl.l * 0.52 + 0.02, 0.16, 0.42)
   })
 }
 
@@ -1209,9 +1218,9 @@ function themeStyleFromExtractedColors(colors: RgbColor[], fallback: React.CSSPr
 
   return {
     ...fallback,
-    '--cover-accent': rgbaString(first, 0.42),
-    '--cover-accent-border': rgbaString(first, 0.28),
-    '--cover-accent-text': hexString(boostThemeColor(first)),
+    '--cover-accent': rgbaString(first, 0.34),
+    '--cover-accent-border': rgbaString(first, 0.22),
+    '--cover-accent-text': hexString(readableAccentTextColor(first)),
     '--cover-accent-shadow': rgbaString(first, 0.1),
     '--ambient-shape-1': shapeTints[0],
     '--ambient-shape-2': shapeTints[1],
@@ -2072,6 +2081,12 @@ function App(): React.ReactElement {
     '--lyrics-translation-font-size': `${lyricsTranslationFontSize}px`,
     '--amll-render-scale': String(lyricRenderScaleForQuality(lyricsRenderQuality))
   }) as React.CSSProperties, [effectiveCoverThemeStyle, lyricsFontSize, lyricsRenderQuality, lyricsTranslationFontSize])
+  const fullscreenCoverThemeStyle = React.useMemo(() => ({
+    ...effectiveCoverThemeStyle,
+    '--lyrics-font-size': `${fullscreenLyricsFontSize}px`,
+    '--lyrics-translation-font-size': `${fullscreenLyricsTranslationFontSize}px`,
+    '--amll-render-scale': String(lyricRenderScaleForQuality(fullscreenLyricsRenderQuality))
+  }) as React.CSSProperties, [effectiveCoverThemeStyle, fullscreenLyricsFontSize, fullscreenLyricsRenderQuality, fullscreenLyricsTranslationFontSize])
   const selectedVisualizerMode = selectedNowPlayingSkin === 'coverLed'
     ? classicVisualizerMode
     : selectedNowPlayingSkin === 'appleStyle'
@@ -2079,6 +2094,15 @@ function App(): React.ReactElement {
       : selectedNowPlayingSkin === 'rotatingCover'
         ? rotatingVisualizerMode
         : cassetteVisualizerMode
+  const selectedFullscreenVisualizerMode = selectedFullscreenSkin === 'coverLed'
+    ? fullscreenClassicVisualizerMode
+    : selectedFullscreenSkin === 'appleStyle'
+      ? fullscreenAppleVisualizerMode
+      : selectedFullscreenSkin === 'rotatingCover'
+        ? fullscreenRotatingVisualizerMode
+        : selectedFullscreenSkin === 'kmgccc.cassette'
+          ? fullscreenCassetteVisualizerMode
+          : 'off'
   const ensureAudioAnalyser = React.useCallback((): AnalyserNode | null => {
     const audio = audioRef.current
     if (!audio) return null
@@ -2879,7 +2903,8 @@ function App(): React.ReactElement {
   }, [volume])
 
   React.useEffect(() => {
-    if (!isPlaying || selectedVisualizerMode !== 'led' || !currentTrack?.sourceUrl) {
+    const shouldSampleLed = selectedVisualizerMode === 'led' || (isFullscreenLyricsOpen && selectedFullscreenVisualizerMode === 'led')
+    if (!isPlaying || !shouldSampleLed || !currentTrack?.sourceUrl) {
       if (ledAnimationFrameRef.current !== null) {
         window.cancelAnimationFrame(ledAnimationFrameRef.current)
         ledAnimationFrameRef.current = null
@@ -2936,7 +2961,7 @@ function App(): React.ReactElement {
         ledAnimationFrameRef.current = null
       }
     }
-  }, [currentTrack?.sourceUrl, ensureAudioAnalyser, isPlaying, ledCount, ledCutoffHz, ledSpeed, selectedVisualizerMode, volume])
+  }, [currentTrack?.sourceUrl, ensureAudioAnalyser, isFullscreenLyricsOpen, isPlaying, ledCount, ledCutoffHz, ledSpeed, selectedFullscreenVisualizerMode, selectedVisualizerMode, volume])
 
   const updateAudioMetadata = React.useCallback(() => {
     const audio = audioRef.current
@@ -3221,7 +3246,30 @@ function App(): React.ReactElement {
           />
         ) : null}
         {isFullscreenLyricsOpen ? (
-          <FullscreenLyricsPage track={currentTrack} albums={albums} playbackTime={effectiveLyricPlaybackTime} isPlaying={isPlaying} onSeek={seekToLyricTime} renderQuality={fullscreenLyricsRenderQuality} />
+          <FullscreenLyricsPage
+            track={currentTrack}
+            albums={albums}
+            bkThemeStyle={fullscreenCoverThemeStyle}
+            playbackTime={effectiveLyricPlaybackTime}
+            isPlaying={isPlaying}
+            volume={volume}
+            ledCount={ledCount}
+            ledBrightnessLevels={ledBrightnessLevels}
+            ledSpeed={ledSpeed}
+            ledValues={ledValues}
+            skinID={selectedFullscreenSkin}
+            visualizerMode={selectedFullscreenVisualizerMode}
+            artBackgroundEnabled={isFullscreenArtBackgroundEnabled}
+            artworkFrameMaskEnabled={isArtworkFrameMaskEnabled}
+            artworkFrameIndex={artworkFrameIndex}
+            rotatingCdMode={isRotatingCdMode}
+            appleDynamicBackgroundEnabled={isAppleDynamicBackgroundEnabled}
+            appleMeshSpeed={appleMeshSpeed}
+            cassetteKmgLookEnabled={isCassetteKmgLookEnabled}
+            onSeek={seekToLyricTime}
+            onArtworkFrameAdvance={() => setArtworkFrameIndex((value) => (value + 1) % artworkFrameAssets.length)}
+            renderQuality={fullscreenLyricsRenderQuality}
+          />
         ) : null}
         {libraryDialog ? (
           <LibraryDialog state={libraryDialog} snapshot={homeSnapshot} onClose={() => setLibraryDialog(null)} onSubmit={submitLibraryDialog} />
@@ -4662,16 +4710,53 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
 const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   track,
   albums,
+  bkThemeStyle,
   playbackTime,
   isPlaying,
+  volume,
+  ledCount,
+  ledBrightnessLevels,
+  ledSpeed,
+  ledValues,
+  skinID,
+  visualizerMode,
+  artBackgroundEnabled,
+  artworkFrameMaskEnabled,
+  artworkFrameIndex,
+  rotatingCdMode,
+  appleDynamicBackgroundEnabled,
+  appleMeshSpeed,
+  cassetteKmgLookEnabled,
   onSeek,
+  onArtworkFrameAdvance,
   renderQuality = 'balanced'
-}: LyricsSurfaceProps): React.ReactElement {
+}: LyricsSurfaceProps & {
+  bkThemeStyle: React.CSSProperties
+  volume: number
+  ledCount: number
+  ledBrightnessLevels: number
+  ledSpeed: number
+  ledValues: number[]
+  skinID: FullscreenSkinID
+  visualizerMode: VisualizerMode
+  artBackgroundEnabled: boolean
+  artworkFrameMaskEnabled: boolean
+  artworkFrameIndex: number
+  rotatingCdMode: boolean
+  appleDynamicBackgroundEnabled: boolean
+  appleMeshSpeed: AppleMeshSpeed
+  cassetteKmgLookEnabled: boolean
+  onArtworkFrameAdvance: () => void
+}): React.ReactElement {
   const lines = React.useMemo(() => parseLyrics(track), [track])
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
   const hasTimedLyrics = lines.some((line) => line.time !== null)
   const artwork = trackArtwork(track, albums)
+  const artworkFrame = artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]
   const [pixelStretchBackground, setPixelStretchBackground] = React.useState<string | null>(null)
+  const useCoverGradientBlur = skinID === 'fullscreen.coverGradientBlur'
+  const nowPlayingSkinID: NowPlayingSkinID = skinID === 'fullscreen.coverGradientBlur' ? 'coverLed' : skinID
+  const showBKBackground = artBackgroundEnabled && !useCoverGradientBlur && nowPlayingSkinID !== 'appleStyle'
 
   React.useEffect(() => {
     let cancelled = false
@@ -4686,12 +4771,31 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   }, [artwork])
 
   return (
-    <section className="fullscreen-lyrics-page no-drag">
-      <div className="fullscreen-lyrics-mesh" aria-hidden="true" />
-      {pixelStretchBackground ? <img className="fullscreen-lyrics-stretch-bg" src={pixelStretchBackground} alt="" decoding="async" /> : null}
-      <img className="fullscreen-lyrics-bg" src={artwork} alt="" decoding="async" />
-      <div className="fullscreen-lyrics-art">
-        <img src={artwork} alt="" decoding="async" />
+    <section className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} no-drag`} style={bkThemeStyle}>
+      {useCoverGradientBlur ? (
+        <>
+          {pixelStretchBackground ? <img className="fullscreen-lyrics-stretch-bg" src={pixelStretchBackground} alt="" decoding="async" /> : null}
+          <img className="fullscreen-lyrics-bg" src={artwork} alt="" decoding="async" />
+        </>
+      ) : nowPlayingSkinID === 'appleStyle' ? (
+        <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
+      ) : showBKBackground ? (
+        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} />
+      ) : (
+        <UnifiedMeshBackground />
+      )}
+      <div className="fullscreen-lyrics-artwork-stage">
+        {nowPlayingSkinID === 'coverLed' ? (
+          <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} onArtworkFrameAdvance={onArtworkFrameAdvance} />
+        ) : nowPlayingSkinID === 'appleStyle' ? (
+          <AppleStyleNowPlayingArtwork artwork={artwork} />
+        ) : nowPlayingSkinID === 'rotatingCover' ? (
+          <RotatingCoverNowPlaying artwork={artwork} isPlaying={isPlaying} cdMode={rotatingCdMode} />
+        ) : (
+          <CassetteNowPlayingArtwork artwork={artwork} showKmgLook={cassetteKmgLookEnabled} />
+        )}
+        {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} ledCount={ledCount} brightnessLevels={ledBrightnessLevels} ledSpeed={ledSpeed} ledValues={ledValues} /> : null}
+        {visualizerMode === 'spectrum' ? <NowPlayingSpectrum isPlaying={isPlaying} /> : null}
       </div>
       <div className="fullscreen-lyrics-copy">
         <span>{isPlaying ? '正在播放' : '已暂停'}</span>
