@@ -142,7 +142,22 @@ type Track = {
 type ArtworkBeat = {
   bpm: number
   offset: number
+  approved?: boolean
 }
+
+type ManualBpmBoardState = {
+  trackId: string
+  title: string
+  artist: string
+  openedAtMs: number
+  openedPlaybackTime: number
+}
+
+type ArtworkBeatSaveFeedback = {
+  trackId: string
+  bpm: number
+  kind: 'approved' | 'manual' | 'waiting'
+} | null
 
 type ImportSyncState = {
   title: string
@@ -536,11 +551,25 @@ const bkShapeAssets = [shape1, shape2, shape3, shape4, shape5, shape6, shape7, s
 const bkBackgroundAssets = [bkBackground1, bkBackground2]
 const artworkFrameAssets = [artworkFrame1, artworkFrame2, artworkFrame3, artworkFrame4]
 const ARTWORK_PULSE_VISUAL_ADVANCE_SECONDS = 0.1
+const APPROVED_ARTWORK_BEATS_STORAGE_KEY = 'skin.classicLED.approvedArtworkBeats'
+const ARTWORK_BPM_ACCEPTANCE_RANGE = 5
 
 function normalizeArtworkPulseBpm(rawTempo: number): number {
   let bpm = rawTempo
   while (bpm > 90) bpm /= 2
   return clampNumber(Math.round(bpm), 45, 90)
+}
+
+function sanitizeArtworkBeat(value: unknown): ArtworkBeat | null {
+  if (!value || typeof value !== 'object') return null
+  const beat = value as Partial<ArtworkBeat>
+  if (typeof beat.bpm !== 'number' || typeof beat.offset !== 'number') return null
+  if (!Number.isFinite(beat.bpm) || !Number.isFinite(beat.offset)) return null
+  return {
+    bpm: clampNumber(Math.round(beat.bpm), 45, 90),
+    offset: Math.max(0, beat.offset),
+    approved: beat.approved === true
+  }
 }
 const playlistCoverBases = [playlistCover1, playlistCover2, playlistCover3, playlistCover4]
 
@@ -786,6 +815,21 @@ function storedHomeSectionOrder(): HomeSectionID[] {
     return [...normalized, ...missing]
   } catch {
     return defaultHomeSectionOrder
+  }
+}
+
+function storedApprovedArtworkBeats(): Record<string, ArtworkBeat> {
+  try {
+    const rawValue = window.localStorage.getItem(APPROVED_ARTWORK_BEATS_STORAGE_KEY)
+    const parsed = rawValue ? JSON.parse(rawValue) : {}
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .map(([trackId, value]) => [trackId, sanitizeArtworkBeat(value)] as const)
+        .filter((entry): entry is readonly [string, ArtworkBeat] => Boolean(entry[0] && entry[1]))
+    )
+  } catch {
+    return {}
   }
 }
 
@@ -2241,6 +2285,9 @@ function App(): React.ReactElement {
   const [settingsActionStatus, setSettingsActionStatus] = React.useState<SettingsActionStatus>(null)
   const [artworkFrameIndex, setArtworkFrameIndex] = React.useState(0)
   const [trackBeatById, setTrackBeatById] = React.useState<Record<string, ArtworkBeat>>({})
+  const [approvedArtworkBeatById, setApprovedArtworkBeatById] = React.useState<Record<string, ArtworkBeat>>(() => storedApprovedArtworkBeats())
+  const [manualBpmBoard, setManualBpmBoard] = React.useState<ManualBpmBoardState | null>(null)
+  const [artworkBeatSaveFeedback, setArtworkBeatSaveFeedback] = React.useState<ArtworkBeatSaveFeedback>(null)
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
@@ -2348,7 +2395,7 @@ function App(): React.ReactElement {
     }
     return audioAnalyserRef.current
   }, [])
-  const analyzeArtworkBeat = React.useCallback(async (track: Track, onCandidate?: (beat: ArtworkBeat) => void): Promise<ArtworkBeat> => {
+  const analyzeArtworkBeat = React.useCallback(async (track: Track, approvedBeat?: ArtworkBeat, onCandidate?: (beat: ArtworkBeat) => void): Promise<ArtworkBeat> => {
     if (!track.sourceUrl) throw new Error('Track sourceUrl is empty')
     const AudioContextCtor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
     if (!AudioContextCtor) throw new Error('AudioContext is not available')
@@ -2363,7 +2410,7 @@ function App(): React.ReactElement {
         .map((duration) => Math.round(duration * 10) / 10)
     ))
     if (!durations.length) durations.push(audioBuffer.duration)
-    let bestBeat: ArtworkBeat | null = null
+    let bestBeat: ArtworkBeat | null = approvedBeat ?? null
     let previousBeat: ArtworkBeat | null = null
     let stableBeat: ArtworkBeat | null = null
     let stableCount = 0
@@ -2372,6 +2419,9 @@ function App(): React.ReactElement {
       const beat = {
         bpm: normalizeArtworkPulseBpm(result.bpm),
         offset: clampNumber(result.offset || 0, 0, Math.max(0, audioBuffer.duration))
+      }
+      if (approvedBeat && Math.abs(beat.bpm - approvedBeat.bpm) > ARTWORK_BPM_ACCEPTANCE_RANGE) {
+        continue
       }
       bestBeat = beat
       if (!previousBeat) {
@@ -2469,8 +2519,9 @@ function App(): React.ReactElement {
     }
     const detectionTrackId = currentTrack.id
     if (beatCacheRef.current[detectionTrackId]) return
+    const approvedBeat = approvedArtworkBeatById[detectionTrackId]
     let cancelled = false
-    void analyzeArtworkBeat(currentTrack, (candidate) => {
+    void analyzeArtworkBeat(currentTrack, approvedBeat, (candidate) => {
       if (cancelled || beatCacheRef.current[detectionTrackId]) return
       setTrackBeatById((previous) => ({ ...previous, [detectionTrackId]: candidate }))
     })
@@ -2488,7 +2539,7 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true
     }
-  }, [analyzeArtworkBeat, currentTrack, currentTrack?.id, currentTrack?.sourceUrl, isArtworkBpmPulseEnabled, isPlaying])
+  }, [analyzeArtworkBeat, approvedArtworkBeatById, currentTrack, currentTrack?.id, currentTrack?.sourceUrl, isArtworkBpmPulseEnabled, isPlaying])
 
   React.useEffect(() => {
     const beat = currentTrack?.id ? trackBeatById[currentTrack.id] : null
@@ -3166,6 +3217,54 @@ function App(): React.ReactElement {
     artworkPulseLastBeatRef.current = null
     setIsArtworkBpmPulseEnabled((value) => !value)
   }, [currentTrack?.id])
+  const openManualBpmBoard = React.useCallback(() => {
+    if (!currentTrack?.id) return
+    setManualBpmBoard({
+      trackId: currentTrack.id,
+      title: currentTrack.title,
+      artist: currentTrack.artist,
+      openedAtMs: window.performance.now(),
+      openedPlaybackTime: audioRef.current?.currentTime ?? playbackTime
+    })
+  }, [currentTrack, playbackTime])
+  const approveCurrentArtworkBeat = React.useCallback(() => {
+    const trackId = currentTrack?.id
+    if (!trackId) return
+    const beat = trackBeatById[trackId] ?? beatCacheRef.current[trackId]
+    if (!beat) {
+      setArtworkBeatSaveFeedback({ trackId, bpm: 0, kind: 'waiting' })
+      window.setTimeout(() => {
+        setArtworkBeatSaveFeedback((feedback) => feedback?.trackId === trackId && feedback.kind === 'waiting' ? null : feedback)
+      }, 1200)
+      return
+    }
+    const approvedBeat = { ...beat, approved: true }
+    const nextApproved = { ...approvedArtworkBeatById, [trackId]: approvedBeat }
+    setApprovedArtworkBeatById(nextApproved)
+    persistJsonSetting(APPROVED_ARTWORK_BEATS_STORAGE_KEY, nextApproved)
+    beatCacheRef.current = { ...beatCacheRef.current, [trackId]: approvedBeat }
+    setTrackBeatById((previous) => ({ ...previous, [trackId]: approvedBeat }))
+    setArtworkBeatSaveFeedback({ trackId, bpm: approvedBeat.bpm, kind: 'approved' })
+    window.setTimeout(() => {
+      setArtworkBeatSaveFeedback((feedback) => feedback?.trackId === trackId && feedback.kind === 'approved' ? null : feedback)
+    }, 1400)
+  }, [approvedArtworkBeatById, currentTrack?.id, trackBeatById])
+  const confirmManualArtworkBeat = React.useCallback((beat: ArtworkBeat) => {
+    const trackId = manualBpmBoard?.trackId
+    if (!trackId) return
+    const approvedBeat = { ...beat, bpm: normalizeArtworkPulseBpm(beat.bpm), offset: Math.max(0, beat.offset), approved: true }
+    const nextApproved = { ...approvedArtworkBeatById, [trackId]: approvedBeat }
+    setApprovedArtworkBeatById(nextApproved)
+    persistJsonSetting(APPROVED_ARTWORK_BEATS_STORAGE_KEY, nextApproved)
+    beatCacheRef.current = { ...beatCacheRef.current, [trackId]: approvedBeat }
+    setTrackBeatById((previous) => ({ ...previous, [trackId]: approvedBeat }))
+    setArtworkBeatSaveFeedback({ trackId, bpm: approvedBeat.bpm, kind: 'manual' })
+    setManualBpmBoard(null)
+    setIsArtworkBpmPulseEnabled(true)
+    window.setTimeout(() => {
+      setArtworkBeatSaveFeedback((feedback) => feedback?.trackId === trackId && feedback.kind === 'manual' ? null : feedback)
+    }, 1400)
+  }, [approvedArtworkBeatById, manualBpmBoard?.trackId])
 
   React.useEffect(() => {
     if (!isFullscreenLyricsOpen) return
@@ -3491,6 +3590,9 @@ function App(): React.ReactElement {
               cassetteKmgLookEnabled={isCassetteKmgLookEnabled}
               isArtworkBpmPulseEnabled={isArtworkBpmPulseEnabled}
               onArtworkBpmPulseToggle={toggleArtworkBpmPulse}
+              onArtworkManualBpmOpen={openManualBpmBoard}
+              onArtworkBeatApprove={approveCurrentArtworkBeat}
+              artworkBeatFeedback={currentTrack?.id && artworkBeatSaveFeedback?.trackId === currentTrack.id ? artworkBeatSaveFeedback : null}
               onLyricToneSeedChange={setLyricToneSeed}
             />
           ) : (
@@ -3703,6 +3805,9 @@ function App(): React.ReactElement {
             onSeek={seekToLyricTime}
             isArtworkBpmPulseEnabled={isArtworkBpmPulseEnabled}
             onArtworkBpmPulseToggle={toggleArtworkBpmPulse}
+            onArtworkManualBpmOpen={openManualBpmBoard}
+            onArtworkBeatApprove={approveCurrentArtworkBeat}
+            artworkBeatFeedback={currentTrack?.id && artworkBeatSaveFeedback?.trackId === currentTrack.id ? artworkBeatSaveFeedback : null}
             renderQuality={fullscreenLyricsRenderQuality}
             reduceHighlight={fullscreenDiscreteWordHighlightEnabled}
             lyricToneSeed={lyricToneSeed}
@@ -3711,6 +3816,13 @@ function App(): React.ReactElement {
         ) : null}
         {libraryDialog ? (
           <LibraryDialog state={libraryDialog} snapshot={homeSnapshot} onClose={() => setLibraryDialog(null)} onSubmit={submitLibraryDialog} />
+        ) : null}
+        {manualBpmBoard ? (
+          <ManualBpmBoard
+            state={manualBpmBoard}
+            onClose={() => setManualBpmBoard(null)}
+            onConfirm={confirmManualArtworkBeat}
+          />
         ) : null}
         {contextMenu ? <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} /> : null}
       </div>
@@ -3746,6 +3858,88 @@ const ContextMenu = React.memo(function ContextMenu({ state, onClose }: { state:
           </button>
         )
       )}
+    </div>
+  )
+})
+
+const ManualBpmBoard = React.memo(function ManualBpmBoard({
+  state,
+  onClose,
+  onConfirm
+}: {
+  state: ManualBpmBoardState
+  onClose: () => void
+  onConfirm: (beat: ArtworkBeat) => void
+}): React.ReactElement {
+  const [tapTimes, setTapTimes] = React.useState<number[]>([])
+  const boardRef = React.useRef<HTMLButtonElement | null>(null)
+  const intervals = React.useMemo(() => tapTimes.slice(1).map((time, index) => time - tapTimes[index]).filter((value) => value > 160 && value < 2200), [tapTimes])
+  const bpm = React.useMemo(() => {
+    if (!intervals.length) return null
+    const sorted = [...intervals].sort((a, b) => a - b)
+    const trimmed = sorted.length >= 4 ? sorted.slice(1, -1) : sorted
+    const average = trimmed.reduce((sum, value) => sum + value, 0) / trimmed.length
+    return normalizeArtworkPulseBpm(60000 / average)
+  }, [intervals])
+  const tapCount = tapTimes.length
+  const canConfirm = bpm !== null && tapCount >= 3
+
+  const addTap = React.useCallback(() => {
+    const now = window.performance.now()
+    setTapTimes((previous) => [...previous.filter((time) => now - time < 10000), now].slice(-16))
+  }, [])
+
+  const confirm = React.useCallback(() => {
+    if (!canConfirm || bpm === null || !tapTimes.length) return
+    const firstTapOffset = Math.max(0, state.openedPlaybackTime + (tapTimes[0] - state.openedAtMs) / 1000)
+    onConfirm({ bpm, offset: firstTapOffset, approved: true })
+  }, [bpm, canConfirm, onConfirm, state.openedAtMs, state.openedPlaybackTime, tapTimes])
+
+  React.useEffect(() => {
+    boardRef.current?.focus()
+  }, [])
+
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+        return
+      }
+      if (event.key === ' ' || event.code === 'Space') {
+        event.preventDefault()
+        addTap()
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        confirm()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [addTap, confirm, onClose])
+
+  return (
+    <div className="manual-bpm-overlay no-drag" role="dialog" aria-modal="true" aria-label="自定义测速板">
+      <div className="manual-bpm-board">
+        <header>
+          <span>自定义测速</span>
+          <strong>{state.title}</strong>
+          <small>{state.artist}</small>
+        </header>
+        <button ref={boardRef} className="manual-bpm-tap" type="button" onClick={addTap}>
+          <span>{bpm ?? '--'}</span>
+          <small>BPM</small>
+        </button>
+        <div className="manual-bpm-meter" aria-hidden="true">
+          {Array.from({ length: 8 }).map((_, index) => <i key={index} className={index < Math.min(tapCount, 8) ? 'active' : ''} />)}
+        </div>
+        <p>{tapCount < 3 ? '跟着强拍敲击 3 次以上' : '继续敲击可提高稳定度'}</p>
+        <footer>
+          <button type="button" onClick={onClose}>取消</button>
+          <button className="primary" type="button" disabled={!canConfirm} onClick={confirm}>确认节拍</button>
+        </footer>
+      </div>
     </div>
   )
 })
@@ -5330,6 +5524,9 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   onSeek,
   isArtworkBpmPulseEnabled,
   onArtworkBpmPulseToggle,
+  onArtworkManualBpmOpen,
+  onArtworkBeatApprove,
+  artworkBeatFeedback,
   renderQuality = 'balanced',
   reduceHighlight = false,
   lyricToneSeed,
@@ -5352,6 +5549,9 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   cassetteKmgLookEnabled: boolean
   isArtworkBpmPulseEnabled: boolean
   onArtworkBpmPulseToggle: () => void
+  onArtworkManualBpmOpen: () => void
+  onArtworkBeatApprove: () => void
+  artworkBeatFeedback: ArtworkBeatSaveFeedback
   lyricToneSeed: RgbColor | null
   onLyricToneSeedChange: (seed: RgbColor) => void
 }): React.ReactElement {
@@ -5451,7 +5651,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       )}
       <div className="fullscreen-lyrics-artwork-stage">
         {nowPlayingSkinID === 'coverLed' ? (
-          <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} isBpmPulseEnabled={isArtworkBpmPulseEnabled} onBpmPulseToggle={onArtworkBpmPulseToggle} />
+          <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} isBpmPulseEnabled={isArtworkBpmPulseEnabled} feedback={artworkBeatFeedback} onBpmPulseToggle={onArtworkBpmPulseToggle} onManualBpmOpen={onArtworkManualBpmOpen} onBeatApprove={onArtworkBeatApprove} />
         ) : nowPlayingSkinID === 'appleStyle' ? (
           <AppleStyleNowPlayingArtwork artwork={artwork} />
         ) : nowPlayingSkinID === 'rotatingCover' ? (
@@ -5511,6 +5711,9 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   cassetteKmgLookEnabled,
   isArtworkBpmPulseEnabled,
   onArtworkBpmPulseToggle,
+  onArtworkManualBpmOpen,
+  onArtworkBeatApprove,
+  artworkBeatFeedback,
   onLyricToneSeedChange
 }: {
   track: Track | null | undefined
@@ -5533,6 +5736,9 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
   cassetteKmgLookEnabled: boolean
   isArtworkBpmPulseEnabled: boolean
   onArtworkBpmPulseToggle: () => void
+  onArtworkManualBpmOpen: () => void
+  onArtworkBeatApprove: () => void
+  artworkBeatFeedback: ArtworkBeatSaveFeedback
   onLyricToneSeedChange: (seed: RgbColor) => void
 }): React.ReactElement {
   const pageRef = React.useRef<HTMLElement | null>(null)
@@ -5571,7 +5777,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
       )}
       <div className="now-playing-artwork-stage">
         {skinID === 'coverLed' ? (
-          <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} isBpmPulseEnabled={isArtworkBpmPulseEnabled} onBpmPulseToggle={onArtworkBpmPulseToggle} />
+          <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} isBpmPulseEnabled={isArtworkBpmPulseEnabled} feedback={artworkBeatFeedback} onBpmPulseToggle={onArtworkBpmPulseToggle} onManualBpmOpen={onArtworkManualBpmOpen} onBeatApprove={onArtworkBeatApprove} />
         ) : skinID === 'appleStyle' ? (
           <AppleStyleNowPlayingArtwork artwork={artwork} />
         ) : skinID === 'rotatingCover' ? (
@@ -5620,22 +5826,92 @@ const ClassicCoverNowPlaying = React.memo(function ClassicCoverNowPlaying({
   artworkFrame,
   masked,
   isBpmPulseEnabled,
-  onBpmPulseToggle
+  feedback,
+  onBpmPulseToggle,
+  onManualBpmOpen,
+  onBeatApprove
 }: {
   artwork: string
   artworkFrame: string
   masked: boolean
   isBpmPulseEnabled: boolean
+  feedback: ArtworkBeatSaveFeedback
   onBpmPulseToggle: () => void
+  onManualBpmOpen: () => void
+  onBeatApprove: () => void
 }): React.ReactElement {
   const activeFrameIndex = Math.max(0, artworkFrameAssets.indexOf(artworkFrame))
+  const clickTimerRef = React.useRef<number | null>(null)
+  const longPressTimerRef = React.useRef<number | null>(null)
+  const lastClickAtRef = React.useRef(0)
+  const longPressHandledRef = React.useRef(false)
+
+  React.useEffect(() => () => {
+    if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current)
+    if (longPressTimerRef.current !== null) window.clearTimeout(longPressTimerRef.current)
+  }, [])
+
+  const clearLongPressTimer = React.useCallback(() => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }, [])
+
+  const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    longPressHandledRef.current = false
+    clearLongPressTimer()
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressHandledRef.current = true
+      onBeatApprove()
+    }, 650)
+  }, [clearLongPressTimer, onBeatApprove])
+
+  const handlePointerUp = React.useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    clearLongPressTimer()
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    if (longPressHandledRef.current) return
+
+    const now = window.performance.now()
+    if (now - lastClickAtRef.current <= 260) {
+      lastClickAtRef.current = 0
+      if (clickTimerRef.current !== null) {
+        window.clearTimeout(clickTimerRef.current)
+        clickTimerRef.current = null
+      }
+      onManualBpmOpen()
+      return
+    }
+
+    lastClickAtRef.current = now
+    if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current)
+    clickTimerRef.current = window.setTimeout(() => {
+      clickTimerRef.current = null
+      lastClickAtRef.current = 0
+      onBpmPulseToggle()
+    }, 285)
+  }, [clearLongPressTimer, onBpmPulseToggle, onManualBpmOpen])
+
+  const handlePointerCancel = React.useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    clearLongPressTimer()
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }, [clearLongPressTimer])
+
   return (
     <button
       className={`now-playing-cover ${masked ? 'masked' : ''} ${isBpmPulseEnabled ? 'bpm-pulse-enabled' : ''}`}
       type="button"
       aria-label={isBpmPulseEnabled ? '关闭封面节奏律动' : '开启封面节奏律动'}
       aria-pressed={isBpmPulseEnabled}
-      onClick={onBpmPulseToggle}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      onPointerLeave={handlePointerCancel}
     >
       {masked ? (
         <>
@@ -5670,6 +5946,11 @@ const ClassicCoverNowPlaying = React.memo(function ClassicCoverNowPlaying({
       ) : (
         <img className="now-playing-cover-image" src={artwork} alt="" decoding="async" />
       )}
+      {feedback ? (
+        <span className={`now-playing-beat-feedback ${feedback.kind}`}>
+          {feedback.kind === 'waiting' ? '等待测速' : `${feedback.bpm} BPM`}
+        </span>
+      ) : null}
     </button>
   )
 })
