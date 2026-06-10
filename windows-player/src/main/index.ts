@@ -2295,25 +2295,7 @@ function fetchLocalCachedLyrics(track: LocalAudioImport): LyricsLookupResult | n
   }
 }
 
-async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
-  const netEaseLyrics = await fetchNetEaseLyrics(track).catch(() => null)
-  if (netEaseLyrics) return netEaseLyrics
-
-  const qqMusicLyrics = await fetchQQMusicLyrics(track).catch(() => null)
-  if (qqMusicLyrics) return qqMusicLyrics
-
-  const localCachedLyrics = fetchLocalCachedLyrics(track)
-  if (localCachedLyrics) return localCachedLyrics
-
-  const amllLyrics = await fetchAmllTtmlLyrics(track).catch(() => null)
-  if (amllLyrics) return amllLyrics
-
-  const amllSearchLyrics = await fetchAmllDbSearchLyrics(track).catch(() => null)
-  if (amllSearchLyrics) return amllSearchLyrics
-
-  const lddcLyrics = await fetchLddcLyrics(track).catch(() => null)
-  if (lddcLyrics) return lddcLyrics
-
+async function fetchLrcLibLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
   const url = new URL('https://lrclib.net/api/search')
   url.searchParams.set('track_name', track.title)
   if (!isUnknown(track.artist)) url.searchParams.set('artist_name', track.artist)
@@ -2337,6 +2319,31 @@ async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult 
     neteaseSongId: track.neteaseSongId,
     qqMusicSongId: track.qqMusicSongId
   }
+}
+
+async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
+  const netEaseLyrics = await fetchNetEaseLyrics(track).catch(() => null)
+  if (netEaseLyrics) return netEaseLyrics
+
+  const qqMusicLyrics = await fetchQQMusicLyrics(track).catch(() => null)
+  if (qqMusicLyrics) return qqMusicLyrics
+
+  const localCachedLyrics = fetchLocalCachedLyrics(track)
+  if (localCachedLyrics) return localCachedLyrics
+
+  const amllLyrics = await fetchAmllTtmlLyrics(track).catch(() => null)
+  if (amllLyrics) return amllLyrics
+
+  const amllSearchLyrics = await fetchAmllDbSearchLyrics(track).catch(() => null)
+  if (amllSearchLyrics) return amllSearchLyrics
+
+  const lrcLibLyrics = await fetchLrcLibLyrics(track).catch(() => null)
+  if (lrcLibLyrics) return lrcLibLyrics
+
+  const lddcLyrics = await fetchLddcLyrics(track).catch(() => null)
+  if (lddcLyrics) return lddcLyrics
+
+  return null
 }
 
 async function fetchLyricsForPlatform(track: LocalAudioImport, platform: LyricsLookupPlatform): Promise<LyricsLookupResult | null> {
@@ -2695,8 +2702,6 @@ async function sampleWindowColor(owner: BrowserWindow, rect: WindowColorSampleRe
 
 let externalPlaybackSourceMode: ExternalPlaybackSourceMode = 'auto'
 let mediaRemoteAdapterPaths: MediaRemoteAdapterPaths | null | undefined
-const externalArtworkByIdentity = new Map<string, string | null>()
-const pendingExternalArtworkIdentities = new Set<string>()
 
 const browserMediaOwners = [
   'com.apple.safari',
@@ -2848,33 +2853,6 @@ function externalPayloadIdentity(payload: Pick<MediaRemotePayload, 'bundleIdenti
   ].join('|')
 }
 
-function mediaRemoteArtworkDataUrl(payload: MediaRemotePayload): string | undefined {
-  const artworkData = payload.artworkData?.trim()
-  if (!artworkData) return undefined
-  const mimeType = payload.artworkMimeType?.trim() || 'image/jpeg'
-  return `data:${mimeType};base64,${artworkData}`
-}
-
-function ensureExternalArtwork(identity: string, mode: ExternalPlaybackSourceMode): void {
-  if (externalArtworkByIdentity.has(identity) || pendingExternalArtworkIdentities.has(identity)) return
-  pendingExternalArtworkIdentities.add(identity)
-  void runMediaRemoteJson<MediaRemotePayload | MediaRemoteEnvelope>(['get', '--now'], 5000, 8 * 1024 * 1024)
-    .then((raw) => {
-      const payload = mediaRemotePayloadFromJson(raw)
-      if (!payload || !payloadMatchesExternalMode(payload, mode) || externalPayloadIdentity(payload) !== identity) {
-        externalArtworkByIdentity.set(identity, null)
-        return
-      }
-      externalArtworkByIdentity.set(identity, mediaRemoteArtworkDataUrl(payload) ?? null)
-    })
-    .catch(() => {
-      externalArtworkByIdentity.set(identity, null)
-    })
-    .finally(() => {
-      pendingExternalArtworkIdentities.delete(identity)
-    })
-}
-
 function estimatedMediaRemotePosition(payload: MediaRemotePayload): number {
   const duration = finiteSeconds(payload.duration)
   let position = finiteSeconds(payload.elapsedTimeNow ?? payload.elapsedTime)
@@ -2894,9 +2872,6 @@ function mediaRemoteSnapshotFromPayload(payload: MediaRemotePayload, mode: Exter
   const artist = (payload.artist ?? '').trim()
   const duration = finiteSeconds(payload.duration)
   const playbackRate = Number(payload.playbackRate ?? (payload.playing ? 1 : 0))
-  const identity = externalPayloadIdentity(payload)
-  const artworkUrl = mediaRemoteArtworkDataUrl(payload) ?? externalArtworkByIdentity.get(identity) ?? undefined
-  if (title && !artworkUrl) ensureExternalArtwork(identity, mode)
   return {
     available: true,
     sourceMode: mode,
@@ -2912,7 +2887,6 @@ function mediaRemoteSnapshotFromPayload(payload: MediaRemotePayload, mode: Exter
     canControlPlayback: true,
     canSkip: true,
     canSeek: duration > 0,
-    artworkUrl,
     updatedAt: Date.now()
   }
 }

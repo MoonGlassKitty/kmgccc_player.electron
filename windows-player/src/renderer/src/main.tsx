@@ -2344,7 +2344,7 @@ function App(): React.ReactElement {
   const [playbackSource, setPlaybackSource] = React.useState<PlaybackSourceKind>('local')
   const [externalPlaybackMode, setExternalPlaybackMode] = React.useState<ExternalPlaybackSourceMode>('auto')
   const [externalPlaybackSnapshot, setExternalPlaybackSnapshot] = React.useState<ExternalPlaybackSnapshot | null>(null)
-  const [externalMetadataByIdentity, setExternalMetadataByIdentity] = React.useState<Record<string, Pick<Track, 'artworkUrl' | 'lyricsText' | 'syncedLyrics'>>>({})
+  const [externalMetadataByIdentity, setExternalMetadataByIdentity] = React.useState<Record<string, Pick<Track, 'artworkUrl' | 'lyricsText' | 'syncedLyrics'> & { lastAttemptAt?: number }>>({})
   const [systemPlatform, setSystemPlatform] = React.useState<NodeJS.Platform | null>(null)
   const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(false)
   const [volume, setVolume] = React.useState(0.72)
@@ -2410,7 +2410,7 @@ function App(): React.ReactElement {
       duration: snapshot.duration,
       sourcePath: '',
       sourceUrl: '',
-      artworkUrl: snapshot.artworkUrl || metadata?.artworkUrl,
+      artworkUrl: metadata?.artworkUrl,
       lyricsText: snapshot.lyricsText || metadata?.lyricsText,
       syncedLyrics: snapshot.syncedLyrics || metadata?.syncedLyrics,
       metadataSource: 'externalPlayback'
@@ -3033,40 +3033,61 @@ function App(): React.ReactElement {
       album.toLowerCase(),
       Math.round(snapshot.duration)
     ].join('|')
-    if (externalMetadataByIdentity[metadataKey] || pendingExternalMetadataRef.current.has(metadataKey)) return
+    const existingMetadata = externalMetadataByIdentity[metadataKey]
+    const hasResolvedMetadata = Boolean(existingMetadata?.artworkUrl || existingMetadata?.lyricsText || existingMetadata?.syncedLyrics)
+    const lastAttemptAt = existingMetadata?.lastAttemptAt ?? 0
+    if (hasResolvedMetadata || pendingExternalMetadataRef.current.has(metadataKey) || Date.now() - lastAttemptAt < 30_000) return
     pendingExternalMetadataRef.current.add(metadataKey)
     let cancelled = false
     const loadMetadata = async (): Promise<void> => {
       try {
-        const [lyricsResult, coverCandidates] = await Promise.allSettled([
-          window.kmgccc?.lookupLyrics?.({
+        const markAttempt = (): void => {
+          setExternalMetadataByIdentity((current) => ({
+            ...current,
+            [metadataKey]: {
+              ...current[metadataKey],
+              lastAttemptAt: Date.now()
+            }
+          }))
+        }
+        markAttempt()
+
+        void window.kmgccc?.lookupCover?.({
+          kind: 'track',
+          title,
+          artist,
+          album,
+          duration: snapshot.duration
+        }).then((covers) => {
+          if (cancelled || !covers?.[0]?.artworkUrl) return
+          setExternalMetadataByIdentity((current) => ({
+            ...current,
+            [metadataKey]: {
+              ...current[metadataKey],
+              artworkUrl: covers[0].artworkUrl,
+              lastAttemptAt: Date.now()
+            }
+          }))
+        }).catch(() => undefined)
+
+        const lyrics = await window.kmgccc?.lookupLyrics?.({
             title,
             artist,
             album,
             duration: snapshot.duration,
             platform: 'auto'
-          }),
-          window.kmgccc?.lookupCover?.({
-            kind: 'track',
-            title,
-            artist,
-            album,
-            duration: snapshot.duration
           })
-        ])
         if (cancelled) return
-        const lyrics = lyricsResult.status === 'fulfilled' ? lyricsResult.value : null
-        const covers = coverCandidates.status === 'fulfilled' ? coverCandidates.value ?? [] : []
-        const nextMetadata = {
-          artworkUrl: covers[0]?.artworkUrl || snapshot.artworkUrl,
-          lyricsText: lyrics?.lyricsText,
-          syncedLyrics: lyrics?.syncedLyrics
-        }
-        if (nextMetadata.artworkUrl || nextMetadata.lyricsText || nextMetadata.syncedLyrics) {
-          setExternalMetadataByIdentity((current) => ({ ...current, [metadataKey]: nextMetadata }))
-        } else {
-          setExternalMetadataByIdentity((current) => ({ ...current, [metadataKey]: {} }))
-        }
+        if (!lyrics?.lyricsText && !lyrics?.syncedLyrics) return
+        setExternalMetadataByIdentity((current) => ({
+          ...current,
+          [metadataKey]: {
+            ...current[metadataKey],
+            lyricsText: lyrics.lyricsText,
+            syncedLyrics: lyrics.syncedLyrics,
+            lastAttemptAt: Date.now()
+          }
+        }))
       } finally {
         pendingExternalMetadataRef.current.delete(metadataKey)
       }
