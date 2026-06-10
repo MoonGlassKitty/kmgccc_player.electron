@@ -2624,7 +2624,7 @@ function lyricsFromCloudMusicCache(neteaseSongId: number): LyricsLookupResult | 
       const syncedLyrics = netEaseYrcToInlineLrc(payload.yrc.lyric)
       if (syncedLyrics.trim()) {
         return {
-          lyricsText: payload.lrc?.lyric ? normalizeNetEaseLrc(payload.lrc.lyric) : payload.tlyric?.lyric || undefined,
+          lyricsText: payload.tlyric?.lyric || (payload.lrc?.lyric ? normalizeNetEaseLrc(payload.lrc.lyric) : undefined),
           syncedLyrics,
           neteaseSongId
         }
@@ -2674,7 +2674,7 @@ async function fetchNetEaseLyrics(track: LocalAudioImport): Promise<LyricsLookup
     const syncedLyrics = netEaseYrcToInlineLrc(payload.yrc.lyric)
     if (syncedLyrics.trim()) {
       return {
-        lyricsText: payload.lrc?.lyric ? normalizeNetEaseLrc(payload.lrc.lyric) : payload.tlyric?.lyric || undefined,
+        lyricsText: payload.tlyric?.lyric || (payload.lrc?.lyric ? normalizeNetEaseLrc(payload.lrc.lyric) : undefined),
         syncedLyrics,
         neteaseSongId
       }

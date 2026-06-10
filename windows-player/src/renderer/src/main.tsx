@@ -173,7 +173,7 @@ type ExternalPlaybackClock = {
 const EXTERNAL_PLAYBACK_FALLBACK_DURATION_SECONDS = 12 * 60
 const EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS = 1.5
 const EXTERNAL_LYRICS_RETRY_DELAY_MS = 1000
-const EXTERNAL_LYRICS_CACHE_STORAGE_KEY = 'externalPlayback.lyricsCache.v1'
+const EXTERNAL_LYRICS_CACHE_STORAGE_KEY = 'externalPlayback.lyricsCache.v2'
 const EXTERNAL_ARTWORK_CACHE_STORAGE_KEY = 'externalPlayback.artworkCache.v1'
 const EXTERNAL_METADATA_CACHE_LIMIT = 160
 
@@ -221,13 +221,27 @@ function localExternalLyricsLookup(tracks: HomeTrack[], title: string, artist: s
     .sort((a, b) => b.score - a.score)
   const selected = candidates[0]?.track
   if (!selected) return null
-  const text = selected.syncedLyrics || selected.lyricsText || ''
+  const syncedLyrics = selected.syncedLyrics || selected.lyricsText || ''
+  const lyricsText = selected.lyricsText || selected.syncedLyrics || ''
   return {
-    lyricsText: text,
-    syncedLyrics: text,
+    lyricsText,
+    syncedLyrics,
     neteaseSongId: selected.neteaseSongId,
     qqMusicSongId: selected.qqMusicSongId
   }
+}
+
+function lyricsLookupQuality(result: LyricsLookupResponse | null | undefined): number {
+  const syncedLyrics = result?.syncedLyrics || ''
+  const lyricsText = result?.lyricsText || ''
+  const text = syncedLyrics || lyricsText
+  if (!text.trim()) return 0
+  let score = 1
+  if (/\[[0-9]{1,2}:[0-9]{2}(?:[.:][0-9]{1,3})?\]/.test(text)) score += 1
+  if (/<tt[\s>]/i.test(syncedLyrics)) score += 2
+  if (/x-translation/i.test(syncedLyrics)) score += 5
+  if (syncedLyrics && lyricsText && syncedLyrics !== lyricsText && normalizedLyricsMatchText(syncedLyrics) !== normalizedLyricsMatchText(lyricsText)) score += 3
+  return score
 }
 
 type ArtworkBeat = {
@@ -950,11 +964,18 @@ function sanitizeExternalLyricsCache(value: unknown): Record<string, ExternalLyr
   const entries = Object.entries(value).reduce<Record<string, ExternalLyricsCacheEntry>>((cache, [key, rawEntry]) => {
     if (!key || !rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) return cache
     const entry = rawEntry as Partial<ExternalLyricsCacheEntry>
-    const text = (entry.syncedLyrics || entry.lyricsText || '').trim()
-    if (entry.status !== 'ready' || !text) return cache
+    const syncedLyrics = entry.syncedLyrics?.trim() || ''
+    const lyricsText = entry.lyricsText?.trim() || ''
+    if (entry.status !== 'ready' || !(syncedLyrics || lyricsText)) return cache
     const metadataSongId = typeof entry.metadataSongId === 'number' && Number.isFinite(entry.metadataSongId) ? entry.metadataSongId : undefined
     const updatedAt = typeof entry.updatedAt === 'number' && Number.isFinite(entry.updatedAt) ? entry.updatedAt : undefined
-    cache[key] = { status: 'ready', lyricsText: text, syncedLyrics: text, metadataSongId, updatedAt }
+    cache[key] = {
+      status: 'ready',
+      lyricsText: lyricsText || syncedLyrics,
+      syncedLyrics: syncedLyrics || lyricsText,
+      metadataSongId,
+      updatedAt
+    }
     return cache
   }, {})
   return latestExternalCacheEntries(entries)
@@ -3318,6 +3339,7 @@ function App(): React.ReactElement {
     let cancelled = false
     let resolved = false
     let pendingLookups = 0
+    let publishedQuality = 0
     const request = {
       title,
       artist,
@@ -3336,20 +3358,28 @@ function App(): React.ReactElement {
     }
     const publishResult = (result: LyricsLookupResponse | null | undefined): void => {
       if (cancelled) return
-      const text = result?.syncedLyrics || result?.lyricsText || ''
-      if (!text.trim()) return
+      const syncedLyrics = result?.syncedLyrics || ''
+      const lyricsText = result?.lyricsText || ''
+      if (!(syncedLyrics.trim() || lyricsText.trim())) return
+      const quality = lyricsLookupQuality(result)
+      if (quality <= publishedQuality) return
+      publishedQuality = quality
       resolved = true
       setExternalLyricsByKey((entries) => ({
         ...entries,
-        [key]: { status: 'ready', lyricsText: text, syncedLyrics: text, metadataSongId: result?.neteaseSongId ?? metadataSongId, updatedAt: Date.now() }
+        [key]: {
+          status: 'ready',
+          lyricsText: lyricsText || syncedLyrics,
+          syncedLyrics: syncedLyrics || lyricsText,
+          metadataSongId: result?.neteaseSongId ?? metadataSongId,
+          updatedAt: Date.now()
+        }
       }))
     }
     const enqueueLookup = (lookup: Promise<LyricsLookupResponse | null | undefined>): void => {
       pendingLookups += 1
       lookup
-        .then((result) => {
-          if (!resolved) publishResult(result)
-        })
+        .then((result) => publishResult(result))
         .catch(() => {
           // Other lyric sources keep racing; a single source failure is not terminal.
         })
@@ -6128,10 +6158,45 @@ function parseTTMLLyrics(rawLyrics: string): ParsedLyricLine[] {
   return parsed.sort((a, b) => (a.time ?? Number.MAX_SAFE_INTEGER) - (b.time ?? Number.MAX_SAFE_INTEGER))
 }
 
+function parseTimedLyricText(rawLyrics: string): Array<{ time: number; text: string }> {
+  return rawLyrics
+    .split(/\r?\n/)
+    .flatMap((line) => {
+      const timestampMatches = [...line.matchAll(/\[([0-9]{1,2}:[0-9]{2}(?:[.:][0-9]{1,3})?)\]/g)]
+      const text = escapeLyricText(line.replace(/\[[^\]]+\]/g, '').replace(/<[^>]+>/g, ''))
+      if (!timestampMatches.length || !text) return []
+      return timestampMatches
+        .map((match) => {
+          const time = parseLyricTimestamp(match[1])
+          return time === null ? null : { time, text }
+        })
+        .filter((entry): entry is { time: number; text: string } => entry !== null)
+    })
+}
+
+function mergeSeparateLyricTranslations(lines: ParsedLyricLine[], translationLyrics: string): ParsedLyricLine[] {
+  if (!translationLyrics.trim()) return lines
+  const translations = parseTimedLyricText(translationLyrics)
+  if (!translations.length) return lines
+  return lines.map((line) => {
+    if (line.translation || line.time === null) return line
+    const matched = translations
+      .map((translation) => ({ ...translation, distance: Math.abs(translation.time - line.time!) }))
+      .filter((translation) => translation.distance <= 0.8)
+      .sort((a, b) => a.distance - b.distance)[0]
+    if (!matched) return line
+    if (normalizedLyricsMatchText(matched.text) === normalizedLyricsMatchText(line.text)) return line
+    return { ...line, translation: matched.text }
+  })
+}
+
 function parseLyrics(track: Track | null | undefined): ParsedLyricLine[] {
   const rawLyrics = track?.syncedLyrics || track?.lyricsText || ''
+  const separateTranslationLyrics = track?.syncedLyrics && track?.lyricsText && track.syncedLyrics !== track.lyricsText
+    ? track.lyricsText
+    : ''
   const ttmlLines = parseTTMLLyrics(rawLyrics)
-  if (ttmlLines.length) return ttmlLines
+  if (ttmlLines.length) return mergeSeparateLyricTranslations(ttmlLines, separateTranslationLyrics)
   const rawLines = rawLyrics
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -6165,7 +6230,10 @@ function parseLyrics(track: Track | null | undefined): ParsedLyricLine[] {
     })
   })
 
-  return parsed.sort((a, b) => (a.time ?? Number.MAX_SAFE_INTEGER) - (b.time ?? Number.MAX_SAFE_INTEGER))
+  return mergeSeparateLyricTranslations(
+    parsed.sort((a, b) => (a.time ?? Number.MAX_SAFE_INTEGER) - (b.time ?? Number.MAX_SAFE_INTEGER)),
+    separateTranslationLyrics
+  )
 }
 
 function trackHasTimedLyrics(track: Track | null | undefined): boolean {
