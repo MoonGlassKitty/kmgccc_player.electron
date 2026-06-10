@@ -4666,6 +4666,9 @@ function TrackLyricsEditor({ values, update }: { values: Record<string, string>;
         title: values.title,
         artist: values.artist,
         album: values.album,
+        duration: Number(values.duration || 0),
+        neteaseSongId: values.neteaseSongId,
+        qqMusicSongId: values.qqMusicSongId,
         mode: lyricsMode,
         includeTranslation,
         platform: lyricsPlatform
@@ -4674,6 +4677,7 @@ function TrackLyricsEditor({ values, update }: { values: Record<string, string>;
       if (text.trim()) {
         update('lyricsText', text)
         update('syncedLyrics', text)
+        if (result?.neteaseSongId) update('neteaseSongId', String(result.neteaseSongId))
         if (result?.qqMusicSongId) update('qqMusicSongId', result.qqMusicSongId)
         setSearchMessage('已应用歌词')
       } else {
@@ -4684,7 +4688,7 @@ function TrackLyricsEditor({ values, update }: { values: Record<string, string>;
     } finally {
       setIsSearching(false)
     }
-  }, [includeTranslation, lyricsMode, lyricsPlatform, update, values.album, values.artist, values.title])
+  }, [includeTranslation, lyricsMode, lyricsPlatform, update, values.album, values.artist, values.duration, values.neteaseSongId, values.qqMusicSongId, values.title])
   return (
     <section className="metadata-lyrics-editor">
       <div className="metadata-lyrics-head">

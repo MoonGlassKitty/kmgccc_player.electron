@@ -158,3 +158,5 @@
 - 窗口播放歌词设置接线审查与修复：逐项检查窗口播放设置链路，确认皮肤、艺术背景、皮肤专属选项、LED 数量/亮度/频率/速度、歌词渲染质量、减弱高亮、主歌词字号/字重/字体、翻译字重/字体、整体提前量均有实际使用；修复翻译大小只影响预览的问题，让 AMLL 翻译子行读取 `--lyrics-translation-font-size`；修复窗口播放“提前量/紧邻切行阈值”只保存不生效的问题，将其接入 AMLL 行时间生成和 fallback active 行判定。`npm run typecheck` 与 `npm run build` 已通过。
 - 浅色背景歌词可读性修正：白天/浅背景下 AMLL 歌词颜色生成增加更深的亮度上限，侧栏未高亮歌词改用更深灰并提高不透明度，避免粉色/浅色背景上歌词过浅；窗口播放页进入 BK 背景后也会延迟采样一次当前背景色，不再只依赖刷漆完成回调。`npm run typecheck` 与 `npm run build` 已通过。
 - 顶部窗口拖拽判定条改为手动拖拽：新增 `window:drag-start/move/end` IPC，主进程根据屏幕坐标 delta 调整 BrowserWindow 位置；renderer 顶部 `titlebar-drag-region` 不再依赖 `-webkit-app-region: drag`，避免进入歌词界面后原生拖拽只能用一次、必须切出再切回的问题。`npm run typecheck` 与 `npm run build` 已通过。
+
+- 手动歌词搜索接入多源候选：Windows 主进程新增 LDDC HTTP client 兼容 Swift 的 /search 与 /fetch_by_id_separate 协议，支持 LDDC_SERVER_URL、8765 和 9000-9015 本地 server 探测；LDDC 返回的原文/翻译 LRC 会转成 AMLL 可读 TTML。手动网易云搜索不再只锁裸网易云 lyric v1，会按 AMLL TTML 直链、AMLLDB、网易云、LDDC NE 继续尝试；QQ 失败时可回落 LDDC QM，酷狗按钮接 LDDC KG。歌词搜索 UI 现在会传 duration、neteaseSongId、qqMusicSongId 并回写 neteaseSongId。已验证本机 9000 LDDC server 可搜到 “初见 / MoonGlassKitty” 的 NE 候选并返回歌词；`npm run typecheck` 与 `npm run build` 已通过。

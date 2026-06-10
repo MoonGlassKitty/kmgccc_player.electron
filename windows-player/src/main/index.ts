@@ -314,6 +314,30 @@ type AmllDbSearchResult = {
   score?: number
 }
 
+type LddcSource = 'QM' | 'KG' | 'NE'
+
+type LddcCandidate = {
+  source: LddcSource | 'AMLLDB' | string
+  id: string
+  score: number
+  title: string
+  artist?: string
+  album?: string
+  duration_ms?: number
+  extra?: Record<string, string>
+}
+
+type LddcSearchResponse = {
+  results?: LddcCandidate[]
+  errors?: string[]
+}
+
+type LddcFetchSeparateResponse = {
+  lrc_orig?: string
+  lrc_trans?: string
+  error?: string
+}
+
 type NetEaseLyricPayload = {
   code?: number
   lrc?: { lyric?: string }
@@ -1715,6 +1739,87 @@ function translationForQrcLine(lineStartMs: number, translations: Array<{ timeMs
   return selected
 }
 
+type ParsedLrcLineForTtml = {
+  startMs: number
+  endMs?: number
+  text: string
+  words: Array<{ startMs: number; endMs: number; text: string }>
+}
+
+function parseLddcLrcForTtml(lyrics: string): ParsedLrcLineForTtml[] {
+  const lines: ParsedLrcLineForTtml[] = []
+  for (const rawLine of lyrics.split(/\r?\n/)) {
+    const timestampMatches = [...rawLine.matchAll(/\[([0-9]+:[0-9]{2}(?:[.:][0-9]{1,3})?)\]/g)]
+    if (!timestampMatches.length) continue
+    const lineBody = rawLine.replace(/\[[^\]]+\]/g, '').trim()
+    if (!lineBody || lineBody === '//') continue
+    const trimmedLine = rawLine.trim()
+    const firstMatch = timestampMatches[0]
+    const lastMatch = timestampMatches[timestampMatches.length - 1]
+    const hasLeadingTimestamp = firstMatch.index === 0
+    const hasTrailingEndTimestamp = timestampMatches.length > 1 && lastMatch.index !== undefined && lastMatch.index + lastMatch[0].length === trimmedLine.length
+    const lineEndMs = hasTrailingEndTimestamp ? parseLrcTimestampMs(lastMatch[1]) ?? undefined : undefined
+    const effectiveTimestampMatches = hasLeadingTimestamp
+      ? [firstMatch]
+      : timestampMatches.filter((match) => !(hasTrailingEndTimestamp && match === lastMatch))
+
+    for (const match of effectiveTimestampMatches) {
+      const startMs = parseLrcTimestampMs(match[1])
+      if (startMs === null) continue
+      const timedWords = [...lineBody.matchAll(/<([0-9]+:[0-9]{2}(?:[.:][0-9]{1,3})?)>([^<]*)/g)]
+        .map((wordMatch) => {
+          const wordStartMs = parseLrcTimestampMs(wordMatch[1])
+          const text = wordMatch[2] ?? ''
+          if (wordStartMs === null || !text) return null
+          return { startMs: wordStartMs, text }
+        })
+        .filter((word): word is { startMs: number; text: string } => word !== null)
+
+      const cleanText = lineBody.replace(/<[^>]+>/g, '').trim()
+      const words = timedWords.map((word, index) => ({
+        startMs: word.startMs,
+        endMs: Math.max(word.startMs + 80, timedWords[index + 1]?.startMs ?? word.startMs + 520),
+        text: word.text
+      }))
+      lines.push({ startMs, endMs: lineEndMs && lineEndMs > startMs ? lineEndMs : undefined, text: cleanText || lineBody, words })
+    }
+  }
+
+  const sorted = lines.sort((a, b) => a.startMs - b.startMs)
+  return sorted.map((line, index) => {
+    const nextStartMs = sorted[index + 1]?.startMs
+    const fallbackEndMs = Math.max(line.startMs + 1200, (nextStartMs ?? line.startMs + 4200) - 80)
+    const endMs = line.endMs ?? fallbackEndMs
+    return {
+      ...line,
+      words: line.words.map((word, wordIndex) => ({
+        ...word,
+        endMs: Math.min(Math.max(word.endMs, word.startMs + 80), line.words[wordIndex + 1]?.startMs ?? endMs)
+      }))
+    }
+  })
+}
+
+function lrcLyricsToTtml(origLyrics: string, transLyrics?: string): string {
+  const lines = parseLddcLrcForTtml(origLyrics)
+  const translations = transLyrics ? parseTranslationLrc(transLyrics) : []
+  const bodyBegin = lines[0]?.startMs ?? 0
+  const lastLine = lines[lines.length - 1]
+  const bodyEnd = Math.max(bodyBegin + 1000, lastLine?.endMs ?? (lastLine ? lastLine.startMs + 4200 : 0))
+  const paragraphs = lines.map((line, index) => {
+    const nextStartMs = lines[index + 1]?.startMs
+    const endMs = Math.max(line.startMs + 800, line.endMs ?? ((nextStartMs ?? line.startMs + 4200) - 80))
+    const spans = line.words.length
+      ? line.words.map((word) => `<span begin="${formatLyricTimestampFromMs(word.startMs)}" end="${formatLyricTimestampFromMs(Math.min(word.endMs, endMs))}">${escapeXml(word.text)}</span>`).join('')
+      : `<span begin="${formatLyricTimestampFromMs(line.startMs)}" end="${formatLyricTimestampFromMs(endMs)}">${escapeXml(line.text)}</span>`
+    const lineTranslation = translations.length ? translationForQrcLine(line.startMs, translations) : ''
+    const translationSpan = lineTranslation ? `<span ttm:role="x-translation" xml:lang="zh-CN">${escapeXml(lineTranslation)}</span>` : ''
+    return `<p begin="${formatLyricTimestampFromMs(line.startMs)}" end="${formatLyricTimestampFromMs(endMs)}" ttm:agent="v1" itunes:key="L${index + 1}">${spans}${translationSpan}</p>`
+  }).join('')
+
+  return `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:amll="http://www.example.com/ns/amll" xmlns:itunes="http://music.apple.com/lyric-ttml-internal"><head><metadata><ttm:agent type="person" xml:id="v1" /></metadata></head><body dur="${formatLyricTimestampFromMs(bodyEnd)}"><div begin="${formatLyricTimestampFromMs(bodyBegin)}" end="${formatLyricTimestampFromMs(bodyEnd)}">${paragraphs}</div></body></tt>`
+}
+
 function amllLyricLinesToTtml(lines: AmllParsedLyricLine[], translationText: string): string {
   const translations = parseTranslationLrc(translationText)
   const timedLines = lines.filter((line) => Number.isFinite(line.startTime) && Number.isFinite(line.endTime) && line.words.length)
@@ -1898,6 +2003,96 @@ async function fetchAmllDbSearchLyrics(track: LocalAudioImport): Promise<LyricsL
   }
 }
 
+function lddcServerUrls(): string[] {
+  const configured = process.env.LDDC_SERVER_URL?.trim()
+  const urls = new Set<string>()
+  if (configured) urls.add(configured.replace(/\/+$/, ''))
+  urls.add('http://127.0.0.1:8765')
+  for (let port = 9000; port <= 9015; port += 1) urls.add(`http://127.0.0.1:${port}`)
+  return [...urls]
+}
+
+async function postLddcJson<T>(baseUrl: string, endpoint: string, body: Record<string, unknown>): Promise<T | null> {
+  try {
+    const response = await fetch(`${baseUrl}/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'kmgccc-player-electron/0.1.0'
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(4500)
+    })
+    if (!response.ok) return null
+    return (await response.json()) as T
+  } catch {
+    return null
+  }
+}
+
+function lddcSourcesForPlatform(platform: LyricsLookupPlatform): LddcSource[] {
+  if (platform === 'qq') return ['QM']
+  if (platform === 'kugou') return ['KG']
+  if (platform === 'netease') return ['NE']
+  return ['QM', 'KG', 'NE']
+}
+
+function scoreLddcCandidate(track: LocalAudioImport, candidate: LddcCandidate): number {
+  let score = Math.max(0, Math.min(100, Number(candidate.score) || 0))
+  if (candidate.title) score += textSimilarityScore(track.title, candidate.title) * 18
+  if (!isUnknown(track.artist) && candidate.artist) score += textSimilarityScore(track.artist, candidate.artist) * 12
+  if (!isUnknown(track.album) && candidate.album) score += textSimilarityScore(track.album, candidate.album) * 5
+  if (track.duration > 0 && candidate.duration_ms) {
+    const diff = Math.abs(candidate.duration_ms / 1000 - track.duration)
+    if (diff <= 3) score += 6
+    else if (diff <= 10) score += 2
+  }
+  return score
+}
+
+async function fetchLddcLyrics(track: LocalAudioImport, sources: LddcSource[] = ['QM', 'KG', 'NE']): Promise<LyricsLookupResult | null> {
+  for (const baseUrl of lddcServerUrls()) {
+    const search = await postLddcJson<LddcSearchResponse>(baseUrl, 'search', {
+      title: track.title,
+      artist: isUnknown(track.artist) ? undefined : track.artist,
+      sources,
+      limit_per_source: 5,
+      mode: 'verbatim',
+      translation: 'provider'
+    })
+    const candidates = (search?.results ?? [])
+      .filter((candidate) => candidate.id && sources.includes(candidate.source as LddcSource))
+      .map((candidate) => ({ candidate, score: scoreLddcCandidate(track, candidate) }))
+      .sort((a, b) => b.score - a.score)
+
+    for (const { candidate, score } of candidates.slice(0, 6)) {
+      if (score < 62) continue
+      const fetched = await postLddcJson<LddcFetchSeparateResponse>(baseUrl, 'fetch_by_id_separate', {
+        source: candidate.source,
+        id: candidate.id,
+        mode: 'verbatim',
+        translation: 'provider',
+        offset_ms: 0,
+        title: candidate.title,
+        artist: candidate.artist,
+        album: candidate.album,
+        duration_ms: candidate.duration_ms,
+        extra: candidate.extra
+      })
+      const orig = fetched?.lrc_orig?.trim()
+      if (!orig || fetched?.error) continue
+      const syncedLyrics = lrcLyricsToTtml(orig, fetched?.lrc_trans)
+      if (!looksLikeTtmlLyrics(syncedLyrics)) continue
+      return {
+        syncedLyrics,
+        neteaseSongId: track.neteaseSongId,
+        qqMusicSongId: track.qqMusicSongId
+      }
+    }
+  }
+  return null
+}
+
 function formatLyricTimestampFromMs(milliseconds: number): string {
   const safeMs = Math.max(0, Math.round(milliseconds))
   const minutes = Math.floor(safeMs / 60000)
@@ -2000,6 +2195,9 @@ async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult 
   const amllSearchLyrics = await fetchAmllDbSearchLyrics(track).catch(() => null)
   if (amllSearchLyrics) return amllSearchLyrics
 
+  const lddcLyrics = await fetchLddcLyrics(track).catch(() => null)
+  if (lddcLyrics) return lddcLyrics
+
   const netEaseLyrics = await fetchNetEaseLyrics(track).catch(() => null)
   if (netEaseLyrics?.syncedLyrics && /<\d{1,2}:\d{2}(?:[.:]\d{1,3})?>/.test(netEaseLyrics.syncedLyrics)) return netEaseLyrics
 
@@ -2040,12 +2238,22 @@ async function fetchLyricsForPlatform(track: LocalAudioImport, platform: LyricsL
   }
   if (platform === 'qq') {
     const qqMusicLyrics = await fetchQQMusicLyrics(track).catch(() => null)
-    if (!qqMusicLyrics) return null
+    if (!qqMusicLyrics) {
+      return fetchLddcLyrics(track, lddcSourcesForPlatform(platform)).catch(() => null)
+    }
     const netEaseLyrics = await fetchNetEaseLyrics(track).catch(() => null)
     return { ...netEaseLyrics, ...qqMusicLyrics }
   }
   if (platform === 'netease') {
-    return fetchNetEaseLyrics(track).catch(() => null)
+    return (
+      (await fetchAmllTtmlLyrics(track).catch(() => null)) ??
+      (await fetchAmllDbSearchLyrics(track).catch(() => null)) ??
+      (await fetchNetEaseLyrics(track).catch(() => null)) ??
+      (await fetchLddcLyrics(track, lddcSourcesForPlatform(platform)).catch(() => null))
+    )
+  }
+  if (platform === 'kugou') {
+    return fetchLddcLyrics(track, lddcSourcesForPlatform(platform)).catch(() => null)
   }
   return null
 }
