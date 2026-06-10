@@ -3969,10 +3969,26 @@ ipcMain.on('window:close', (event) => {
 ipcMain.on('window:drag-start', (event, point: { x: number; y: number }) => {
   const owner = BrowserWindow.fromWebContents(event.sender)
   if (!owner || owner.isDestroyed()) return
+  const pointerX = Number.isFinite(point?.x) ? point.x : 0
+  const pointerY = Number.isFinite(point?.y) ? point.y : 0
+  if (owner.isMaximized()) {
+    const maximizedBounds = owner.getBounds()
+    const normalBounds = owner.getNormalBounds()
+    const pointerRatioX = maximizedBounds.width > 0 ? (pointerX - maximizedBounds.x) / maximizedBounds.width : 0.5
+    const nextX = Math.round(pointerX - normalBounds.width * Math.max(0, Math.min(1, pointerRatioX)))
+    const nextY = Math.round(pointerY - Math.min(48, Math.max(0, pointerY - maximizedBounds.y)))
+    owner.unmaximize()
+    owner.setBounds({
+      x: nextX,
+      y: nextY,
+      width: normalBounds.width,
+      height: normalBounds.height
+    }, false)
+  }
   const [windowX, windowY] = owner.getPosition()
   windowDragSessions.set(event.sender.id, {
-    pointerX: Number.isFinite(point?.x) ? point.x : 0,
-    pointerY: Number.isFinite(point?.y) ? point.y : 0,
+    pointerX,
+    pointerY,
     windowX,
     windowY
   })
