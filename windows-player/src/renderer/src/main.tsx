@@ -2415,7 +2415,19 @@ function App(): React.ReactElement {
       syncedLyrics: snapshot.syncedLyrics || metadata?.syncedLyrics,
       metadataSource: 'externalPlayback'
     }
-  }, [externalMetadataByIdentity, externalPlaybackSnapshot])
+  }, [
+    externalMetadataByIdentity,
+    externalPlaybackSnapshot?.album,
+    externalPlaybackSnapshot?.artworkUrl,
+    externalPlaybackSnapshot?.connectionState,
+    externalPlaybackSnapshot?.duration,
+    externalPlaybackSnapshot?.lyricsText,
+    externalPlaybackSnapshot?.sourceAppUserModelId,
+    externalPlaybackSnapshot?.sourceMode,
+    externalPlaybackSnapshot?.artist,
+    externalPlaybackSnapshot?.syncedLyrics,
+    externalPlaybackSnapshot?.title
+  ])
   const displayTrack = playbackSource === 'external' ? externalDisplayTrack : currentTrack
   const isExternalPlaybackSupported = systemPlatform === 'darwin'
   const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(displayTrack), [displayTrack])

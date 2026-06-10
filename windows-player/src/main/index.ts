@@ -2228,21 +2228,25 @@ async function fetchNetEaseLyrics(track: LocalAudioImport): Promise<LyricsLookup
   })
   if (!response.ok) return null
   const payload = (await response.json()) as NetEaseLyricPayload
+  const translatedLyrics = payload.tlyric?.lyric?.trim()
   if (payload.yrc?.lyric?.trim()) {
     const syncedLyrics = netEaseYrcToInlineLrc(payload.yrc.lyric)
     if (syncedLyrics.trim()) {
+      const ttmlLyrics = lrcLyricsToTtml(syncedLyrics, translatedLyrics)
       return {
-        lyricsText: payload.lrc?.lyric ? normalizeNetEaseLrc(payload.lrc.lyric) : payload.tlyric?.lyric || undefined,
-        syncedLyrics,
+        lyricsText: payload.lrc?.lyric ? normalizeNetEaseLrc(payload.lrc.lyric) : translatedLyrics || undefined,
+        syncedLyrics: looksLikeTtmlLyrics(ttmlLyrics) ? ttmlLyrics : syncedLyrics,
         neteaseSongId
       }
     }
   }
   const lrcLyrics = payload.lrc?.lyric?.trim()
   if (lrcLyrics) {
+    const normalizedLyrics = normalizeNetEaseLrc(lrcLyrics)
+    const ttmlLyrics = lrcLyricsToTtml(normalizedLyrics, translatedLyrics)
     return {
-      lyricsText: payload.tlyric?.lyric || undefined,
-      syncedLyrics: normalizeNetEaseLrc(lrcLyrics),
+      lyricsText: translatedLyrics || undefined,
+      syncedLyrics: looksLikeTtmlLyrics(ttmlLyrics) ? ttmlLyrics : normalizedLyrics,
       neteaseSongId
     }
   }
@@ -2277,9 +2281,15 @@ function fetchLocalCachedLyrics(track: LocalAudioImport): LyricsLookupResult | n
     .sort((a, b) => b.score - a.score)
   const cached = scored[0]?.candidate
   if (!cached) return null
+  const cachedSyncedLyrics = cached.syncedLyrics?.trim()
+  const cachedPlainLyrics = cached.lyricsText?.trim()
+  const mergedCachedLyrics =
+    cachedSyncedLyrics && cachedPlainLyrics && !looksLikeTtmlLyrics(cachedSyncedLyrics)
+      ? lrcLyricsToTtml(cachedSyncedLyrics, cachedPlainLyrics)
+      : cachedSyncedLyrics || cachedPlainLyrics
   return {
     lyricsText: cached.lyricsText,
-    syncedLyrics: cached.syncedLyrics || cached.lyricsText,
+    syncedLyrics: mergedCachedLyrics,
     neteaseSongId: cached.neteaseSongId,
     qqMusicSongId: cached.qqMusicSongId
   }
