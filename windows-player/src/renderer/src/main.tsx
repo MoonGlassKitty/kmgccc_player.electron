@@ -2394,6 +2394,7 @@ function App(): React.ReactElement {
   const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(() => initialPlaybackSession.isLyricsSidebarOpen ?? false)
   const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(() => initialPlaybackSession.lyricsSidebarWidth ?? 460)
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
+  const [isFullscreenLyricsVisible, setIsFullscreenLyricsVisible] = React.useState(true)
   const [lyricToneSeed, setLyricToneSeed] = React.useState<RgbColor | null>(null)
   const [currentId, setCurrentId] = React.useState(initialPlaybackSession.currentId ?? fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
   const [playbackQueueIds, setPlaybackQueueIds] = React.useState<string[]>(() => initialPlaybackSession.queueIds?.length ? initialPlaybackSession.queueIds : fallbackHomeSnapshot.tracks.map((track) => track.id))
@@ -3572,7 +3573,14 @@ function App(): React.ReactElement {
     setIsLyricsSidebarOpen((value) => !value)
   }, [])
   const toggleFullscreenLyrics = React.useCallback(() => {
-    setIsFullscreenLyricsOpen((value) => !value)
+    setIsFullscreenLyricsOpen((value) => {
+      const next = !value
+      if (next) setIsFullscreenLyricsVisible(true)
+      return next
+    })
+  }, [])
+  const toggleFullscreenLyricsVisibility = React.useCallback(() => {
+    setIsFullscreenLyricsVisible((value) => !value)
   }, [])
   const toggleArtworkBpmPulse = React.useCallback(() => {
     const trackId = currentTrack?.id
@@ -4102,6 +4110,7 @@ function App(): React.ReactElement {
               ledSpeed={ledSpeed}
               ledValues={ledValues}
               skinID={selectedFullscreenSkin}
+              lyricsVisible={isFullscreenLyricsVisible}
               visualizerMode={selectedFullscreenVisualizerMode}
               artBackgroundEnabled={isFullscreenArtBackgroundEnabled}
               artworkFrameMaskEnabled={isArtworkFrameMaskEnabled}
@@ -4144,6 +4153,8 @@ function App(): React.ReactElement {
                 onSelectTrack={selectTrack}
                 onOpenNowPlaying={openNowPlaying}
                 showFullscreenActions={isFullscreenLyricsOpen}
+                fullscreenLyricsVisible={isFullscreenLyricsVisible}
+                onToggleFullscreenLyricsVisibility={toggleFullscreenLyricsVisibility}
                 onOpenFullscreenSettings={openFullscreenSettings}
                 onExitFullscreen={isFullscreenLyricsOpen ? toggleFullscreenLyrics : navigateHome}
                 onSeek={seekTo}
@@ -6168,6 +6179,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   ledSpeed,
   ledValues,
   skinID,
+  lyricsVisible,
   visualizerMode,
   artBackgroundEnabled,
   artworkFrameMaskEnabled,
@@ -6194,6 +6206,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   ledSpeed: number
   ledValues: number[]
   skinID: FullscreenSkinID
+  lyricsVisible: boolean
   visualizerMode: VisualizerMode
   artBackgroundEnabled: boolean
   artworkFrameMaskEnabled: boolean
@@ -6291,7 +6304,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   }, [onLyricToneSeedChange, track?.id])
 
   return (
-    <section ref={pageRef} className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} amll-color-phase-${amllColorPhase % 2} no-drag`} style={fullscreenPageStyle}>
+    <section ref={pageRef} className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} ${lyricsVisible ? 'lyrics-visible' : 'lyrics-hidden'} amll-color-phase-${amllColorPhase % 2} no-drag`} style={fullscreenPageStyle}>
       {useCoverGradientBlur ? (
         <>
           {pixelStretchBackground ? <img className="fullscreen-lyrics-stretch-bg" src={pixelStretchBackground} alt="" decoding="async" /> : null}
@@ -9379,6 +9392,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onSelectTrack,
   onOpenNowPlaying,
   showFullscreenActions,
+  fullscreenLyricsVisible,
+  onToggleFullscreenLyricsVisibility,
   onOpenFullscreenSettings,
   onExitFullscreen,
   onSeek
@@ -9400,6 +9415,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onSelectTrack: (id: string) => void
   onOpenNowPlaying: () => void
   showFullscreenActions: boolean
+  fullscreenLyricsVisible: boolean
+  onToggleFullscreenLyricsVisibility: () => void
   onOpenFullscreenSettings: () => void
   onExitFullscreen: () => void
   onSeek: (seconds: number) => void
@@ -9476,6 +9493,15 @@ const MiniPlayer = React.memo(function MiniPlayer({
         <div className="mini-fullscreen-actions glass-panel no-drag" style={miniPlayerStyle}>
           <button type="button" aria-label="缩小到主界面" onClick={onExitFullscreen}>
             <Minimize2 size={22} />
+          </button>
+          <button
+            className={fullscreenLyricsVisible ? 'active' : ''}
+            type="button"
+            aria-label={fullscreenLyricsVisible ? '隐藏字幕' : '显示字幕'}
+            aria-pressed={fullscreenLyricsVisible}
+            onClick={onToggleFullscreenLyricsVisibility}
+          >
+            <MessageSquareQuote size={22} fill={fullscreenLyricsVisible ? 'currentColor' : 'none'} />
           </button>
           <button type="button" aria-label="全屏播放设置" onClick={onOpenFullscreenSettings}>
             <Palette size={22} />
