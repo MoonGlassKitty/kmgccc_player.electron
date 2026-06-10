@@ -2803,6 +2803,46 @@ function playbackStatusIsPaused(playbackStatus?: number): boolean {
   return playbackStatus === paused
 }
 
+function metadataFromCloudMusicWindowTitle(): Pick<ExternalPlaybackSnapshot, 'title' | 'artist'> | null {
+  if (process.platform !== 'win32') return null
+  try {
+    const stdout = execFileSync(
+      'powershell.exe',
+      [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        "Get-Process -Name cloudmusic -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle } | Select-Object -First 1 -ExpandProperty MainWindowTitle"
+      ],
+      { encoding: 'utf8', windowsHide: true, timeout: 1200 }
+    )
+    const windowTitle = stdout.trim()
+    const separatorIndex = windowTitle.lastIndexOf(' - ')
+    if (separatorIndex <= 0 || separatorIndex >= windowTitle.length - 3) return null
+    const title = windowTitle.slice(0, separatorIndex).trim()
+    const artist = windowTitle.slice(separatorIndex + 3).trim()
+    if (!title || !artist) return null
+    return { title, artist }
+  } catch {
+    return null
+  }
+}
+
+function enrichExternalPlaybackSnapshot(snapshot: ExternalPlaybackSnapshot): ExternalPlaybackSnapshot {
+  if ((snapshot.sourceAppUserModelId ?? '').toLowerCase() !== 'cloudmusic.exe') return snapshot
+  const metadata = metadataFromCloudMusicWindowTitle()
+  if (!metadata) return snapshot
+  return {
+    ...snapshot,
+    title: metadata.title,
+    artist: metadata.artist,
+    connectionState: 'runningHasData'
+  }
+}
+
 async function scoreWinRtSession(session: WinRtSession, isCurrent: boolean): Promise<number> {
   const playbackInfo = session.getPlaybackInfo()
   const controls = playbackInfo.controls ?? {}
@@ -3036,12 +3076,12 @@ async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): P
   const moduleAvailable = Boolean(loadWinRtMediaControl())
   if (!moduleAvailable) {
     const powershellSnapshot = await getPowerShellExternalPlaybackSnapshot(mode)
-    if (powershellSnapshot) return powershellSnapshot
+    if (powershellSnapshot) return enrichExternalPlaybackSnapshot(powershellSnapshot)
   }
   const session = await selectedExternalSession(mode)
   if (!session) {
     const powershellSnapshot = await getPowerShellExternalPlaybackSnapshot(mode)
-    if (powershellSnapshot) return powershellSnapshot
+    if (powershellSnapshot) return enrichExternalPlaybackSnapshot(powershellSnapshot)
     return {
       available: moduleAvailable,
       sourceMode: mode,
@@ -3067,7 +3107,7 @@ async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): P
   const controls = playbackInfo.controls ?? {}
   const title = (mediaProperties?.title ?? '').trim()
   const artist = (mediaProperties?.artist ?? mediaProperties?.albumArtist ?? '').trim()
-  return {
+  return enrichExternalPlaybackSnapshot({
     available: true,
     sourceMode: mode,
     connectionState: title ? 'runningHasData' : 'connectedNoMetadata',
@@ -3083,7 +3123,7 @@ async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): P
     canSkip: Boolean(controls.isNextEnabled || controls.isPreviousEnabled),
     canSeek: Boolean(controls.isPlaybackPositionEnabled),
     updatedAt: Date.now()
-  }
+  })
 }
 
 async function runExternalPlaybackCommand(command: string, value?: number): Promise<boolean> {

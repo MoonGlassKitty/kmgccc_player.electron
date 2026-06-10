@@ -142,6 +142,28 @@ type Track = {
 
 type PlaybackSourceKind = 'local' | 'external'
 
+type ExternalLyricsCacheEntry = {
+  lyricsText?: string
+  syncedLyrics?: string
+  status: 'loading' | 'ready' | 'empty' | 'failed'
+}
+
+type ExternalPlaybackClock = {
+  key: string
+  currentTime: number
+  updatedAt: number
+}
+
+function externalTrackKey(snapshot: ExternalPlaybackSnapshot | null): string {
+  if (!snapshot) return ''
+  return [
+    snapshot.sourceAppUserModelId || snapshot.sourceMode,
+    snapshot.title.trim(),
+    snapshot.artist.trim(),
+    snapshot.album?.trim() || ''
+  ].join('|')
+}
+
 type ArtworkBeat = {
   bpm: number
   offset: number
@@ -2343,6 +2365,7 @@ function App(): React.ReactElement {
   const [playbackSource, setPlaybackSource] = React.useState<PlaybackSourceKind>('local')
   const [externalPlaybackMode, setExternalPlaybackMode] = React.useState<ExternalPlaybackSourceMode>('auto')
   const [externalPlaybackSnapshot, setExternalPlaybackSnapshot] = React.useState<ExternalPlaybackSnapshot | null>(null)
+  const [externalLyricsByKey, setExternalLyricsByKey] = React.useState<Record<string, ExternalLyricsCacheEntry>>({})
   const [systemPlatform, setSystemPlatform] = React.useState<NodeJS.Platform | null>(null)
   const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(false)
   const [volume, setVolume] = React.useState(0.72)
@@ -2361,6 +2384,7 @@ function App(): React.ReactElement {
   const ledAnimationFrameRef = React.useRef<number | null>(null)
   const smoothedLedValuesRef = React.useRef<number[]>([])
   const lastPlaybackTimeRef = React.useRef(0)
+  const externalPlaybackClockRef = React.useRef<ExternalPlaybackClock>({ key: '', currentTime: 0, updatedAt: 0 })
   const loadedAudioTrackRef = React.useRef<string>('')
   const previousRouteNameRef = React.useRef<AppRoute['name']>('home')
   const previousEntryTargetRef = React.useRef<EntryRevealTarget | 'other'>('home')
@@ -2370,12 +2394,14 @@ function App(): React.ReactElement {
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
     [currentId, homeSnapshot]
   )
+  const externalPlaybackKey = React.useMemo(() => externalTrackKey(externalPlaybackSnapshot), [externalPlaybackSnapshot])
   const externalDisplayTrack = React.useMemo<Track | null>(() => {
     const snapshot = externalPlaybackSnapshot
     if (!snapshot) return null
     const artist = snapshot.artist.trim() || '未知艺人'
     const album = snapshot.album?.trim() || '外部播放'
     const ownerKey = snapshot.sourceAppUserModelId || snapshot.sourceMode
+    const lyrics = externalLyricsByKey[externalPlaybackKey]
     const title = snapshot.title.trim() || (() => {
       switch (snapshot.connectionState) {
         case 'connectedNoMetadata':
@@ -2396,12 +2422,14 @@ function App(): React.ReactElement {
       artistId: `external-artist-${artist}`,
       album,
       albumId: `external-album-${album}`,
-      duration: snapshot.duration,
+      duration: snapshot.duration > 0 ? snapshot.duration : 12 * 60,
       sourcePath: '',
       sourceUrl: '',
+      lyricsText: lyrics?.lyricsText,
+      syncedLyrics: lyrics?.syncedLyrics,
       metadataSource: 'externalPlayback'
     }
-  }, [externalPlaybackSnapshot])
+  }, [externalLyricsByKey, externalPlaybackKey, externalPlaybackSnapshot])
   const displayTrack = playbackSource === 'external' ? externalDisplayTrack : currentTrack
   const isExternalPlaybackSupported = systemPlatform === 'win32'
   const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(displayTrack), [displayTrack])
@@ -2978,11 +3006,35 @@ function App(): React.ReactElement {
       if (!window.kmgccc?.getExternalPlaybackSnapshot) return
       const snapshot = await window.kmgccc.getExternalPlaybackSnapshot(externalPlaybackMode)
       if (cancelled) return
-      setExternalPlaybackSnapshot(snapshot)
-      setIsPlaying(snapshot.isPlaying)
-      setPlaybackTime(snapshot.currentTime)
-      setPlaybackDuration(snapshot.duration)
-      writeMiniProgressRatio(snapshot.currentTime, snapshot.duration)
+      const key = externalTrackKey(snapshot)
+      const now = Date.now()
+      let currentTime = snapshot.currentTime
+      let duration = snapshot.duration
+      if (snapshot.available && key && duration <= 0) {
+        const previousClock = externalPlaybackClockRef.current
+        if (previousClock.key !== key) {
+          externalPlaybackClockRef.current = { key, currentTime: 0, updatedAt: now }
+        } else if (snapshot.isPlaying) {
+          const elapsedSeconds = Math.max(0, (now - previousClock.updatedAt) / 1000)
+          externalPlaybackClockRef.current = {
+            key,
+            currentTime: previousClock.currentTime + elapsedSeconds,
+            updatedAt: now
+          }
+        } else {
+          externalPlaybackClockRef.current = { ...previousClock, updatedAt: now }
+        }
+        currentTime = externalPlaybackClockRef.current.currentTime
+        duration = 12 * 60
+      } else if (key) {
+        externalPlaybackClockRef.current = { key, currentTime: snapshot.currentTime, updatedAt: now }
+      }
+      const normalizedSnapshot = { ...snapshot, currentTime, duration }
+      setExternalPlaybackSnapshot(normalizedSnapshot)
+      setIsPlaying(normalizedSnapshot.isPlaying)
+      setPlaybackTime(normalizedSnapshot.currentTime)
+      setPlaybackDuration(normalizedSnapshot.duration)
+      writeMiniProgressRatio(normalizedSnapshot.currentTime, normalizedSnapshot.duration)
     }
     void poll()
     const interval = window.setInterval(() => { void poll() }, 700)
@@ -2992,11 +3044,61 @@ function App(): React.ReactElement {
     }
   }, [externalPlaybackMode, playbackSource, writeMiniProgressRatio])
 
+  React.useEffect(() => {
+    if (playbackSource !== 'external') return
+    const snapshot = externalPlaybackSnapshot
+    const key = externalPlaybackKey
+    const title = snapshot?.title.trim() ?? ''
+    const artist = snapshot?.artist.trim() ?? ''
+    if (!key || !title || title === '外部播放' || !window.kmgccc?.lookupLyrics) return
+    if (externalLyricsByKey[key]) return
+    setExternalLyricsByKey((entries) => ({
+      ...entries,
+      [key]: { status: 'loading' }
+    }))
+    let cancelled = false
+    window.kmgccc.lookupLyrics({
+      title,
+      artist,
+      album: snapshot?.album?.trim() || '',
+      duration: snapshot?.duration && snapshot.duration < 12 * 60 ? snapshot.duration : 0,
+      mode: 'synced',
+      includeTranslation: true,
+      platform: 'auto'
+    }).then((result) => {
+      if (cancelled) return
+      const text = result?.syncedLyrics || result?.lyricsText || ''
+      setExternalLyricsByKey((entries) => ({
+        ...entries,
+        [key]: text.trim()
+          ? { status: 'ready', lyricsText: text, syncedLyrics: text }
+          : { status: 'empty' }
+      }))
+    }).catch(() => {
+      if (cancelled) return
+      setExternalLyricsByKey((entries) => ({
+        ...entries,
+        [key]: { status: 'failed' }
+      }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [externalLyricsByKey, externalPlaybackKey, externalPlaybackSnapshot, playbackSource])
+
   const seekTo = React.useCallback((seconds: number) => {
     if (!Number.isFinite(seconds)) return
     const nextTime = Math.max(0, seconds)
     if (playbackSource === 'external') {
       void window.kmgccc?.sendExternalPlaybackCommand?.('seek', nextTime)
+      const key = externalTrackKey(externalPlaybackSnapshot)
+      if (key && (externalPlaybackSnapshot?.duration ?? 0) >= 12 * 60) {
+        externalPlaybackClockRef.current = {
+          key,
+          currentTime: nextTime,
+          updatedAt: Date.now()
+        }
+      }
       writeMiniProgressRatio(nextTime, externalPlaybackSnapshot?.duration ?? playbackDuration)
       setPlaybackTime(nextTime)
       return
