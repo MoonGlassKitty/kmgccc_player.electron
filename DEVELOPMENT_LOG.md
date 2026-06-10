@@ -155,3 +155,4 @@
 - 页面元素默认禁止选中和原生拖拽：全局关闭普通 UI 的 `user-select` 与 `-webkit-user-drag`，图片和 SVG 禁止被拖出；输入框和文本域保留文字选择能力，避免影响编辑弹窗。`npm run typecheck` 与 `npm run build` 已通过。
 - 封面节奏律动关闭时清理当前歌 BPM：点击封面关闭律动会删除当前歌曲的临时测速缓存、界面 BPM 状态、长按/手动认可 BPM 以及 localStorage 中的当前歌记录；再次点击开启时必须重新实时计算，不再沿用关闭前的 BPM。`npm run typecheck` 与 `npm run build` 已通过。
 - 歌词翻译可读性提高：全屏 AMLL 与窗口/侧栏 AMLL 的翻译行 opacity 提高，未高亮翻译不再被二次压暗；普通歌词 fallback 的翻译行 opacity 也提升到 0.66，避免翻译过暗。`npm run typecheck` 与 `npm run build` 已通过。
+- 窗口播放歌词设置接线审查与修复：逐项检查窗口播放设置链路，确认皮肤、艺术背景、皮肤专属选项、LED 数量/亮度/频率/速度、歌词渲染质量、减弱高亮、主歌词字号/字重/字体、翻译字重/字体、整体提前量均有实际使用；修复翻译大小只影响预览的问题，让 AMLL 翻译子行读取 `--lyrics-translation-font-size`；修复窗口播放“提前量/紧邻切行阈值”只保存不生效的问题，将其接入 AMLL 行时间生成和 fallback active 行判定。`npm run typecheck` 与 `npm run build` 已通过。

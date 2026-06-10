@@ -3815,6 +3815,8 @@ function App(): React.ReactElement {
             onResizeStart={handleLyricsResizeStart}
             renderQuality={lyricsRenderQuality}
             reduceHighlight={isDiscreteWordHighlightEnabled}
+            leadInMs={lyricsLeadInMs}
+            nearSwitchGapMs={lyricsNearSwitchGapMs}
             colorStyle={desktopStyle}
           />
         ) : null}
@@ -5510,30 +5512,39 @@ function trackHasTimedLyrics(track: Track | null | undefined): boolean {
   return /\[[0-9]{1,2}:[0-9]{2}(?:[.:][0-9]{1,3})?\]/.test(rawLyrics) || /<(?:tt|p|span)\b/i.test(rawLyrics)
 }
 
-function activeLyricIndex(lines: ParsedLyricLine[], playbackTime: number): number {
+function activeLyricIndex(lines: ParsedLyricLine[], playbackTime: number, leadInMs = 180): number {
+  const leadInSeconds = Math.max(0, leadInMs) / 1000
   let activeIndex = -1
   lines.forEach((line, index) => {
-    if (line.time !== null && line.time <= playbackTime + 0.18) {
+    if (line.time !== null && line.time <= playbackTime + leadInSeconds) {
       activeIndex = index
     }
   })
   return activeIndex
 }
 
-function amllLyricLinesFromParsed(lines: ParsedLyricLine[], trackDuration: number): LyricLine[] {
+function amllLyricLinesFromParsed(lines: ParsedLyricLine[], trackDuration: number, leadInMs = 0, nearSwitchGapMs = 0): LyricLine[] {
   const timedLines = lines.filter((line): line is ParsedLyricLine & { time: number } => line.time !== null)
   const durationMs = trackDuration > 0 ? Math.round(trackDuration * 1000) : null
+  const visualLeadInMs = Math.max(0, leadInMs)
+  const visualNearSwitchGapMs = Math.max(0, nearSwitchGapMs)
 
   return timedLines.map((line, index) => {
-    const startTime = Math.max(0, Math.round(line.time * 1000))
-    const nextStartTime = timedLines[index + 1] ? Math.round(timedLines[index + 1].time * 1000) : null
+    const rawStartTime = Math.max(0, Math.round(line.time * 1000))
+    const rawNextStartTime = timedLines[index + 1] ? Math.round(timedLines[index + 1].time * 1000) : null
+    const startTime = Math.max(0, rawStartTime - visualLeadInMs)
+    const nextStartTime = rawNextStartTime !== null ? Math.max(0, rawNextStartTime - visualLeadInMs) : null
     const inferredEndTime = nextStartTime !== null ? nextStartTime - 80 : durationMs ?? startTime + 4200
-    const endTime = Math.max(startTime + 1200, Math.min(inferredEndTime, startTime + 8200))
+    const rawEndTime = Math.max(startTime + 1200, Math.min(inferredEndTime, startTime + 8200))
+    const shouldCompressLineEnd = rawNextStartTime !== null && line.words?.length && rawNextStartTime - (line.words.at(-1)?.endTime ?? rawStartTime) <= visualNearSwitchGapMs
+    const endTime = shouldCompressLineEnd && nextStartTime !== null
+      ? Math.max(startTime + 320, Math.min(rawEndTime, nextStartTime - 40))
+      : rawEndTime
     const words = line.words?.length
       ? line.words.map((word) => ({
         ...word,
-        startTime: Math.max(startTime, word.startTime),
-        endTime: Math.min(Math.max(word.startTime + 80, word.endTime), endTime)
+        startTime: Math.max(startTime, word.startTime - visualLeadInMs),
+        endTime: Math.min(Math.max(word.startTime - visualLeadInMs + 80, word.endTime - visualLeadInMs), endTime)
       }))
       : [{ startTime, endTime, word: line.text }]
 
@@ -5568,6 +5579,8 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   variant,
   renderQuality = 'balanced',
   reduceHighlight = false,
+  leadInMs = 0,
+  nearSwitchGapMs = 0,
   colorStyle
 }: {
   lines: ParsedLyricLine[]
@@ -5578,9 +5591,11 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   variant: 'side' | 'fullscreen'
   renderQuality?: LyricsRenderQuality
   reduceHighlight?: boolean
+  leadInMs?: number
+  nearSwitchGapMs?: number
   colorStyle?: React.CSSProperties
 }): React.ReactElement {
-  const amllLines = React.useMemo(() => amllLyricLinesFromParsed(lines, track?.duration ?? 0), [lines, track?.duration])
+  const amllLines = React.useMemo(() => amllLyricLinesFromParsed(lines, track?.duration ?? 0, leadInMs, nearSwitchGapMs), [leadInMs, lines, nearSwitchGapMs, track?.duration])
   const amllShellRef = React.useRef<HTMLDivElement | null>(null)
   const [isLyricHovering, setIsLyricHovering] = React.useState(false)
   const isLyricHoveringRef = React.useRef(false)
@@ -5715,13 +5730,17 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
   onResizeStart,
   renderQuality = 'balanced',
   reduceHighlight = false,
+  leadInMs = 180,
+  nearSwitchGapMs = 0,
   colorStyle
 }: LyricsSurfaceProps & {
   onResizeStart: (event: React.PointerEvent) => void
+  leadInMs?: number
+  nearSwitchGapMs?: number
   colorStyle?: React.CSSProperties
 }): React.ReactElement {
   const lines = React.useMemo(() => parseLyrics(track), [track])
-  const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
+  const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime, leadInMs), [leadInMs, lines, playbackTime])
   const artwork = trackArtwork(track, albums)
   const hasTimedLyrics = lines.some((line) => line.time !== null)
 
@@ -5747,7 +5766,7 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
 
       {lines.length ? (
         hasTimedLyrics ? (
-          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="side" renderQuality={renderQuality} reduceHighlight={reduceHighlight} colorStyle={colorStyle} />
+          <AMLLLyricsSurface lines={lines} track={track} playbackTime={playbackTime} isPlaying={isPlaying} onSeek={onSeek} variant="side" renderQuality={renderQuality} reduceHighlight={reduceHighlight} leadInMs={leadInMs} nearSwitchGapMs={nearSwitchGapMs} colorStyle={colorStyle} />
         ) : (
           <LyricsLineList lines={lines} currentLineIndex={currentLineIndex} onSeek={onSeek} variant="side" reduceHighlight={reduceHighlight} />
         )
