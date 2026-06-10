@@ -3034,21 +3034,19 @@ function App(): React.ReactElement {
             duration: snapshot.duration,
             platform: 'auto'
           }),
-          snapshot.artworkUrl
-            ? Promise.resolve([])
-            : window.kmgccc?.lookupCover?.({
-              kind: 'track',
-              title,
-              artist,
-              album,
-              duration: snapshot.duration
-            })
+          window.kmgccc?.lookupCover?.({
+            kind: 'track',
+            title,
+            artist,
+            album,
+            duration: snapshot.duration
+          })
         ])
         if (cancelled) return
         const lyrics = lyricsResult.status === 'fulfilled' ? lyricsResult.value : null
         const covers = coverCandidates.status === 'fulfilled' ? coverCandidates.value ?? [] : []
         const nextMetadata = {
-          artworkUrl: snapshot.artworkUrl || covers[0]?.artworkUrl,
+          artworkUrl: covers[0]?.artworkUrl || snapshot.artworkUrl,
           lyricsText: lyrics?.lyricsText,
           syncedLyrics: lyrics?.syncedLyrics
         }

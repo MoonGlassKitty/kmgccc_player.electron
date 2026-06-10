@@ -2249,8 +2249,53 @@ async function fetchNetEaseLyrics(track: LocalAudioImport): Promise<LyricsLookup
   return null
 }
 
+function localLyricsCacheKey(value?: string): string {
+  return (value ?? '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function fetchLocalCachedLyrics(track: LocalAudioImport): LyricsLookupResult | null {
+  const titleKey = localLyricsCacheKey(track.title)
+  if (!titleKey) return null
+  const artistKey = localLyricsCacheKey(track.artist)
+  const albumKey = localLyricsCacheKey(track.album)
+  const tracks = loadPersistedLibrary().tracks
+  const scored = tracks
+    .filter((candidate) => candidate.syncedLyrics?.trim() || candidate.lyricsText?.trim())
+    .map((candidate) => {
+      let score = 0
+      if (localLyricsCacheKey(candidate.title) === titleKey) score += 8
+      if (artistKey && !isUnknown(track.artist) && localLyricsCacheKey(candidate.artist) === artistKey) score += 4
+      if (albumKey && !isUnknown(track.album) && localLyricsCacheKey(candidate.album) === albumKey) score += 2
+      if (track.duration > 0 && candidate.duration > 0 && Math.abs(track.duration - candidate.duration) <= 3) score += 2
+      return { candidate, score }
+    })
+    .filter(({ score }) => score >= 8)
+    .sort((a, b) => b.score - a.score)
+  const cached = scored[0]?.candidate
+  if (!cached) return null
+  return {
+    lyricsText: cached.lyricsText,
+    syncedLyrics: cached.syncedLyrics || cached.lyricsText,
+    neteaseSongId: cached.neteaseSongId,
+    qqMusicSongId: cached.qqMusicSongId
+  }
+}
+
 async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
-  const amllLyrics = await fetchAmllTtmlLyrics(track)
+  const netEaseLyrics = await fetchNetEaseLyrics(track).catch(() => null)
+  if (netEaseLyrics) return netEaseLyrics
+
+  const qqMusicLyrics = await fetchQQMusicLyrics(track).catch(() => null)
+  if (qqMusicLyrics) return qqMusicLyrics
+
+  const localCachedLyrics = fetchLocalCachedLyrics(track)
+  if (localCachedLyrics) return localCachedLyrics
+
+  const amllLyrics = await fetchAmllTtmlLyrics(track).catch(() => null)
   if (amllLyrics) return amllLyrics
 
   const amllSearchLyrics = await fetchAmllDbSearchLyrics(track).catch(() => null)
@@ -2258,14 +2303,6 @@ async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult 
 
   const lddcLyrics = await fetchLddcLyrics(track).catch(() => null)
   if (lddcLyrics) return lddcLyrics
-
-  const netEaseLyrics = await fetchNetEaseLyrics(track).catch(() => null)
-  if (netEaseLyrics?.syncedLyrics && /<\d{1,2}:\d{2}(?:[.:]\d{1,3})?>/.test(netEaseLyrics.syncedLyrics)) return netEaseLyrics
-
-  const qqMusicLyrics = await fetchQQMusicLyrics(track).catch(() => null)
-  if (qqMusicLyrics) return { ...netEaseLyrics, ...qqMusicLyrics }
-
-  if (netEaseLyrics) return netEaseLyrics
 
   const url = new URL('https://lrclib.net/api/search')
   url.searchParams.set('track_name', track.title)
