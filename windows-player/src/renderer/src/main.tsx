@@ -148,6 +148,11 @@ type ExternalLyricsCacheEntry = {
   status: 'loading' | 'ready' | 'empty' | 'failed'
 }
 
+type ExternalArtworkCacheEntry = {
+  artworkUrl?: string
+  status: 'loading' | 'ready' | 'empty' | 'failed'
+}
+
 type ExternalPlaybackClock = {
   key: string
   currentTime: number
@@ -2363,9 +2368,10 @@ function App(): React.ReactElement {
   const [playbackQueueIds, setPlaybackQueueIds] = React.useState<string[]>(() => fallbackHomeSnapshot.tracks.map((track) => track.id))
   const [isPlaying, setIsPlaying] = React.useState(false)
   const [playbackSource, setPlaybackSource] = React.useState<PlaybackSourceKind>('local')
-  const [externalPlaybackMode, setExternalPlaybackMode] = React.useState<ExternalPlaybackSourceMode>('auto')
+  const [externalPlaybackMode, setExternalPlaybackMode] = React.useState<ExternalPlaybackSourceMode>('thirdParty')
   const [externalPlaybackSnapshot, setExternalPlaybackSnapshot] = React.useState<ExternalPlaybackSnapshot | null>(null)
   const [externalLyricsByKey, setExternalLyricsByKey] = React.useState<Record<string, ExternalLyricsCacheEntry>>({})
+  const [externalArtworkByKey, setExternalArtworkByKey] = React.useState<Record<string, ExternalArtworkCacheEntry>>({})
   const [systemPlatform, setSystemPlatform] = React.useState<NodeJS.Platform | null>(null)
   const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(false)
   const [volume, setVolume] = React.useState(0.72)
@@ -2402,6 +2408,7 @@ function App(): React.ReactElement {
     const album = snapshot.album?.trim() || '外部播放'
     const ownerKey = snapshot.sourceAppUserModelId || snapshot.sourceMode
     const lyrics = externalLyricsByKey[externalPlaybackKey]
+    const artwork = externalArtworkByKey[externalPlaybackKey]
     const title = snapshot.title.trim() || (() => {
       switch (snapshot.connectionState) {
         case 'connectedNoMetadata':
@@ -2423,13 +2430,14 @@ function App(): React.ReactElement {
       album,
       albumId: `external-album-${album}`,
       duration: snapshot.duration > 0 ? snapshot.duration : 12 * 60,
+      artworkUrl: artwork?.artworkUrl,
       sourcePath: '',
       sourceUrl: '',
       lyricsText: lyrics?.lyricsText,
       syncedLyrics: lyrics?.syncedLyrics,
       metadataSource: 'externalPlayback'
     }
-  }, [externalLyricsByKey, externalPlaybackKey, externalPlaybackSnapshot])
+  }, [externalArtworkByKey, externalLyricsByKey, externalPlaybackKey, externalPlaybackSnapshot])
   const displayTrack = playbackSource === 'external' ? externalDisplayTrack : currentTrack
   const isExternalPlaybackSupported = systemPlatform === 'win32'
   const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(displayTrack), [displayTrack])
@@ -3085,6 +3093,57 @@ function App(): React.ReactElement {
       cancelled = true
     }
   }, [externalLyricsByKey, externalPlaybackKey, externalPlaybackSnapshot, playbackSource])
+
+  React.useEffect(() => {
+    if (playbackSource !== 'external') return
+    const snapshot = externalPlaybackSnapshot
+    const key = externalPlaybackKey
+    const title = snapshot?.title.trim() ?? ''
+    const artist = snapshot?.artist.trim() ?? ''
+    const album = snapshot?.album?.trim() ?? ''
+    if (!key || !title || title === '外部播放' || !window.kmgccc?.lookupCover) return
+    if (externalArtworkByKey[key]) return
+    setExternalArtworkByKey((entries) => ({
+      ...entries,
+      [key]: { status: 'loading' }
+    }))
+    let cancelled = false
+    const lookup = async (): Promise<string> => {
+      const albumCandidates = album
+        ? await window.kmgccc!.lookupCover({
+          kind: 'album',
+          title,
+          artist,
+          album
+        })
+        : []
+      const trackCandidates = albumCandidates.length ? [] : await window.kmgccc!.lookupCover({
+        kind: 'track',
+        title,
+        artist,
+        album
+      })
+      return (albumCandidates[0]?.artworkUrl || trackCandidates[0]?.artworkUrl || '').trim()
+    }
+    lookup().then((artworkUrl) => {
+      if (cancelled) return
+      setExternalArtworkByKey((entries) => ({
+        ...entries,
+        [key]: artworkUrl
+          ? { status: 'ready', artworkUrl }
+          : { status: 'empty' }
+      }))
+    }).catch(() => {
+      if (cancelled) return
+      setExternalArtworkByKey((entries) => ({
+        ...entries,
+        [key]: { status: 'failed' }
+      }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [externalArtworkByKey, externalPlaybackKey, externalPlaybackSnapshot, playbackSource])
 
   const seekTo = React.useCallback((seconds: number) => {
     if (!Number.isFinite(seconds)) return
