@@ -167,3 +167,4 @@
 - 分支结构与 README 重写：`main` 定位为 Swift 参考源码 + Electron 主体的完整基线，`win/mac/linux` 定位为平台专用 Electron 开发分支；main README 更新为分支说明、工程入口、Electron 外部播放状态和推荐工作流。
 - 全屏歌词交互层级修正：全屏歌词打开时 `content-pane` 不再以整块 stacking context 压在全屏歌词页上，`fullscreen-lyrics-page` 提升到普通内容之上，同时保留底栏 hover 区、时间条和播放页按钮自己的层级；修复全屏 AMLL 歌词无法滚动选择、点击歌词无法跳转的问题。`npm run typecheck` 已通过。
 - 全屏歌词布局修正：全屏 AMLL 的对齐锚点下移，空歌词态在全屏歌词区内补足高度并轻微下移，避免整体贴在上方；`fullscreen.coverGradientBlur` 皮肤下背景已由封面铺开，不再额外渲染左侧封面舞台，避免出现封面叠封面。`npm run typecheck` 已通过。
+- Home 专辑卡片长标题排版修正：专辑封面右侧预留稳定白色安全边，标题/艺人文字同步避让该边界；专辑标题从单行省略改为最多两行显示，长标题按右侧留白路径截断，减少贴边和被圆角区域挤压的问题。`npm run typecheck` 已通过。
