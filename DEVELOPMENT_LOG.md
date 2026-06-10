@@ -196,3 +196,4 @@
 - CloudMusic 第三方歌词源回退补齐：确认 `Green Grass Of Tunnel - Múm` 在 LRCLIB 有同步歌词，但外部播放自动歌词只并发本地资料库、QQ、网易云定向查询，漏掉 `auto` 完整链路的 LRCLIB 回退；现在外部播放也并发 `platform: auto`，让网易云/QQ 未命中时仍能拿到 LRCLIB 歌词，并继续由质量评分选择更完整的结果。
 - CloudMusic 第三方 LRCLIB 直连：确认 `Paris - The Chainsmokers` 在 LRCLIB 有同步歌词；外部播放层已经并发查本地、QQ、网易云和 auto，但 LRCLIB 之前只在 `auto` 内部串行回退末端，不是独立并发源。主进程新增 `platform: lrclib` 独立歌词查询，renderer 外部播放并发源加入 LRCLIB 直连，英文歌/网易云无词歌曲可更快落歌词。
 - CloudMusic 第三方本地歌词兜底顺序：外部播放歌词现在在线源（QQ、网易云、LRCLIB、auto）并发抢结果，本地资料库歌词也立即查但只暂存；只有在线源全部失败/为空时才发布本地歌词，避免本地旧歌词或弱匹配过早抢占在线结果，同时保证全网找不到时仍能回落本地。
+- 网易云 tlyric-only 歌词放宽：实测 `樹海 / 雪国` 的网易云歌词接口 `2158321861` 返回 `code=200`，但 `lrc/yrc` 为空、只有带时间轴的 `tlyric`；`fetchNetEaseLyrics` 与 CloudMusic 本地 lyric cache 解析现在在 yrc/lrc 都缺失时接受 `tlyric` 作为同步歌词，避免把这类可用歌词误判为空。

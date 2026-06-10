@@ -2639,6 +2639,17 @@ function lyricsFromCloudMusicCache(neteaseSongId: number): LyricsLookupResult | 
         neteaseSongId
       }
     }
+    const translatedOnlyLyrics = payload.tlyric?.lyric?.trim()
+    if (translatedOnlyLyrics) {
+      const syncedLyrics = normalizeNetEaseLrc(translatedOnlyLyrics)
+      if (syncedLyrics.trim()) {
+        return {
+          lyricsText: syncedLyrics,
+          syncedLyrics,
+          neteaseSongId
+        }
+      }
+    }
   } catch {
     return null
   }
@@ -2686,6 +2697,17 @@ async function fetchNetEaseLyrics(track: LocalAudioImport): Promise<LyricsLookup
       lyricsText: payload.tlyric?.lyric || undefined,
       syncedLyrics: normalizeNetEaseLrc(lrcLyrics),
       neteaseSongId
+    }
+  }
+  const translatedOnlyLyrics = payload.tlyric?.lyric?.trim()
+  if (translatedOnlyLyrics) {
+    const syncedLyrics = normalizeNetEaseLrc(translatedOnlyLyrics)
+    if (syncedLyrics.trim()) {
+      return {
+        lyricsText: syncedLyrics,
+        syncedLyrics,
+        neteaseSongId
+      }
     }
   }
   return null
