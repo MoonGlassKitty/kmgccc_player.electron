@@ -2459,6 +2459,10 @@ function App(): React.ReactElement {
   const playbackTimeRef = React.useRef(0)
   const externalPlaybackClockRef = React.useRef<ExternalPlaybackClock>({ key: '', currentTime: 0, updatedAt: 0 })
   const tapeDeviceConnectedRef = React.useRef<boolean | null>(null)
+  const selectedNowPlayingSkinRef = React.useRef<NowPlayingSkinID>(selectedNowPlayingSkin)
+  const selectedFullscreenSkinRef = React.useRef<FullscreenSkinID>(selectedFullscreenSkin)
+  const previousTapeNowPlayingSkinRef = React.useRef<NowPlayingSkinID | null>(null)
+  const previousTapeFullscreenSkinRef = React.useRef<FullscreenSkinID | null>(null)
   const loadedAudioTrackRef = React.useRef<string>('')
   const previousRouteNameRef = React.useRef<AppRoute['name']>('home')
   const previousEntryTargetRef = React.useRef<EntryRevealTarget | 'other'>('home')
@@ -2479,6 +2483,14 @@ function App(): React.ReactElement {
   }, [externalArtworkByKey])
 
   React.useEffect(() => {
+    selectedNowPlayingSkinRef.current = selectedNowPlayingSkin
+  }, [selectedNowPlayingSkin])
+
+  React.useEffect(() => {
+    selectedFullscreenSkinRef.current = selectedFullscreenSkin
+  }, [selectedFullscreenSkin])
+
+  React.useEffect(() => {
     if (!window.kmgccc?.getTapeDevicePresence) return
     let cancelled = false
     const checkTapeDevice = async (): Promise<void> => {
@@ -2486,9 +2498,19 @@ function App(): React.ReactElement {
       if (cancelled || !snapshot) return
       const wasConnected = tapeDeviceConnectedRef.current
       tapeDeviceConnectedRef.current = snapshot.connected
-      if (!snapshot.connected || wasConnected === true) return
-      setSelectedNowPlayingSkin('kmgccc.cassette')
-      setSelectedFullscreenSkin('kmgccc.cassette')
+      if (snapshot.connected && wasConnected !== true) {
+        previousTapeNowPlayingSkinRef.current = selectedNowPlayingSkinRef.current
+        previousTapeFullscreenSkinRef.current = selectedFullscreenSkinRef.current
+        setSelectedNowPlayingSkin('kmgccc.cassette')
+        setSelectedFullscreenSkin('kmgccc.cassette')
+        return
+      }
+      if (!snapshot.connected && wasConnected === true) {
+        if (previousTapeNowPlayingSkinRef.current) setSelectedNowPlayingSkin(previousTapeNowPlayingSkinRef.current)
+        if (previousTapeFullscreenSkinRef.current) setSelectedFullscreenSkin(previousTapeFullscreenSkinRef.current)
+        previousTapeNowPlayingSkinRef.current = null
+        previousTapeFullscreenSkinRef.current = null
+      }
     }
     void checkTapeDevice()
     const interval = window.setInterval(() => {
