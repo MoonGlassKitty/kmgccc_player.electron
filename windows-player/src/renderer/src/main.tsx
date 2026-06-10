@@ -523,6 +523,13 @@ type EntryRevealState = {
   target: EntryRevealTarget
   phase: 'loading' | 'revealing'
 } | null
+
+const entryRevealTargetForRoute = (routeName: AppRoute['name'], isFullscreenLyricsOpen: boolean): EntryRevealTarget | 'other' => {
+  if (isFullscreenLyricsOpen) return 'fullscreen'
+  if (routeName === 'home' || routeName === 'nowPlaying') return routeName
+  return 'other'
+}
+
 type LibraryLocationInfo = {
   currentPath: string
   isDefault: boolean
@@ -2353,6 +2360,7 @@ function App(): React.ReactElement {
   const [importSyncState, setImportSyncState] = React.useState<ImportSyncState | null>(null)
   const [contextMenu, setContextMenu] = React.useState<ContextMenuState | null>(null)
   const [libraryDialog, setLibraryDialog] = React.useState<LibraryDialogState | null>(null)
+  const hasMountedEntryRevealRef = React.useRef(false)
   const audioRef = React.useRef<HTMLAudioElement>(null)
   const audioContextRef = React.useRef<AudioContext | null>(null)
   const audioSourceRef = React.useRef<MediaElementAudioSourceNode | null>(null)
@@ -2366,7 +2374,7 @@ function App(): React.ReactElement {
   const loadedAudioTrackRef = React.useRef<string>('')
   const pendingExternalMetadataRef = React.useRef<Set<string>>(new Set())
   const previousRouteNameRef = React.useRef<AppRoute['name']>('home')
-  const previousEntryTargetRef = React.useRef<EntryRevealTarget | 'other'>('home')
+  const previousEntryTargetRef = React.useRef<EntryRevealTarget | 'other'>(entryRevealTargetForRoute(route.name, false))
   const entryRevealTimersRef = React.useRef<number[]>([])
   const albums = React.useMemo(() => albumById(homeSnapshot), [homeSnapshot])
   const currentTrack = React.useMemo(
@@ -3865,13 +3873,13 @@ function App(): React.ReactElement {
   }, [route.name])
 
   React.useEffect(() => {
-    const nextTarget: EntryRevealTarget | 'other' = isFullscreenLyricsOpen
-      ? 'fullscreen'
-      : route.name === 'home' || route.name === 'nowPlaying'
-        ? route.name
-        : 'other'
+    const nextTarget = entryRevealTargetForRoute(route.name, isFullscreenLyricsOpen)
     const previousTarget = previousEntryTargetRef.current
     previousEntryTargetRef.current = nextTarget
+    if (!hasMountedEntryRevealRef.current) {
+      hasMountedEntryRevealRef.current = true
+      return
+    }
     if (nextTarget === 'other' || previousTarget === nextTarget) return
 
     for (const timer of entryRevealTimersRef.current) {
