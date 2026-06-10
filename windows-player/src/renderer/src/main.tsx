@@ -164,7 +164,7 @@ type ExternalPlaybackClock = {
 
 const EXTERNAL_PLAYBACK_FALLBACK_DURATION_SECONDS = 12 * 60
 const EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS = 1.5
-const EXTERNAL_LYRICS_RETRY_DELAY_MS = 8000
+const EXTERNAL_LYRICS_RETRY_DELAY_MS = 1000
 
 function externalTrackKey(snapshot: ExternalPlaybackSnapshot | null): string {
   if (!snapshot) return ''
