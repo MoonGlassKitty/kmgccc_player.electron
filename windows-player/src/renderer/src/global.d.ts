@@ -169,6 +169,9 @@ declare global {
       minimize: () => void
       toggleMaximize: () => void
       close: () => void
+      startWindowDrag: (point: { x: number; y: number }) => void
+      moveWindowDrag: (point: { x: number; y: number }) => void
+      endWindowDrag: () => void
       getHomeSnapshot: () => Promise<HomeSnapshot>
       importAudioFile: () => Promise<LocalAudioImport | null>
       importAudioFiles: () => Promise<{ tracks: LocalAudioImport[] } | null>
