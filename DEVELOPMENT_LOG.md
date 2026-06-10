@@ -152,3 +152,4 @@
 - 全屏歌词底栏唤出区域修正：全屏歌词下底部 hover-zone 高度加大到覆盖状态栏周围一圈；隐藏状态的时间跳转层仍保持 pointer-events，可在底部时间区域 hover/点击时同时唤出状态栏、左侧按钮和时间层，再执行跳转。`npm run typecheck` 与 `npm run build` 已通过。
 - 窗口拖拽判定条层级修正：将 `titlebar-drag-region` 提升到固定 `z-index:100`，右上角窗口控制提升到 `101`，避免进入窗口播放/全屏歌词后被 content pane、全屏歌词页或底部时间层压住导致无法拖动软件。`npm run typecheck` 与 `npm run build` 已通过。
 - 播放页顶部拖拽判定继续加固：将顶部拖拽判定层提升到 `z-index:10000`，窗口控制按钮提升到 `10001`，并把判定高度扩展到标题栏下方 16px，避免窗口播放/全屏歌词页顶部只有局部区域能拖动。`npm run typecheck` 与 `npm run build` 已通过。
+- 页面元素默认禁止选中和原生拖拽：全局关闭普通 UI 的 `user-select` 与 `-webkit-user-drag`，图片和 SVG 禁止被拖出；输入框和文本域保留文字选择能力，避免影响编辑弹窗。`npm run typecheck` 与 `npm run build` 已通过。
