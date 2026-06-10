@@ -178,6 +178,8 @@ type ExternalPlaybackSnapshot = {
   artworkUrl?: string
   audioSourceUrl?: string
   neteaseSongId?: number
+  lyricsText?: string
+  syncedLyrics?: string
   error?: string
 }
 
@@ -380,6 +382,7 @@ type MetadataCandidate = {
 
 const externalSnapshotMetadataByKey = new Map<string, Promise<TrackMetadataLookupResult | null>>()
 const externalAudioSourceBySongId = new Map<number, Promise<string | null>>()
+const externalLyricsBySongId = new Map<number, Promise<LyricsLookupResult | null>>()
 
 type TrackMetadataLookupResult = {
   title?: string
@@ -1582,6 +1585,21 @@ function cloudMusicAudioSourceUrl(songId: number): Promise<string | null> {
     if (externalAudioSourceBySongId.size > 24) {
       const oldest = externalAudioSourceBySongId.keys().next().value
       if (oldest) externalAudioSourceBySongId.delete(oldest)
+    }
+  }
+  return lookup
+}
+
+function externalLyricsForNetEaseSong(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
+  const songId = positiveInteger(track.neteaseSongId)
+  if (!songId) return Promise.resolve(null)
+  let lookup = externalLyricsBySongId.get(songId)
+  if (!lookup) {
+    lookup = fetchNetEaseLyrics(track).catch(() => null)
+    externalLyricsBySongId.set(songId, lookup)
+    if (externalLyricsBySongId.size > 80) {
+      const oldest = externalLyricsBySongId.keys().next().value
+      if (oldest) externalLyricsBySongId.delete(oldest)
     }
   }
   return lookup
@@ -3378,7 +3396,23 @@ async function attachExternalPlaybackMetadata(snapshot: ExternalPlaybackSnapshot
     return enriched
   }
   const neteaseSongId = metadata.neteaseSongId ?? enriched.neteaseSongId
-  const audioSourceUrl = neteaseSongId ? await cloudMusicAudioSourceUrl(neteaseSongId) : null
+  const ids = idsForMetadata(metadata.artist || enriched.artist || '未知艺人', metadata.album || enriched.album || '未知专辑')
+  const metadataTrack: LocalAudioImport = {
+    id: `external-${neteaseSongId ?? createHash('sha1').update(`${title}|${enriched.artist}|${enriched.album ?? ''}`).digest('hex').slice(0, 12)}`,
+    title: metadata.title || title,
+    artist: metadata.artist || enriched.artist || '未知艺人',
+    artistId: ids.artistId,
+    album: metadata.album || enriched.album || '未知专辑',
+    albumId: ids.albumId,
+    duration: metadata.duration ?? enriched.duration,
+    neteaseSongId,
+    sourcePath: '',
+    sourceUrl: ''
+  }
+  const [audioSourceUrl, lyrics] = await Promise.all([
+    neteaseSongId ? cloudMusicAudioSourceUrl(neteaseSongId) : Promise.resolve(null),
+    neteaseSongId ? externalLyricsForNetEaseSong(metadataTrack) : Promise.resolve(null)
+  ])
   return {
     ...enriched,
     title: enriched.title.trim() || metadata.title || enriched.title,
@@ -3387,7 +3421,9 @@ async function attachExternalPlaybackMetadata(snapshot: ExternalPlaybackSnapshot
     duration: enriched.duration > 0 ? enriched.duration : metadata.duration ?? enriched.duration,
     artworkUrl: metadata.artworkUrl || enriched.artworkUrl,
     audioSourceUrl: audioSourceUrl ?? enriched.audioSourceUrl,
-    neteaseSongId
+    neteaseSongId,
+    lyricsText: lyrics?.lyricsText,
+    syncedLyrics: lyrics?.syncedLyrics
   }
 }
 

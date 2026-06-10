@@ -2628,8 +2628,8 @@ function App(): React.ReactElement {
       artworkUrl,
       sourcePath: '',
       sourceUrl: snapshot.audioSourceUrl ?? '',
-      lyricsText: lyrics?.lyricsText,
-      syncedLyrics: lyrics?.syncedLyrics,
+      lyricsText: lyrics?.lyricsText || snapshot.lyricsText,
+      syncedLyrics: lyrics?.syncedLyrics || snapshot.syncedLyrics,
       metadataSource: 'externalPlayback'
     }
   }, [externalArtworkByKey, externalLyricsByKey, externalPlaybackKey, externalPlaybackSnapshot])

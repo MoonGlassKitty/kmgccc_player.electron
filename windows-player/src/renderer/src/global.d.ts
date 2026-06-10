@@ -159,6 +159,8 @@ declare global {
     artworkUrl?: string
     audioSourceUrl?: string
     neteaseSongId?: number
+    lyricsText?: string
+    syncedLyrics?: string
     error?: string
   }
 
