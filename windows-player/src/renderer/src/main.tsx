@@ -2404,7 +2404,7 @@ function App(): React.ReactElement {
     }
   }, [externalPlaybackSnapshot])
   const displayTrack = playbackSource === 'external' ? externalDisplayTrack : currentTrack
-  const isExternalPlaybackSupported = systemPlatform === 'win32'
+  const isExternalPlaybackSupported = systemPlatform === 'darwin'
   const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(displayTrack), [displayTrack])
   React.useEffect(() => {
     if (!isMultiSelectMode) setSelectedTrackIds(new Set())
@@ -4965,7 +4965,7 @@ const Sidebar = React.memo(function Sidebar({
     auto: '自动检测'
   }
   const externalSourceDetail = React.useMemo(() => {
-    if (!isExternalPlaybackSupported) return '仅 Windows 可用'
+    if (!isExternalPlaybackSupported) return '仅 macOS 可用'
     if (playbackSource !== 'external') return '未连接'
     if (!externalPlaybackSnapshot?.available) return '不可用'
     if (externalPlaybackSnapshot.connectionState === 'disconnected') return '未检测到'

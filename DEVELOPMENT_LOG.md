@@ -169,3 +169,4 @@
 - Home 专辑卡片长标题排版修正：专辑封面右侧预留稳定白色安全边，标题/艺人文字同步避让该边界；专辑标题从单行省略改为最多两行显示，长标题按右侧留白路径截断，减少贴边和被圆角区域挤压的问题。`npm run typecheck` 已通过。
 - 专辑/艺人/歌单详情头部细节修正：详情页编辑按钮改为圆形铅笔图标按钮，避免“编辑专辑”文字在按钮里换行；专辑详情在元信息下方显示同步/编辑得到的简介，没有简介时显示专辑概览占位，并把播放按钮组从固定下推改为跟随简介自然排版。`npm run typecheck` 已通过。
 - 全屏左下角控制补齐：参考 Swift `FullscreenPlayerView` 的 leading controls，左下角从缩小/外观两个按钮改为缩小、字幕、外观三个按钮；字幕按钮切换全屏歌词列显隐，动画由外层布局/CSS 完成，不依赖 AMLL 内部隐藏。`npm run typecheck` 已通过。
+- macOS 外部播放源接入：mgkccc-mac 分支移除 Electron 主进程里的 Windows GSMTC/NodeRT/PowerShell 外部音源路径和 NodeRT 可选依赖，改为按 Swift `SystemNowPlayingProvider` 使用 `mediaremote-adapter.pl + MediaRemoteAdapter.framework` 读取 macOS MediaRemote 当前播放信息；第三方音乐软件/其他源/自动检测通过 bundle id 区分浏览器源与普通第三方源，播放/暂停/上一首/下一首按 Swift 的 `send 0/1/2/4/5` 映射转发，seek 继续保持禁用以匹配 Swift 对 adapter seek 不可靠的处理。打包配置用 `extraResources` 外置 adapter，renderer 平台判断改为仅 macOS 启用；本机 adapter 绝对路径 smoke test 已能读到网易云当前曲目信息，`npm run typecheck` 与 `npm run build` 已通过。

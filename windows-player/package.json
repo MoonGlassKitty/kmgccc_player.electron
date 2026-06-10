@@ -22,6 +22,12 @@
       "out/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "resources/mediaremote-adapter",
+        "to": "mediaremote-adapter"
+      }
+    ],
     "win": {
       "signAndEditExecutable": false,
       "target": [
@@ -63,10 +69,5 @@
     "electron-vite": "^4.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.2.7"
-  },
-  "optionalDependencies": {
-    "@nodert-win11/windows.media": "^0.1.6",
-    "@nodert-win11/windows.media.control": "^0.1.6",
-    "@nodert-win11/windows.storage.streams": "^0.1.6"
   }
 }

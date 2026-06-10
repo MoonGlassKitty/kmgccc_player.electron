@@ -2,7 +2,6 @@ import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol, shell 
 import { execFile, execFileSync } from 'node:child_process'
 import { createDecipheriv, createHash } from 'node:crypto'
 import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { basename, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,7 +9,6 @@ import { Readable } from 'node:stream'
 import { decryptQrcHex, parseQrc, type LyricLine as AmllParsedLyricLine } from '@applemusic-like-lyrics/lyric'
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL)
-const runtimeRequire = createRequire(import.meta.url)
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -178,62 +176,39 @@ type ExternalPlaybackSnapshot = {
   error?: string
 }
 
-type WinRtMediaControlModule = {
-  GlobalSystemMediaTransportControlsSessionManager: {
-    requestAsync(callback: (error: Error | null, result: unknown) => void): void
-  }
-  GlobalSystemMediaTransportControlsSessionPlaybackStatus?: {
-    playing?: number
-    paused?: number
-    stopped?: number
-  }
-}
-
-type WinRtSessionManager = {
-  getCurrentSession(): WinRtSession | null
-  getSessions?(): unknown
-}
-
-type WinRtSession = {
-  sourceAppUserModelId?: string
-  tryGetMediaPropertiesAsync(callback: (error: Error | null, result: WinRtMediaProperties) => void): void
-  getTimelineProperties(): WinRtTimelineProperties
-  getPlaybackInfo(): WinRtPlaybackInfo
-  tryTogglePlayPauseAsync(callback: (error: Error | null, result: boolean) => void): void
-  tryPlayAsync(callback: (error: Error | null, result: boolean) => void): void
-  tryPauseAsync(callback: (error: Error | null, result: boolean) => void): void
-  trySkipNextAsync(callback: (error: Error | null, result: boolean) => void): void
-  trySkipPreviousAsync(callback: (error: Error | null, result: boolean) => void): void
-  tryChangePlaybackPositionAsync(position: number, callback: (error: Error | null, result: boolean) => void): void
-}
-
-type WinRtMediaProperties = {
+type MediaRemotePayload = {
+  bundleIdentifier?: string
+  parentApplicationBundleIdentifier?: string
+  clientBundleIdentifier?: string
+  ownerBundleIdentifier?: string
+  applicationBundleIdentifier?: string
+  processIdentifier?: number
+  pid?: number
+  playing?: boolean
   title?: string
   artist?: string
-  albumTitle?: string
-  albumArtist?: string
-}
-
-type WinRtTimelineProperties = {
-  startTime?: number
-  endTime?: number
-  position?: number
-  lastUpdatedTime?: Date
-}
-
-type WinRtPlaybackControls = {
-  isPlayEnabled?: boolean
-  isPauseEnabled?: boolean
-  isPlayPauseToggleEnabled?: boolean
-  isNextEnabled?: boolean
-  isPreviousEnabled?: boolean
-  isPlaybackPositionEnabled?: boolean
-}
-
-type WinRtPlaybackInfo = {
-  playbackStatus?: number
+  album?: string
+  duration?: number
+  elapsedTime?: number
+  elapsedTimeNow?: number
+  timestamp?: string
   playbackRate?: number
-  controls?: WinRtPlaybackControls
+  repeatMode?: number
+  shuffleMode?: number
+  uniqueIdentifier?: string
+  contentItemIdentifier?: string
+}
+
+type MediaRemoteEnvelope = {
+  type?: string
+  diff?: boolean
+  payload?: MediaRemotePayload | null
+}
+
+type MediaRemoteAdapterPaths = {
+  script: string
+  framework: string
+  testClient?: string
 }
 
 type ItunesSearchResult = {
@@ -2667,10 +2642,15 @@ async function sampleWindowColor(owner: BrowserWindow, rect: WindowColorSampleRe
 }
 
 let externalPlaybackSourceMode: ExternalPlaybackSourceMode = 'auto'
-let mediaControlModule: WinRtMediaControlModule | null | undefined
-let mediaSessionManagerPromise: Promise<WinRtSessionManager | null> | null = null
+let mediaRemoteAdapterPaths: MediaRemoteAdapterPaths | null | undefined
 
 const browserMediaOwners = [
+  'com.apple.safari',
+  'com.google.chrome',
+  'com.microsoft.edgemac',
+  'org.mozilla.firefox',
+  'com.brave.browser',
+  'com.operasoftware.opera',
   'chrome',
   'msedge',
   'firefox',
@@ -2681,121 +2661,65 @@ const browserMediaOwners = [
   'safari'
 ]
 
-function loadWinRtMediaControl(): WinRtMediaControlModule | null {
-  if (mediaControlModule !== undefined) return mediaControlModule
-  if (process.platform !== 'win32') {
-    mediaControlModule = null
-    return null
+function externalUnavailableSnapshot(mode: ExternalPlaybackSourceMode, error?: string): ExternalPlaybackSnapshot {
+  return {
+    available: false,
+    sourceMode: mode,
+    connectionState: 'unavailable',
+    title: '',
+    artist: '',
+    duration: 0,
+    currentTime: 0,
+    isPlaying: false,
+    playbackRate: 0,
+    canControlPlayback: false,
+    canSkip: false,
+    canSeek: false,
+    updatedAt: Date.now(),
+    error
   }
-  try {
-    mediaControlModule = runtimeRequire('@nodert-win11/windows.media.control') as WinRtMediaControlModule
-  } catch {
-    try {
-      mediaControlModule = runtimeRequire('windows.media.control') as WinRtMediaControlModule
-    } catch {
-      mediaControlModule = null
-    }
-  }
-  return mediaControlModule
 }
 
-function requestMediaSessionManager(): Promise<WinRtSessionManager | null> {
-  if (mediaSessionManagerPromise) return mediaSessionManagerPromise
-  const mediaControl = loadWinRtMediaControl()
-  if (!mediaControl) return Promise.resolve(null)
-  mediaSessionManagerPromise = new Promise((resolve) => {
-    mediaControl.GlobalSystemMediaTransportControlsSessionManager.requestAsync((error, result) => {
-      if (error || !result) {
-        resolve(null)
-        return
+function mediaRemoteAdapterCandidates(): string[] {
+  const candidates = [
+    join(process.resourcesPath, 'mediaremote-adapter'),
+    join(process.resourcesPath, 'resources', 'mediaremote-adapter'),
+    join(app.getAppPath(), 'resources', 'mediaremote-adapter'),
+    join(process.cwd(), 'resources', 'mediaremote-adapter'),
+    join(__dirname, '../../resources/mediaremote-adapter'),
+    join(__dirname, '../resources/mediaremote-adapter')
+  ]
+  return [...new Set(candidates)]
+}
+
+function resolveMediaRemoteAdapterPaths(): MediaRemoteAdapterPaths | null {
+  if (mediaRemoteAdapterPaths !== undefined) return mediaRemoteAdapterPaths
+  for (const root of mediaRemoteAdapterCandidates()) {
+    const script = join(root, 'bin', 'mediaremote-adapter.pl')
+    const framework = join(root, 'build', 'MediaRemoteAdapter.framework')
+    const testClient = join(root, 'build', 'MediaRemoteAdapterTestClient')
+    if (existsSync(script) && existsSync(framework)) {
+      mediaRemoteAdapterPaths = {
+        script,
+        framework,
+        testClient: existsSync(testClient) ? testClient : undefined
       }
-      resolve(result as WinRtSessionManager)
-    })
-  })
-  return mediaSessionManagerPromise
-}
-
-function winRtAsync<T>(start: (callback: (error: Error | null, result: T) => void) => void, timeoutMs = 2500): Promise<T | null> {
-  return new Promise((resolve) => {
-    let settled = false
-    const timer = setTimeout(() => {
-      if (settled) return
-      settled = true
-      resolve(null)
-    }, timeoutMs)
-    try {
-      start((error, result) => {
-        if (settled) return
-        settled = true
-        clearTimeout(timer)
-        resolve(error ? null : result)
-      })
-    } catch {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      resolve(null)
+      return mediaRemoteAdapterPaths
     }
-  })
-}
-
-function winRtCollectionToArray<T>(value: unknown): T[] {
-  if (!value) return []
-  if (Array.isArray(value)) return value as T[]
-  const collection = value as { size?: number; length?: number; getAt?: (index: number) => T; [Symbol.iterator]?: () => Iterator<T> }
-  if (typeof collection[Symbol.iterator] === 'function') return [...(collection as Iterable<T>)]
-  const length = Number(collection.size ?? collection.length ?? 0)
-  if (!Number.isFinite(length) || length <= 0 || typeof collection.getAt !== 'function') return []
-  const result: T[] = []
-  for (let index = 0; index < length; index += 1) {
-    const item = collection.getAt(index)
-    if (item) result.push(item)
   }
-  return result
+  mediaRemoteAdapterPaths = null
+  return mediaRemoteAdapterPaths
 }
 
-function externalOwnerKind(sourceAppUserModelId?: string): 'thirdParty' | 'other' {
-  const owner = (sourceAppUserModelId ?? '').toLowerCase()
-  return browserMediaOwners.some((part) => owner.includes(part)) ? 'other' : 'thirdParty'
-}
-
-function sessionMatchesExternalMode(session: WinRtSession, mode: ExternalPlaybackSourceMode): boolean {
-  if (mode === 'auto') return true
-  return externalOwnerKind(session.sourceAppUserModelId) === mode
-}
-
-async function selectedExternalSession(mode = externalPlaybackSourceMode): Promise<WinRtSession | null> {
-  const manager = await requestMediaSessionManager()
-  if (!manager) return null
-  const current = manager.getCurrentSession?.() ?? null
-  if (current && sessionMatchesExternalMode(current, mode)) return current
-  const sessions = winRtCollectionToArray<WinRtSession>(manager.getSessions?.())
-  return sessions.find((session) => sessionMatchesExternalMode(session, mode)) ?? null
-}
-
-function winRtTimeSpanToSeconds(value?: number): number {
-  const numeric = Number(value ?? 0)
-  if (!Number.isFinite(numeric) || numeric <= 0) return 0
-  return numeric / 10_000_000
-}
-
-function secondsToWinRtTimeSpan(seconds: number): number {
-  return Math.max(0, Math.round(seconds * 10_000_000))
-}
-
-function playbackStatusIsPlaying(playbackStatus?: number): boolean {
-  const mediaControl = loadWinRtMediaControl()
-  const playing = mediaControl?.GlobalSystemMediaTransportControlsSessionPlaybackStatus?.playing ?? 4
-  return playbackStatus === playing
-}
-
-function runPowerShellJson<T>(script: string, args: string[] = [], timeoutMs = 5000): Promise<T | null> {
-  if (process.platform !== 'win32') return Promise.resolve(null)
+function runMediaRemoteJson<T>(args: string[], timeoutMs = 5000): Promise<T | null> {
+  if (process.platform !== 'darwin') return Promise.resolve(null)
+  const paths = resolveMediaRemoteAdapterPaths()
+  if (!paths) return Promise.resolve(null)
   return new Promise((resolve) => {
     execFile(
-      'powershell.exe',
-      ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script, ...args],
-      { timeout: timeoutMs, windowsHide: true, maxBuffer: 1024 * 1024 },
+      '/usr/bin/perl',
+      [paths.script, paths.framework, ...args],
+      { timeout: timeoutMs, maxBuffer: 1024 * 1024 },
       (error, stdout) => {
         if (error || !stdout.trim()) {
           resolve(null)
@@ -2811,239 +2735,153 @@ function runPowerShellJson<T>(script: string, args: string[] = [], timeoutMs = 5
   })
 }
 
-const powershellMediaSessionPrelude = String.raw`
-$ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName System.Runtime.WindowsRuntime
-[Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType = WindowsRuntime] | Out-Null
-$asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
-  $_.Name -eq 'AsTask' -and
-  $_.IsGenericMethod -and
-  $_.GetParameters().Count -eq 1 -and
-  $_.GetParameters()[0].ParameterType.Name.StartsWith('IAsyncOperation')
-})[0]
-function AwaitOperation($operation, $resultType) {
-  $task = $asTaskGeneric.MakeGenericMethod($resultType).Invoke($null, @($operation))
-  return $task.GetAwaiter().GetResult()
-}
-function SessionKind($owner) {
-  if ([string]::IsNullOrWhiteSpace($owner)) {
-    $lower = ''
-  } else {
-    $lower = $owner.ToLowerInvariant()
-  }
-  foreach ($part in @('chrome', 'msedge', 'firefox', 'brave', 'opera', 'vivaldi', 'browser', 'safari')) {
-    if ($lower.Contains($part)) { return 'other' }
-  }
-  return 'thirdParty'
-}
-function MatchesMode($session, $mode) {
-  if ($mode -eq 'auto') { return $true }
-  return (SessionKind $session.SourceAppUserModelId) -eq $mode
-}
-function TimeSpanSeconds($value) {
-  if ($null -eq $value) { return 0 }
-  if ($value -is [TimeSpan]) { return [Math]::Max(0, $value.TotalSeconds) }
-  return [Math]::Max(0, ([double]$value) / 10000000)
-}
-function SelectSession($manager, $mode) {
-  $current = $manager.GetCurrentSession()
-  if ($null -ne $current -and (MatchesMode $current $mode)) { return $current }
-  foreach ($session in $manager.GetSessions()) {
-    if (MatchesMode $session $mode) { return $session }
-  }
-  return $null
-}
-$manager = AwaitOperation ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
-`
-
-async function getPowerShellExternalPlaybackSnapshot(mode: ExternalPlaybackSourceMode): Promise<ExternalPlaybackSnapshot | null> {
-  const escapedMode = JSON.stringify(mode)
-  const script = `${powershellMediaSessionPrelude}
-$mode = ${escapedMode}
-$session = SelectSession $manager $mode
-if ($null -eq $session) {
-  [pscustomobject]@{
-    available = $true
-    sourceMode = $mode
-    connectionState = 'disconnected'
-    title = ''
-    artist = ''
-    duration = 0
-    currentTime = 0
-    isPlaying = $false
-    playbackRate = 0
-    canControlPlayback = $false
-    canSkip = $false
-    canSeek = $false
-    updatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-  } | ConvertTo-Json -Compress
-  exit 0
-}
-$properties = AwaitOperation ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
-$timeline = $session.GetTimelineProperties()
-$playback = $session.GetPlaybackInfo()
-$controls = $playback.Controls
-$duration = [Math]::Max(0, (TimeSpanSeconds $timeline.EndTime) - (TimeSpanSeconds $timeline.StartTime))
-$position = [Math]::Max(0, (TimeSpanSeconds $timeline.Position) - (TimeSpanSeconds $timeline.StartTime))
-if ($duration -gt 0) { $position = [Math]::Min($position, $duration) }
-$status = $playback.PlaybackStatus.ToString()
-if ([string]::IsNullOrWhiteSpace($properties.Artist)) {
-  $artist = [string]$properties.AlbumArtist
-} else {
-  $artist = [string]$properties.Artist
-}
-if ($null -eq $playback.PlaybackRate) {
-  $rate = 0
-} else {
-  $rate = [double]$playback.PlaybackRate
-}
-if ([string]::IsNullOrWhiteSpace($properties.Title)) {
-  $connectionState = 'connectedNoMetadata'
-} else {
-  $connectionState = 'runningHasData'
-}
-[pscustomobject]@{
-  available = $true
-  sourceMode = $mode
-  connectionState = $connectionState
-  sourceAppUserModelId = $session.SourceAppUserModelId
-  title = [string]$properties.Title
-  artist = $artist
-  album = [string]$properties.AlbumTitle
-  duration = $duration
-  currentTime = $position
-  isPlaying = ($status -eq 'Playing')
-  playbackRate = $rate
-  canControlPlayback = [bool]($controls.IsPlayEnabled -or $controls.IsPauseEnabled -or $controls.IsPlayPauseToggleEnabled)
-  canSkip = [bool]($controls.IsNextEnabled -or $controls.IsPreviousEnabled)
-  canSeek = [bool]$controls.IsPlaybackPositionEnabled
-  updatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-} | ConvertTo-Json -Compress
-`
-  return runPowerShellJson<ExternalPlaybackSnapshot>(script)
+function runMediaRemoteCommand(args: string[], timeoutMs = 2500): Promise<boolean> {
+  if (process.platform !== 'darwin') return Promise.resolve(false)
+  const paths = resolveMediaRemoteAdapterPaths()
+  if (!paths) return Promise.resolve(false)
+  return new Promise((resolve) => {
+    execFile(
+      '/usr/bin/perl',
+      [paths.script, paths.framework, ...args],
+      { timeout: timeoutMs, maxBuffer: 256 * 1024 },
+      (error) => resolve(!error)
+    )
+  })
 }
 
-async function runPowerShellExternalPlaybackCommand(mode: ExternalPlaybackSourceMode, command: string, value?: number): Promise<boolean> {
-  const escapedMode = JSON.stringify(mode)
-  const escapedCommand = JSON.stringify(command)
-  const positionTicks = secondsToWinRtTimeSpan(Number(value ?? 0))
-  const script = `${powershellMediaSessionPrelude}
-$mode = ${escapedMode}
-$command = ${escapedCommand}
-$session = SelectSession $manager $mode
-if ($null -eq $session) { $false | ConvertTo-Json -Compress; exit 0 }
-switch ($command) {
-  'playPause' { $result = AwaitOperation ($session.TryTogglePlayPauseAsync()) ([bool]) }
-  'play' { $result = AwaitOperation ($session.TryPlayAsync()) ([bool]) }
-  'pause' { $result = AwaitOperation ($session.TryPauseAsync()) ([bool]) }
-  'next' { $result = AwaitOperation ($session.TrySkipNextAsync()) ([bool]) }
-  'previous' { $result = AwaitOperation ($session.TrySkipPreviousAsync()) ([bool]) }
-  'seek' { $result = AwaitOperation ($session.TryChangePlaybackPositionAsync(${positionTicks})) ([bool]) }
-  default { $result = $false }
-}
-[bool]$result | ConvertTo-Json -Compress
-`
-  return Boolean(await runPowerShellJson<boolean>(script))
+function mediaRemotePayloadFromJson(value: MediaRemotePayload | MediaRemoteEnvelope | null): MediaRemotePayload | null {
+  if (!value) return null
+  const envelope = value as MediaRemoteEnvelope
+  if (envelope.payload !== undefined) return envelope.payload ?? null
+  return value as MediaRemotePayload
 }
 
-function estimatedExternalPosition(timeline: WinRtTimelineProperties, playbackInfo: WinRtPlaybackInfo): number {
-  const duration = winRtTimeSpanToSeconds(timeline.endTime) - winRtTimeSpanToSeconds(timeline.startTime)
-  let position = winRtTimeSpanToSeconds(timeline.position) - winRtTimeSpanToSeconds(timeline.startTime)
-  if (playbackStatusIsPlaying(playbackInfo.playbackStatus) && timeline.lastUpdatedTime instanceof Date) {
-    const rate = Number(playbackInfo.playbackRate ?? 1)
-    position += ((Date.now() - timeline.lastUpdatedTime.getTime()) / 1000) * Math.max(0, Number.isFinite(rate) ? rate : 1)
-  }
-  return duration > 0 ? Math.min(Math.max(position, 0), duration) : Math.max(position, 0)
+function ownerBundleCandidates(payload: MediaRemotePayload): string[] {
+  return [
+    payload.bundleIdentifier,
+    payload.parentApplicationBundleIdentifier,
+    payload.clientBundleIdentifier,
+    payload.ownerBundleIdentifier,
+    payload.applicationBundleIdentifier
+  ]
+    .map((value) => value?.trim().toLowerCase())
+    .filter((value): value is string => Boolean(value))
 }
 
-async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): Promise<ExternalPlaybackSnapshot> {
-  if (process.platform !== 'win32') {
-    return {
-      available: false,
-      sourceMode: mode,
-      connectionState: 'unavailable',
-      title: '',
-      artist: '',
-      duration: 0,
-      currentTime: 0,
-      isPlaying: false,
-      playbackRate: 0,
-      canControlPlayback: false,
-      canSkip: false,
-      canSeek: false,
-      updatedAt: Date.now(),
-      error: 'Windows media session is only available on Windows.'
+function externalOwnerKind(sourceAppUserModelId?: string): 'thirdParty' | 'other' {
+  const owner = (sourceAppUserModelId ?? '').toLowerCase()
+  return browserMediaOwners.some((part) => owner.includes(part)) ? 'other' : 'thirdParty'
+}
+
+function payloadMatchesExternalMode(payload: MediaRemotePayload, mode: ExternalPlaybackSourceMode): boolean {
+  if (mode === 'auto') return true
+  const owner = ownerBundleCandidates(payload)[0] ?? ''
+  return externalOwnerKind(owner) === mode
+}
+
+function finiteSeconds(value: unknown): number {
+  const numeric = Number(value ?? 0)
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 0
+}
+
+function estimatedMediaRemotePosition(payload: MediaRemotePayload): number {
+  const duration = finiteSeconds(payload.duration)
+  let position = finiteSeconds(payload.elapsedTimeNow ?? payload.elapsedTime)
+  if (payload.elapsedTimeNow === undefined && payload.elapsedTime !== undefined && payload.timestamp && payload.playing) {
+    const timestampMs = Date.parse(payload.timestamp)
+    const rate = Number(payload.playbackRate ?? 1)
+    if (Number.isFinite(timestampMs) && Number.isFinite(rate)) {
+      position += ((Date.now() - timestampMs) / 1000) * Math.max(0, rate)
     }
   }
-  const moduleAvailable = Boolean(loadWinRtMediaControl())
-  if (!moduleAvailable) {
-    const powershellSnapshot = await getPowerShellExternalPlaybackSnapshot(mode)
-    if (powershellSnapshot) return powershellSnapshot
-  }
-  const session = await selectedExternalSession(mode)
-  if (!session) {
-    const powershellSnapshot = await getPowerShellExternalPlaybackSnapshot(mode)
-    if (powershellSnapshot) return powershellSnapshot
-    return {
-      available: moduleAvailable,
-      sourceMode: mode,
-      connectionState: moduleAvailable ? 'disconnected' : 'unavailable',
-      title: '',
-      artist: '',
-      duration: 0,
-      currentTime: 0,
-      isPlaying: false,
-      playbackRate: 0,
-      canControlPlayback: false,
-      canSkip: false,
-      canSeek: false,
-      updatedAt: Date.now(),
-      error: moduleAvailable ? undefined : 'Windows.Media.Control module is unavailable.'
-    }
-  }
+  if (duration > 0) return Math.min(Math.max(position, 0), duration)
+  return Math.max(position, 0)
+}
 
-  const mediaProperties = await winRtAsync<WinRtMediaProperties>((callback) => session.tryGetMediaPropertiesAsync(callback))
-  const playbackInfo = session.getPlaybackInfo()
-  const timeline = session.getTimelineProperties()
-  const duration = Math.max(0, winRtTimeSpanToSeconds(timeline.endTime) - winRtTimeSpanToSeconds(timeline.startTime))
-  const controls = playbackInfo.controls ?? {}
-  const title = (mediaProperties?.title ?? '').trim()
-  const artist = (mediaProperties?.artist ?? mediaProperties?.albumArtist ?? '').trim()
+function mediaRemoteSnapshotFromPayload(payload: MediaRemotePayload, mode: ExternalPlaybackSourceMode): ExternalPlaybackSnapshot {
+  const title = (payload.title ?? '').trim()
+  const artist = (payload.artist ?? '').trim()
+  const duration = finiteSeconds(payload.duration)
+  const playbackRate = Number(payload.playbackRate ?? (payload.playing ? 1 : 0))
   return {
     available: true,
     sourceMode: mode,
     connectionState: title ? 'runningHasData' : 'connectedNoMetadata',
-    sourceAppUserModelId: session.sourceAppUserModelId,
+    sourceAppUserModelId: ownerBundleCandidates(payload)[0],
     title,
     artist,
-    album: mediaProperties?.albumTitle?.trim() || undefined,
+    album: payload.album?.trim() || undefined,
     duration,
-    currentTime: estimatedExternalPosition(timeline, playbackInfo),
-    isPlaying: playbackStatusIsPlaying(playbackInfo.playbackStatus),
-    playbackRate: Number(playbackInfo.playbackRate ?? 0),
-    canControlPlayback: Boolean(controls.isPlayEnabled || controls.isPauseEnabled || controls.isPlayPauseToggleEnabled),
-    canSkip: Boolean(controls.isNextEnabled || controls.isPreviousEnabled),
-    canSeek: Boolean(controls.isPlaybackPositionEnabled),
+    currentTime: estimatedMediaRemotePosition(payload),
+    isPlaying: payload.playing === true || playbackRate > 0,
+    playbackRate: Number.isFinite(playbackRate) ? playbackRate : 0,
+    canControlPlayback: true,
+    canSkip: true,
+    canSeek: false,
     updatedAt: Date.now()
   }
 }
 
-async function runExternalPlaybackCommand(command: string, value?: number): Promise<boolean> {
-  const session = await selectedExternalSession()
-  if (!session) return runPowerShellExternalPlaybackCommand(externalPlaybackSourceMode, command, value)
+async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): Promise<ExternalPlaybackSnapshot> {
+  if (process.platform !== 'darwin') {
+    return externalUnavailableSnapshot(mode, 'macOS MediaRemote is only available on macOS.')
+  }
+  if (!resolveMediaRemoteAdapterPaths()) {
+    return externalUnavailableSnapshot(mode, 'MediaRemote adapter resources are missing.')
+  }
+  const raw = await runMediaRemoteJson<MediaRemotePayload | MediaRemoteEnvelope>(['get', '--no-artwork', '--now'])
+  const payload = mediaRemotePayloadFromJson(raw)
+  if (!payload) {
+    return {
+      available: true,
+      sourceMode: mode,
+      connectionState: 'disconnected',
+      title: '',
+      artist: '',
+      duration: 0,
+      currentTime: 0,
+      isPlaying: false,
+      playbackRate: 0,
+      canControlPlayback: false,
+      canSkip: false,
+      canSeek: false,
+      updatedAt: Date.now()
+    }
+  }
+  if (!payloadMatchesExternalMode(payload, mode)) {
+    return {
+      available: true,
+      sourceMode: mode,
+      connectionState: 'disconnected',
+      title: '',
+      artist: '',
+      duration: 0,
+      currentTime: 0,
+      isPlaying: false,
+      playbackRate: 0,
+      canControlPlayback: false,
+      canSkip: false,
+      canSeek: false,
+      updatedAt: Date.now()
+    }
+  }
+  return mediaRemoteSnapshotFromPayload(payload, mode)
+}
+
+async function runExternalPlaybackCommand(command: string): Promise<boolean> {
   switch (command) {
     case 'playPause':
-      return Boolean(await winRtAsync<boolean>((callback) => session.tryTogglePlayPauseAsync(callback)))
+      return runMediaRemoteCommand(['send', '2'])
     case 'play':
-      return Boolean(await winRtAsync<boolean>((callback) => session.tryPlayAsync(callback)))
+      return runMediaRemoteCommand(['send', '0'])
     case 'pause':
-      return Boolean(await winRtAsync<boolean>((callback) => session.tryPauseAsync(callback)))
+      return runMediaRemoteCommand(['send', '1'])
     case 'next':
-      return Boolean(await winRtAsync<boolean>((callback) => session.trySkipNextAsync(callback)))
+      return runMediaRemoteCommand(['send', '4'])
     case 'previous':
-      return Boolean(await winRtAsync<boolean>((callback) => session.trySkipPreviousAsync(callback)))
+      return runMediaRemoteCommand(['send', '5'])
     case 'seek':
-      return Boolean(await winRtAsync<boolean>((callback) => session.tryChangePlaybackPositionAsync(secondsToWinRtTimeSpan(Number(value ?? 0)), callback)))
+      return false
     default:
       return false
   }
@@ -3193,7 +3031,7 @@ ipcMain.handle('external-playback:set-source-mode', async (_event, mode: Externa
   externalPlaybackSourceMode = mode === 'thirdParty' || mode === 'other' || mode === 'auto' ? mode : 'auto'
   return getExternalPlaybackSnapshot(externalPlaybackSourceMode)
 })
-ipcMain.handle('external-playback:command', async (_event, command: string, value?: number) => runExternalPlaybackCommand(command, value))
+ipcMain.handle('external-playback:command', async (_event, command: string) => runExternalPlaybackCommand(command))
 
 ipcMain.handle('system:get-platform', () => process.platform)
 ipcMain.handle('settings:get-library-location', () => libraryLocationInfo())
