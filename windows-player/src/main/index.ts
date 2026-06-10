@@ -3081,6 +3081,28 @@ function enrichExternalPlaybackSnapshot(snapshot: ExternalPlaybackSnapshot): Ext
   }
 }
 
+function cloudMusicWindowTitleSnapshot(mode: ExternalPlaybackSourceMode): ExternalPlaybackSnapshot | null {
+  if (mode === 'other') return null
+  const metadata = metadataFromCloudMusicWindowTitle()
+  if (!metadata) return null
+  return {
+    available: true,
+    sourceMode: mode,
+    connectionState: 'runningHasData',
+    sourceAppUserModelId: 'cloudmusic.exe',
+    title: metadata.title,
+    artist: metadata.artist,
+    duration: 0,
+    currentTime: 0,
+    isPlaying: true,
+    playbackRate: 1,
+    canControlPlayback: false,
+    canSkip: false,
+    canSeek: false,
+    updatedAt: Date.now()
+  }
+}
+
 function externalSnapshotMetadataKey(snapshot: ExternalPlaybackSnapshot): string {
   return [
     snapshot.sourceAppUserModelId || snapshot.sourceMode,
@@ -3247,6 +3269,29 @@ async function getPowerShellExternalPlaybackSnapshot(mode: ExternalPlaybackSourc
 $mode = ${escapedMode}
 $session = SelectSession $manager $mode
 if ($null -eq $session) {
+  $fallbackTitle = [string](Get-Process -Name cloudmusic -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle } | Select-Object -First 1 -ExpandProperty MainWindowTitle)
+  if ($mode -ne 'other' -and -not [string]::IsNullOrWhiteSpace($fallbackTitle)) {
+    $separatorIndex = $fallbackTitle.LastIndexOf(' - ')
+    if ($separatorIndex -gt 0 -and $separatorIndex -lt ($fallbackTitle.Length - 3)) {
+      [pscustomobject]@{
+        available = $true
+        sourceMode = $mode
+        connectionState = 'runningHasData'
+        sourceAppUserModelId = 'cloudmusic.exe'
+        title = $fallbackTitle.Substring(0, $separatorIndex).Trim()
+        artist = $fallbackTitle.Substring($separatorIndex + 3).Trim()
+        duration = 0
+        currentTime = 0
+        isPlaying = $true
+        playbackRate = 1
+        canControlPlayback = $false
+        canSkip = $false
+        canSeek = $false
+        updatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+      } | ConvertTo-Json -Compress
+      exit 0
+    }
+  }
   [pscustomobject]@{
     available = $true
     sourceMode = $mode
@@ -3369,6 +3414,8 @@ async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): P
   if (!session) {
     const powershellSnapshot = await getPowerShellExternalPlaybackSnapshot(mode)
     if (powershellSnapshot) return attachExternalPlaybackMetadata(powershellSnapshot)
+    const cloudMusicFallback = cloudMusicWindowTitleSnapshot(mode)
+    if (cloudMusicFallback) return attachExternalPlaybackMetadata(cloudMusicFallback)
     return {
       available: moduleAvailable,
       sourceMode: mode,
