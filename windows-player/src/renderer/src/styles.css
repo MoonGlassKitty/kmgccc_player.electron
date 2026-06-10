@@ -4297,6 +4297,10 @@ input {
   text-align: left;
 }
 
+.home-album-card {
+  --album-card-text-safe-space: clamp(20px, 8%, 32px);
+}
+
 .home-person-card img,
 .artist-avatar {
   width: 100%;
@@ -4324,8 +4328,18 @@ input {
 }
 
 .home-album-card img {
+  width: calc(100% - var(--album-card-text-safe-space));
   aspect-ratio: 1;
   border-radius: 10px;
+}
+
+.home-album-card strong {
+  display: -webkit-box;
+  padding-right: var(--album-card-text-safe-space);
+  line-height: 1.12;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .home-album-card span,
@@ -4336,6 +4350,10 @@ input {
   font-weight: 720;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.home-album-card span {
+  padding-right: var(--album-card-text-safe-space);
 }
 
 .home-playlist-grid {

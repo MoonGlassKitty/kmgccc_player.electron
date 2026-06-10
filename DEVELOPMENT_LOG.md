@@ -205,3 +205,4 @@
 - 网易云 tlyric-only 歌词放宽：实测 `樹海 / 雪国` 的网易云歌词接口 `2158321861` 返回 `code=200`，但 `lrc/yrc` 为空、只有带时间轴的 `tlyric`；`fetchNetEaseLyrics` 与 CloudMusic 本地 lyric cache 解析现在在 yrc/lrc 都缺失时接受 `tlyric` 作为同步歌词，避免把这类可用歌词误判为空。
 - 第三方歌词匹配继续放宽：`platform: netease` 现在优先请求网易云原始 lyric v1，再回退 AMLL/AMLLDB/LDDC，避免有 NCM ID 和 lrc 时被增强源延迟；LRCLIB 查询不再携带 album 严格筛选，并会追加去括号版本标题（如去掉 Acoustic/Remix 标注）重试，减少标题/专辑细节导致的漏词。
 - CloudMusic snapshot 自带歌词兜底：外部播放主进程在 CloudMusic history/webdata 匹配到 `neteaseSongId` 后，会按 songId 缓存并拉取网易云歌词，随 external snapshot 带回 `lyricsText/syncedLyrics`；renderer 显示外部 track 时优先用外部歌词缓存，缓存未写入时直接使用 snapshot 自带歌词，减少二次 IPC 查词/状态缓存导致的“有 NCM ID 但界面无词”。
+- Home 专辑卡片长标题排版修正：专辑封面右侧预留稳定白色安全边，标题/艺人文字同步避让该边界；专辑标题从单行省略改为最多两行显示，长标题按右侧留白路径截断，减少贴边和被圆角区域挤压的问题。`npm run typecheck` 已通过。
