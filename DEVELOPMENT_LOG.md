@@ -207,3 +207,4 @@
 - CloudMusic snapshot 自带歌词兜底：外部播放主进程在 CloudMusic history/webdata 匹配到 `neteaseSongId` 后，会按 songId 缓存并拉取网易云歌词，随 external snapshot 带回 `lyricsText/syncedLyrics`；renderer 显示外部 track 时优先用外部歌词缓存，缓存未写入时直接使用 snapshot 自带歌词，减少二次 IPC 查词/状态缓存导致的“有 NCM ID 但界面无词”。
 - Home 专辑卡片长标题排版修正：专辑封面右侧预留稳定白色安全边，标题/艺人文字同步避让该边界；专辑标题从单行省略改为最多两行显示，长标题按右侧留白路径截断，减少贴边和被圆角区域挤压的问题。`npm run typecheck` 已通过。
 - 专辑/艺人/歌单详情头部细节修正：详情页编辑按钮改为圆形铅笔图标按钮，避免“编辑专辑”文字在按钮里换行；专辑详情在元信息下方显示同步/编辑得到的简介，没有简介时显示专辑概览占位，并把播放按钮组从固定下推改为跟随简介自然排版。`npm run typecheck` 已通过。
+- 全屏左下角控制补齐：参考 Swift `FullscreenPlayerView` 的 leading controls，左下角从缩小/外观两个按钮改为缩小、字幕、外观三个按钮；字幕按钮切换全屏歌词列显隐，动画由外层布局/CSS 完成，不依赖 AMLL 内部隐藏。`npm run typecheck` 已通过。
