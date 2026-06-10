@@ -206,3 +206,4 @@
 - 第三方歌词匹配继续放宽：`platform: netease` 现在优先请求网易云原始 lyric v1，再回退 AMLL/AMLLDB/LDDC，避免有 NCM ID 和 lrc 时被增强源延迟；LRCLIB 查询不再携带 album 严格筛选，并会追加去括号版本标题（如去掉 Acoustic/Remix 标注）重试，减少标题/专辑细节导致的漏词。
 - CloudMusic snapshot 自带歌词兜底：外部播放主进程在 CloudMusic history/webdata 匹配到 `neteaseSongId` 后，会按 songId 缓存并拉取网易云歌词，随 external snapshot 带回 `lyricsText/syncedLyrics`；renderer 显示外部 track 时优先用外部歌词缓存，缓存未写入时直接使用 snapshot 自带歌词，减少二次 IPC 查词/状态缓存导致的“有 NCM ID 但界面无词”。
 - Home 专辑卡片长标题排版修正：专辑封面右侧预留稳定白色安全边，标题/艺人文字同步避让该边界；专辑标题从单行省略改为最多两行显示，长标题按右侧留白路径截断，减少贴边和被圆角区域挤压的问题。`npm run typecheck` 已通过。
+- 专辑/艺人/歌单详情头部细节修正：详情页编辑按钮改为圆形铅笔图标按钮，避免“编辑专辑”文字在按钮里换行；专辑详情在元信息下方显示同步/编辑得到的简介，没有简介时显示专辑概览占位，并把播放按钮组从固定下推改为跟随简介自然排版。`npm run typecheck` 已通过。
