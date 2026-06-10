@@ -157,6 +157,13 @@ type ExternalArtworkCacheEntry = {
   updatedAt?: number
 }
 
+type LyricsLookupResponse = {
+  lyricsText?: string
+  syncedLyrics?: string
+  neteaseSongId?: number
+  qqMusicSongId?: string
+}
+
 type ExternalPlaybackClock = {
   key: string
   currentTime: number
@@ -177,6 +184,50 @@ function externalTrackKey(snapshot: ExternalPlaybackSnapshot | null): string {
     snapshot.title.trim(),
     snapshot.artist.trim()
   ].join('|')
+}
+
+function normalizedLyricsMatchText(value: string | undefined): string {
+  return (value ?? '')
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[（(].*?[）)]/g, '')
+    .replace(/[^\p{Letter}\p{Number}]+/gu, '')
+}
+
+function localExternalLyricsLookup(tracks: HomeTrack[], title: string, artist: string, album: string, duration: number): LyricsLookupResponse | null {
+  const normalizedTitle = normalizedLyricsMatchText(title)
+  const normalizedArtist = normalizedLyricsMatchText(artist)
+  const normalizedAlbum = normalizedLyricsMatchText(album)
+  if (!normalizedTitle) return null
+  const candidates = tracks
+    .filter((track) => (track.syncedLyrics || track.lyricsText || '').trim())
+    .map((track) => {
+      const trackTitle = normalizedLyricsMatchText(track.title)
+      if (trackTitle !== normalizedTitle) return null
+      const trackArtist = normalizedLyricsMatchText(track.artist)
+      const trackAlbum = normalizedLyricsMatchText(track.album)
+      if (normalizedArtist && trackArtist && trackArtist !== normalizedArtist && !trackArtist.includes(normalizedArtist) && !normalizedArtist.includes(trackArtist)) return null
+      let score = 10
+      if (normalizedArtist && trackArtist === normalizedArtist) score += 4
+      if (normalizedAlbum && trackAlbum === normalizedAlbum) score += 2
+      if (duration > 0 && track.duration > 0) {
+        const delta = Math.abs(track.duration - duration)
+        if (delta <= 2) score += 3
+        else if (delta <= 6) score += 1
+      }
+      return { track, score }
+    })
+    .filter((entry): entry is { track: HomeTrack; score: number } => Boolean(entry))
+    .sort((a, b) => b.score - a.score)
+  const selected = candidates[0]?.track
+  if (!selected) return null
+  const text = selected.syncedLyrics || selected.lyricsText || ''
+  return {
+    lyricsText: text,
+    syncedLyrics: text,
+    neteaseSongId: selected.neteaseSongId,
+    qqMusicSongId: selected.qqMusicSongId
+  }
 }
 
 type ArtworkBeat = {
@@ -3266,35 +3317,55 @@ function App(): React.ReactElement {
       [key]: { status: 'loading', metadataSongId, updatedAt: now }
     }))
     let cancelled = false
-    window.kmgccc.lookupLyrics({
+    let resolved = false
+    let pendingLookups = 0
+    const request = {
       title,
       artist,
       album,
       duration: snapshot?.duration && snapshot.duration < 12 * 60 ? snapshot.duration : 0,
       neteaseSongId: metadataSongId,
       mode: 'synced',
-      includeTranslation: true,
-      platform: 'auto'
-    }).then((result) => {
+      includeTranslation: true
+    }
+    const finishEmptyIfDone = (): void => {
+      if (cancelled || resolved || pendingLookups > 0) return
+      setExternalLyricsByKey((entries) => ({
+        ...entries,
+        [key]: { status: 'empty', metadataSongId, updatedAt: Date.now() }
+      }))
+    }
+    const publishResult = (result: LyricsLookupResponse | null | undefined): void => {
       if (cancelled) return
       const text = result?.syncedLyrics || result?.lyricsText || ''
+      if (!text.trim()) return
+      resolved = true
       setExternalLyricsByKey((entries) => ({
         ...entries,
-        [key]: text.trim()
-          ? { status: 'ready', lyricsText: text, syncedLyrics: text, metadataSongId, updatedAt: Date.now() }
-          : { status: 'empty', metadataSongId, updatedAt: Date.now() }
+        [key]: { status: 'ready', lyricsText: text, syncedLyrics: text, metadataSongId: result?.neteaseSongId ?? metadataSongId, updatedAt: Date.now() }
       }))
-    }).catch(() => {
-      if (cancelled) return
-      setExternalLyricsByKey((entries) => ({
-        ...entries,
-        [key]: { status: 'failed', metadataSongId, updatedAt: Date.now() }
-      }))
-    })
+    }
+    const enqueueLookup = (lookup: Promise<LyricsLookupResponse | null | undefined>): void => {
+      pendingLookups += 1
+      lookup
+        .then((result) => {
+          if (!resolved) publishResult(result)
+        })
+        .catch(() => {
+          // Other lyric sources keep racing; a single source failure is not terminal.
+        })
+        .finally(() => {
+          pendingLookups -= 1
+          finishEmptyIfDone()
+        })
+    }
+    enqueueLookup(Promise.resolve(localExternalLyricsLookup(homeSnapshot.tracks, title, artist, album, request.duration)))
+    enqueueLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'qq' }))
+    enqueueLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'netease' }))
     return () => {
       cancelled = true
     }
-  }, [externalLyricsByKey, externalPlaybackKey, externalPlaybackSnapshot, playbackSource])
+  }, [externalLyricsByKey, externalPlaybackKey, externalPlaybackSnapshot, homeSnapshot.tracks, playbackSource])
 
   React.useEffect(() => {
     if (playbackSource !== 'external') return
