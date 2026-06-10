@@ -5896,7 +5896,7 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
           isSeeking={isSeekingLyric}
           playing={isPlaying}
           alignAnchor="center"
-          alignPosition={0.18}
+          alignPosition={variant === 'fullscreen' ? 0.38 : 0.18}
           enableBlur={renderQuality !== 'performance' && !isLyricHovering}
           enableScale={renderQuality !== 'performance'}
           enableSpring={renderQuality === 'quality'}
@@ -6161,19 +6161,21 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
       ) : (
         <UnifiedMeshBackground />
       )}
-      <div className="fullscreen-lyrics-artwork-stage">
-        {nowPlayingSkinID === 'coverLed' ? (
-          <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} isBpmPulseEnabled={isArtworkBpmPulseEnabled} feedback={artworkBeatFeedback} onBpmPulseToggle={onArtworkBpmPulseToggle} onManualBpmOpen={onArtworkManualBpmOpen} onBeatApprove={onArtworkBeatApprove} />
-        ) : nowPlayingSkinID === 'appleStyle' ? (
-          <AppleStyleNowPlayingArtwork artwork={artwork} />
-        ) : nowPlayingSkinID === 'rotatingCover' ? (
-          <RotatingCoverNowPlaying artwork={artwork} isPlaying={isPlaying} cdMode={rotatingCdMode} />
-        ) : (
-          <CassetteNowPlayingArtwork artwork={artwork} isPlaying={isPlaying} ledValues={ledValues} showKmgLook={cassetteKmgLookEnabled} />
-        )}
-        {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} ledCount={ledCount} brightnessLevels={ledBrightnessLevels} ledSpeed={ledSpeed} ledValues={ledValues} /> : null}
-        {visualizerMode === 'spectrum' ? <NowPlayingSpectrum isPlaying={isPlaying} /> : null}
-      </div>
+      {!useCoverGradientBlur ? (
+        <div className="fullscreen-lyrics-artwork-stage">
+          {nowPlayingSkinID === 'coverLed' ? (
+            <ClassicCoverNowPlaying artwork={artwork} artworkFrame={artworkFrame} masked={artworkFrameMaskEnabled} isBpmPulseEnabled={isArtworkBpmPulseEnabled} feedback={artworkBeatFeedback} onBpmPulseToggle={onArtworkBpmPulseToggle} onManualBpmOpen={onArtworkManualBpmOpen} onBeatApprove={onArtworkBeatApprove} />
+          ) : nowPlayingSkinID === 'appleStyle' ? (
+            <AppleStyleNowPlayingArtwork artwork={artwork} />
+          ) : nowPlayingSkinID === 'rotatingCover' ? (
+            <RotatingCoverNowPlaying artwork={artwork} isPlaying={isPlaying} cdMode={rotatingCdMode} />
+          ) : (
+            <CassetteNowPlayingArtwork artwork={artwork} isPlaying={isPlaying} ledValues={ledValues} showKmgLook={cassetteKmgLookEnabled} />
+          )}
+          {visualizerMode === 'led' ? <NowPlayingVolumeLed volume={volume} isPlaying={isPlaying} ledCount={ledCount} brightnessLevels={ledBrightnessLevels} ledSpeed={ledSpeed} ledValues={ledValues} /> : null}
+          {visualizerMode === 'spectrum' ? <NowPlayingSpectrum isPlaying={isPlaying} /> : null}
+        </div>
+      ) : null}
       <div className="fullscreen-lyrics-copy">
         <span>{isPlaying ? '正在播放' : '已暂停'}</span>
         <strong>{track?.title ?? '未选择歌曲'}</strong>

@@ -4870,6 +4870,11 @@ input {
   line-height: 1.5;
 }
 
+.fullscreen-lyrics-lines .lyrics-empty {
+  height: 100%;
+  transform: translateY(clamp(56px, 9vh, 126px));
+}
+
 .fullscreen-lyrics-page {
   position: absolute;
   inset: 0;
