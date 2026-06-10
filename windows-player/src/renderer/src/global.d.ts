@@ -161,6 +161,15 @@ declare global {
     error?: string
   }
 
+  type ExternalPlaybackVolumeSnapshot = {
+    available: boolean
+    volume: number
+    muted: boolean
+    processName?: string
+    sessionCount?: number
+    error?: string
+  }
+
   type LocalAudioImport = HomeTrack & {
     sourcePath: string
     sourceUrl: string
@@ -226,6 +235,8 @@ declare global {
       getExternalPlaybackSnapshot: (mode?: ExternalPlaybackSourceMode) => Promise<ExternalPlaybackSnapshot>
       setExternalPlaybackSourceMode: (mode: ExternalPlaybackSourceMode) => Promise<ExternalPlaybackSnapshot>
       sendExternalPlaybackCommand: (command: string, value?: number) => Promise<boolean>
+      getExternalPlaybackVolume: () => Promise<ExternalPlaybackVolumeSnapshot>
+      setExternalPlaybackVolume: (volume: number) => Promise<ExternalPlaybackVolumeSnapshot>
       getSystemPlatform: () => Promise<NodeJS.Platform>
       sampleWindowColor: (rect: { x: number; y: number; width: number; height: number }) => Promise<{ r: number; g: number; b: number } | null>
       getWallpaperTint: () => Promise<WallpaperTint>

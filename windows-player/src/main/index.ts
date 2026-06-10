@@ -180,6 +180,15 @@ type ExternalPlaybackSnapshot = {
   error?: string
 }
 
+type ExternalPlaybackVolumeSnapshot = {
+  available: boolean
+  volume: number
+  muted: boolean
+  processName?: string
+  sessionCount?: number
+  error?: string
+}
+
 type WinRtMediaControlModule = {
   GlobalSystemMediaTransportControlsSessionManager: {
     requestAsync(callback: (error: Error | null, result: unknown) => void): void
@@ -3263,6 +3272,147 @@ function SelectSession($manager, $mode) {
 $manager = AwaitOperation ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
 `
 
+const powershellAudioSessionPrelude = String.raw`
+$audioSource = @"
+using System;
+using System.Runtime.InteropServices;
+using System.Collections.Generic;
+
+namespace KmgcccAudio {
+  [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumerator {}
+  enum EDataFlow { eRender, eCapture, eAll }
+  enum ERole { eConsole, eMultimedia, eCommunications }
+  [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IMMDeviceEnumerator { int NotImpl1(); [PreserveSig] int GetDefaultAudioEndpoint(EDataFlow dataFlow, ERole role, out IMMDevice ppDevice); }
+  [Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IMMDevice { [PreserveSig] int Activate(ref Guid iid, int dwClsCtx, IntPtr pActivationParams, out IAudioSessionManager2 ppInterface); }
+  [Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IAudioSessionManager2 { int NotImpl1(); int NotImpl2(); [PreserveSig] int GetSessionEnumerator(out IAudioSessionEnumerator sessionEnum); }
+  [Guid("E2F5BB11-0570-40CA-ACDD-3AA01277DEE8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IAudioSessionEnumerator { [PreserveSig] int GetCount(out int sessionCount); [PreserveSig] int GetSession(int sessionIndex, out IAudioSessionControl2 session); }
+  [Guid("bfb7ff88-7239-4fc9-8fa2-07c950be9c6d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IAudioSessionControl2 {
+    int GetState(out int state);
+    int GetDisplayName([MarshalAs(UnmanagedType.LPWStr)] out string value);
+    int SetDisplayName([MarshalAs(UnmanagedType.LPWStr)] string value, ref Guid eventContext);
+    int GetIconPath([MarshalAs(UnmanagedType.LPWStr)] out string value);
+    int SetIconPath([MarshalAs(UnmanagedType.LPWStr)] string value, ref Guid eventContext);
+    int GetGroupingParam(out Guid value);
+    int SetGroupingParam(ref Guid value, ref Guid eventContext);
+    int RegisterAudioSessionNotification(IntPtr notifications);
+    int UnregisterAudioSessionNotification(IntPtr notifications);
+    int GetSessionIdentifier([MarshalAs(UnmanagedType.LPWStr)] out string value);
+    int GetSessionInstanceIdentifier([MarshalAs(UnmanagedType.LPWStr)] out string value);
+    int GetProcessId(out uint value);
+    int IsSystemSoundsSession();
+    int SetDuckingPreference(bool optOut);
+  }
+  [Guid("87CE5498-68D6-44E5-9215-6DA47EF883D8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface ISimpleAudioVolume {
+    [PreserveSig] int SetMasterVolume(float level, ref Guid eventContext);
+    [PreserveSig] int GetMasterVolume(out float level);
+    [PreserveSig] int SetMute(bool muted, ref Guid eventContext);
+    [PreserveSig] int GetMute(out bool muted);
+  }
+  public class SessionVolume {
+    public int ProcessId;
+    public string ProcessName;
+    public float Volume;
+    public bool Muted;
+  }
+  public static class AudioSessionVolume {
+    static List<Tuple<IAudioSessionControl2, ISimpleAudioVolume, int, string>> SessionsForProcessName(string processName) {
+      var list = new List<Tuple<IAudioSessionControl2, ISimpleAudioVolume, int, string>>();
+      IMMDeviceEnumerator enumerator = (IMMDeviceEnumerator)(new MMDeviceEnumerator());
+      IMMDevice device;
+      if (enumerator.GetDefaultAudioEndpoint(EDataFlow.eRender, ERole.eMultimedia, out device) != 0 || device == null) return list;
+      Guid iid = typeof(IAudioSessionManager2).GUID;
+      IAudioSessionManager2 manager;
+      if (device.Activate(ref iid, 23, IntPtr.Zero, out manager) != 0 || manager == null) return list;
+      IAudioSessionEnumerator sessions;
+      if (manager.GetSessionEnumerator(out sessions) != 0 || sessions == null) return list;
+      int count;
+      sessions.GetCount(out count);
+      for (int i = 0; i < count; i++) {
+        IAudioSessionControl2 control;
+        if (sessions.GetSession(i, out control) != 0 || control == null) continue;
+        uint pid;
+        if (control.GetProcessId(out pid) != 0 || pid == 0) continue;
+        try {
+          var process = System.Diagnostics.Process.GetProcessById((int)pid);
+          if (!string.Equals(process.ProcessName, processName, StringComparison.OrdinalIgnoreCase)) continue;
+          list.Add(Tuple.Create(control, (ISimpleAudioVolume)control, (int)pid, process.ProcessName));
+        } catch {}
+      }
+      return list;
+    }
+    public static SessionVolume[] GetForProcessName(string processName) {
+      var result = new List<SessionVolume>();
+      foreach (var session in SessionsForProcessName(processName)) {
+        float level;
+        bool muted;
+        session.Item2.GetMasterVolume(out level);
+        session.Item2.GetMute(out muted);
+        result.Add(new SessionVolume { ProcessId = session.Item3, ProcessName = session.Item4, Volume = level, Muted = muted });
+      }
+      return result.ToArray();
+    }
+    public static SessionVolume[] SetForProcessName(string processName, float level) {
+      var context = Guid.Empty;
+      foreach (var session in SessionsForProcessName(processName)) {
+        session.Item2.SetMasterVolume(Math.Max(0, Math.Min(1, level)), ref context);
+        session.Item2.SetMute(level <= 0.0001f, ref context);
+      }
+      return GetForProcessName(processName);
+    }
+  }
+}
+"@
+Add-Type -TypeDefinition $audioSource -Language CSharp
+function OwnerProcessName($owner) {
+  if ([string]::IsNullOrWhiteSpace($owner)) { return '' }
+  $name = [string]$owner
+  if ($name.EndsWith('.exe', [StringComparison]::OrdinalIgnoreCase)) {
+    $name = $name.Substring(0, $name.Length - 4)
+  }
+  return $name
+}
+function ExternalAudioProcessName($session, $mode) {
+  if ($null -ne $session) {
+    $name = OwnerProcessName $session.SourceAppUserModelId
+    if (-not [string]::IsNullOrWhiteSpace($name)) { return $name }
+  }
+  if ($mode -ne 'other' -and (Get-Process -Name cloudmusic -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+    return 'cloudmusic'
+  }
+  return ''
+}
+function VolumeSnapshot($processName, $sessions) {
+  if ([string]::IsNullOrWhiteSpace($processName) -or $null -eq $sessions -or $sessions.Count -le 0) {
+    return [pscustomobject]@{
+      available = $false
+      volume = 0
+      muted = $false
+      processName = $processName
+      sessionCount = 0
+    }
+  }
+  $total = 0.0
+  $mutedCount = 0
+  foreach ($session in $sessions) {
+    $total += [double]$session.Volume
+    if ($session.Muted) { $mutedCount += 1 }
+  }
+  return [pscustomobject]@{
+    available = $true
+    volume = [Math]::Max(0, [Math]::Min(1, $total / $sessions.Count))
+    muted = ($mutedCount -ge $sessions.Count)
+    processName = $processName
+    sessionCount = $sessions.Count
+  }
+}
+`
+
 async function getPowerShellExternalPlaybackSnapshot(mode: ExternalPlaybackSourceMode): Promise<ExternalPlaybackSnapshot | null> {
   const escapedMode = JSON.stringify(mode)
   const script = `${powershellMediaSessionPrelude}
@@ -3374,6 +3524,43 @@ switch ($command) {
 [bool]$result | ConvertTo-Json -Compress
 `
   return Boolean(await runPowerShellJson<boolean>(script))
+}
+
+async function getPowerShellExternalPlaybackVolume(mode: ExternalPlaybackSourceMode): Promise<ExternalPlaybackVolumeSnapshot> {
+  const escapedMode = JSON.stringify(mode)
+  const script = `${powershellMediaSessionPrelude}
+${powershellAudioSessionPrelude}
+$mode = ${escapedMode}
+$session = SelectSession $manager $mode
+$processName = ExternalAudioProcessName $session $mode
+$sessions = if ([string]::IsNullOrWhiteSpace($processName)) { @() } else { @([KmgcccAudio.AudioSessionVolume]::GetForProcessName($processName)) }
+VolumeSnapshot $processName $sessions | ConvertTo-Json -Compress
+`
+  return await runPowerShellJson<ExternalPlaybackVolumeSnapshot>(script, [], 6000) ?? {
+    available: false,
+    volume: 0,
+    muted: false,
+    error: 'Unable to read external playback volume.'
+  }
+}
+
+async function setPowerShellExternalPlaybackVolume(mode: ExternalPlaybackSourceMode, volume: number): Promise<ExternalPlaybackVolumeSnapshot> {
+  const escapedMode = JSON.stringify(mode)
+  const nextVolume = Math.max(0, Math.min(1, Number.isFinite(volume) ? volume : 0))
+  const script = `${powershellMediaSessionPrelude}
+${powershellAudioSessionPrelude}
+$mode = ${escapedMode}
+$session = SelectSession $manager $mode
+$processName = ExternalAudioProcessName $session $mode
+$sessions = if ([string]::IsNullOrWhiteSpace($processName)) { @() } else { @([KmgcccAudio.AudioSessionVolume]::SetForProcessName($processName, [single]${nextVolume})) }
+VolumeSnapshot $processName $sessions | ConvertTo-Json -Compress
+`
+  return await runPowerShellJson<ExternalPlaybackVolumeSnapshot>(script, [], 6000) ?? {
+    available: false,
+    volume: nextVolume,
+    muted: nextVolume <= 0,
+    error: 'Unable to set external playback volume.'
+  }
 }
 
 function estimatedExternalPosition(timeline: WinRtTimelineProperties, playbackInfo: WinRtPlaybackInfo): number {
@@ -3626,6 +3813,8 @@ ipcMain.handle('external-playback:set-source-mode', async (_event, mode: Externa
   return getExternalPlaybackSnapshot(externalPlaybackSourceMode)
 })
 ipcMain.handle('external-playback:command', async (_event, command: string, value?: number) => runExternalPlaybackCommand(command, value))
+ipcMain.handle('external-playback:get-volume', async () => getPowerShellExternalPlaybackVolume(externalPlaybackSourceMode))
+ipcMain.handle('external-playback:set-volume', async (_event, volume: number) => setPowerShellExternalPlaybackVolume(externalPlaybackSourceMode, volume))
 
 ipcMain.handle('system:get-platform', () => process.platform)
 ipcMain.handle('settings:get-library-location', () => libraryLocationInfo())

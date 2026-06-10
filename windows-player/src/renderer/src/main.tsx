@@ -3075,6 +3075,22 @@ function App(): React.ReactElement {
 
   React.useEffect(() => {
     if (playbackSource !== 'external') return
+    let cancelled = false
+    const poll = async (): Promise<void> => {
+      const snapshot = await window.kmgccc?.getExternalPlaybackVolume?.()
+      if (cancelled || !snapshot?.available) return
+      setVolume(clampNumber(snapshot.muted ? 0 : snapshot.volume, 0, 1))
+    }
+    void poll()
+    const interval = window.setInterval(() => { void poll() }, 2500)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [playbackSource, externalPlaybackMode])
+
+  React.useEffect(() => {
+    if (playbackSource !== 'external') return
     if (!externalPlaybackSnapshot?.available || !externalPlaybackSnapshot.isPlaying) return
     if (!currentTrackHasTimedLyrics || (!isLyricsSidebarOpen && !isFullscreenLyricsOpen)) return
     const key = externalPlaybackKey
@@ -3305,8 +3321,15 @@ function App(): React.ReactElement {
     setIsShuffleEnabled((value) => !value)
   }, [])
   const changeVolume = React.useCallback((nextVolume: number) => {
-    setVolume(clampNumber(nextVolume, 0, 1))
-  }, [])
+    const clampedVolume = clampNumber(nextVolume, 0, 1)
+    setVolume(clampedVolume)
+    if (playbackSource === 'external') {
+      void window.kmgccc?.setExternalPlaybackVolume?.(clampedVolume).then((snapshot) => {
+        if (!snapshot?.available) return
+        setVolume(clampNumber(snapshot.muted ? 0 : snapshot.volume, 0, 1))
+      })
+    }
+  }, [playbackSource])
   const selectPlaybackSource = React.useCallback(async (source: PlaybackSourceKind, mode: ExternalPlaybackSourceMode = externalPlaybackMode) => {
     if (source === 'external') {
       if (!isExternalPlaybackSupported) return
