@@ -5667,15 +5667,6 @@ input {
   pointer-events: none;
 }
 
-.fullscreen-lyrics-open .mini-player,
-.fullscreen-lyrics-open .mini-timeline-layer {
-  transform: translate(-50%, 24px);
-}
-
-.fullscreen-lyrics-open .mini-fullscreen-actions {
-  transform: translate3d(0, 24px, 0);
-}
-
 .fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-player,
 .fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-fullscreen-actions,
 .fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-timeline-layer,
@@ -5684,18 +5675,6 @@ input {
 .fullscreen-lyrics-open .mini-timeline-layer:hover {
   opacity: 1;
   pointer-events: auto;
-}
-
-.fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-player,
-.fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-timeline-layer,
-.fullscreen-lyrics-open .mini-player:hover,
-.fullscreen-lyrics-open .mini-timeline-layer:hover {
-  transform: translate(-50%, 0);
-}
-
-.fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-fullscreen-actions,
-.fullscreen-lyrics-open .mini-fullscreen-actions:hover {
-  transform: translate3d(0, 0, 0);
 }
 
 .fullscreen-lyrics-open .mini-timeline-layer {
