@@ -155,7 +155,7 @@ type AudioImportBatchResult = {
   tracks: LocalAudioImport[]
 }
 
-type LyricsLookupPlatform = 'auto' | 'amll' | 'qq' | 'kugou' | 'netease'
+type LyricsLookupPlatform = 'auto' | 'amll' | 'qq' | 'kugou' | 'netease' | 'lrclib'
 
 type ExternalPlaybackSourceMode = 'thirdParty' | 'other' | 'auto'
 
@@ -2726,10 +2726,14 @@ async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult 
 
   if (netEaseLyrics) return netEaseLyrics
 
+  return fetchLrcLibLyrics(lookupTrack)
+}
+
+async function fetchLrcLibLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
   const url = new URL('https://lrclib.net/api/search')
-  url.searchParams.set('track_name', lookupTrack.title)
-  if (!isUnknown(lookupTrack.artist)) url.searchParams.set('artist_name', lookupTrack.artist)
-  if (!isUnknown(lookupTrack.album)) url.searchParams.set('album_name', lookupTrack.album)
+  url.searchParams.set('track_name', track.title)
+  if (!isUnknown(track.artist)) url.searchParams.set('artist_name', track.artist)
+  if (!isUnknown(track.album)) url.searchParams.set('album_name', track.album)
 
   const response = await fetch(url, {
     headers: { 'User-Agent': 'kmgccc-player-electron/0.1.0' },
@@ -2746,13 +2750,14 @@ async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult 
   return {
     lyricsText: selected.plainLyrics ?? undefined,
     syncedLyrics: selected.syncedLyrics ?? undefined,
-    neteaseSongId: lookupTrack.neteaseSongId,
-    qqMusicSongId: lookupTrack.qqMusicSongId
+    neteaseSongId: track.neteaseSongId,
+    qqMusicSongId: track.qqMusicSongId
   }
 }
 
 async function fetchLyricsForPlatform(track: LocalAudioImport, platform: LyricsLookupPlatform): Promise<LyricsLookupResult | null> {
   if (platform === 'auto') return fetchLyrics(track)
+  if (platform === 'lrclib') return fetchLrcLibLyrics(track)
   if (platform === 'amll') {
     return (await fetchAmllTtmlLyrics(track).catch(() => null)) ?? (await fetchAmllDbSearchLyrics(track).catch(() => null))
   }
@@ -4130,7 +4135,7 @@ ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, un
   const neteaseSongId = positiveInteger(values.neteaseSongId)
   const qqMusicSongId = typeof values.qqMusicSongId === 'string' ? values.qqMusicSongId.trim() : undefined
   const platformValue = typeof values.platform === 'string' ? values.platform : 'auto'
-  const platform: LyricsLookupPlatform = ['amll', 'qq', 'kugou', 'netease'].includes(platformValue) ? platformValue as LyricsLookupPlatform : 'auto'
+  const platform: LyricsLookupPlatform = ['amll', 'qq', 'kugou', 'netease', 'lrclib'].includes(platformValue) ? platformValue as LyricsLookupPlatform : 'auto'
   if (!title) return null
   const ids = idsForMetadata(artist || '未知艺人', album || '未知专辑')
   return fetchLyricsForPlatform({
