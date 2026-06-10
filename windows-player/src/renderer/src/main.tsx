@@ -3320,7 +3320,7 @@ function App(): React.ReactElement {
   }, [])
   const toggleArtworkBpmPulse = React.useCallback(() => {
     const trackId = currentTrack?.id
-    if (trackId) {
+    if (trackId && isArtworkBpmPulseEnabled) {
       const nextCache = { ...beatCacheRef.current }
       delete nextCache[trackId]
       beatCacheRef.current = nextCache
@@ -3330,10 +3330,18 @@ function App(): React.ReactElement {
         delete next[trackId]
         return next
       })
+      setApprovedArtworkBeatById((previous) => {
+        if (!previous[trackId]) return previous
+        const next = { ...previous }
+        delete next[trackId]
+        persistJsonSetting(APPROVED_ARTWORK_BEATS_STORAGE_KEY, next)
+        return next
+      })
+      setArtworkBeatSaveFeedback((feedback) => feedback?.trackId === trackId ? null : feedback)
     }
     artworkPulseLastBeatRef.current = null
     setIsArtworkBpmPulseEnabled((value) => !value)
-  }, [currentTrack?.id])
+  }, [currentTrack?.id, isArtworkBpmPulseEnabled])
   const openManualBpmBoard = React.useCallback(() => {
     if (!currentTrack?.id) return
     setManualBpmBoard({
