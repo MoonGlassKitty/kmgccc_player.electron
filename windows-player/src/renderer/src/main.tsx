@@ -147,6 +147,7 @@ type ExternalLyricsCacheEntry = {
   syncedLyrics?: string
   metadataSongId?: number
   status: 'loading' | 'ready' | 'empty' | 'failed'
+  updatedAt?: number
 }
 
 type ExternalArtworkCacheEntry = {
@@ -163,6 +164,7 @@ type ExternalPlaybackClock = {
 
 const EXTERNAL_PLAYBACK_FALLBACK_DURATION_SECONDS = 12 * 60
 const EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS = 1.5
+const EXTERNAL_LYRICS_RETRY_DELAY_MS = 8000
 
 function externalTrackKey(snapshot: ExternalPlaybackSnapshot | null): string {
   if (!snapshot) return ''
@@ -3101,11 +3103,15 @@ function App(): React.ReactElement {
     if (!key || !title || title === '外部播放' || !window.kmgccc?.lookupLyrics) return
     const existingLyrics = externalLyricsByKey[key]
     const metadataSongId = snapshot?.neteaseSongId
+    const now = Date.now()
+    const isRetryableStatus = existingLyrics?.status === 'empty' || existingLyrics?.status === 'failed' || existingLyrics?.status === 'loading'
+    const isStaleLyricsLookup = Boolean(existingLyrics?.updatedAt && now - existingLyrics.updatedAt > EXTERNAL_LYRICS_RETRY_DELAY_MS)
     const shouldRetryWithMetadata = Boolean(metadataSongId && existingLyrics && existingLyrics.metadataSongId !== metadataSongId && (existingLyrics.status === 'empty' || existingLyrics.status === 'failed' || existingLyrics.status === 'loading'))
-    if (existingLyrics && !shouldRetryWithMetadata) return
+    const shouldRetryStaleLookup = Boolean(existingLyrics && isRetryableStatus && isStaleLyricsLookup)
+    if (existingLyrics && !shouldRetryWithMetadata && !shouldRetryStaleLookup) return
     setExternalLyricsByKey((entries) => ({
       ...entries,
-      [key]: { status: 'loading', metadataSongId }
+      [key]: { status: 'loading', metadataSongId, updatedAt: now }
     }))
     let cancelled = false
     window.kmgccc.lookupLyrics({
@@ -3123,14 +3129,14 @@ function App(): React.ReactElement {
       setExternalLyricsByKey((entries) => ({
         ...entries,
         [key]: text.trim()
-          ? { status: 'ready', lyricsText: text, syncedLyrics: text, metadataSongId }
-          : { status: 'empty', metadataSongId }
+          ? { status: 'ready', lyricsText: text, syncedLyrics: text, metadataSongId, updatedAt: Date.now() }
+          : { status: 'empty', metadataSongId, updatedAt: Date.now() }
       }))
     }).catch(() => {
       if (cancelled) return
       setExternalLyricsByKey((entries) => ({
         ...entries,
-        [key]: { status: 'failed', metadataSongId }
+        [key]: { status: 'failed', metadataSongId, updatedAt: Date.now() }
       }))
     })
     return () => {
