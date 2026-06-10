@@ -154,6 +154,7 @@ type ExternalArtworkCacheEntry = {
   artworkUrl?: string
   metadataArtworkUrl?: string
   status: 'loading' | 'ready' | 'empty' | 'failed'
+  updatedAt?: number
 }
 
 type ExternalPlaybackClock = {
@@ -165,6 +166,9 @@ type ExternalPlaybackClock = {
 const EXTERNAL_PLAYBACK_FALLBACK_DURATION_SECONDS = 12 * 60
 const EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS = 1.5
 const EXTERNAL_LYRICS_RETRY_DELAY_MS = 1000
+const EXTERNAL_LYRICS_CACHE_STORAGE_KEY = 'externalPlayback.lyricsCache.v1'
+const EXTERNAL_ARTWORK_CACHE_STORAGE_KEY = 'externalPlayback.artworkCache.v1'
+const EXTERNAL_METADATA_CACHE_LIMIT = 160
 
 function externalTrackKey(snapshot: ExternalPlaybackSnapshot | null): string {
   if (!snapshot) return ''
@@ -877,6 +881,62 @@ function storedApprovedArtworkBeats(): Record<string, ArtworkBeat> {
         .map(([trackId, value]) => [trackId, sanitizeArtworkBeat(value)] as const)
         .filter((entry): entry is readonly [string, ArtworkBeat] => Boolean(entry[0] && entry[1]))
     )
+  } catch {
+    return {}
+  }
+}
+
+function latestExternalCacheEntries<T extends { updatedAt?: number }>(entries: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(entries)
+      .sort(([, left], [, right]) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0))
+      .slice(0, EXTERNAL_METADATA_CACHE_LIMIT)
+  )
+}
+
+function sanitizeExternalLyricsCache(value: unknown): Record<string, ExternalLyricsCacheEntry> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const entries = Object.entries(value).reduce<Record<string, ExternalLyricsCacheEntry>>((cache, [key, rawEntry]) => {
+    if (!key || !rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) return cache
+    const entry = rawEntry as Partial<ExternalLyricsCacheEntry>
+    const text = (entry.syncedLyrics || entry.lyricsText || '').trim()
+    if (entry.status !== 'ready' || !text) return cache
+    const metadataSongId = typeof entry.metadataSongId === 'number' && Number.isFinite(entry.metadataSongId) ? entry.metadataSongId : undefined
+    const updatedAt = typeof entry.updatedAt === 'number' && Number.isFinite(entry.updatedAt) ? entry.updatedAt : undefined
+    cache[key] = { status: 'ready', lyricsText: text, syncedLyrics: text, metadataSongId, updatedAt }
+    return cache
+  }, {})
+  return latestExternalCacheEntries(entries)
+}
+
+function sanitizeExternalArtworkCache(value: unknown): Record<string, ExternalArtworkCacheEntry> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const entries = Object.entries(value).reduce<Record<string, ExternalArtworkCacheEntry>>((cache, [key, rawEntry]) => {
+    if (!key || !rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) return cache
+    const entry = rawEntry as Partial<ExternalArtworkCacheEntry>
+    const artworkUrl = entry.artworkUrl?.trim()
+    if (entry.status !== 'ready' || !artworkUrl) return cache
+    const metadataArtworkUrl = entry.metadataArtworkUrl?.trim() || undefined
+    const updatedAt = typeof entry.updatedAt === 'number' && Number.isFinite(entry.updatedAt) ? entry.updatedAt : undefined
+    cache[key] = { status: 'ready', artworkUrl, metadataArtworkUrl, updatedAt }
+    return cache
+  }, {})
+  return latestExternalCacheEntries(entries)
+}
+
+function storedExternalLyricsCache(): Record<string, ExternalLyricsCacheEntry> {
+  try {
+    const rawValue = window.localStorage.getItem(EXTERNAL_LYRICS_CACHE_STORAGE_KEY)
+    return sanitizeExternalLyricsCache(rawValue ? JSON.parse(rawValue) : {})
+  } catch {
+    return {}
+  }
+}
+
+function storedExternalArtworkCache(): Record<string, ExternalArtworkCacheEntry> {
+  try {
+    const rawValue = window.localStorage.getItem(EXTERNAL_ARTWORK_CACHE_STORAGE_KEY)
+    return sanitizeExternalArtworkCache(rawValue ? JSON.parse(rawValue) : {})
   } catch {
     return {}
   }
@@ -2376,8 +2436,8 @@ function App(): React.ReactElement {
   const [playbackSource, setPlaybackSource] = React.useState<PlaybackSourceKind>('local')
   const [externalPlaybackMode, setExternalPlaybackMode] = React.useState<ExternalPlaybackSourceMode>('thirdParty')
   const [externalPlaybackSnapshot, setExternalPlaybackSnapshot] = React.useState<ExternalPlaybackSnapshot | null>(null)
-  const [externalLyricsByKey, setExternalLyricsByKey] = React.useState<Record<string, ExternalLyricsCacheEntry>>({})
-  const [externalArtworkByKey, setExternalArtworkByKey] = React.useState<Record<string, ExternalArtworkCacheEntry>>({})
+  const [externalLyricsByKey, setExternalLyricsByKey] = React.useState<Record<string, ExternalLyricsCacheEntry>>(() => storedExternalLyricsCache())
+  const [externalArtworkByKey, setExternalArtworkByKey] = React.useState<Record<string, ExternalArtworkCacheEntry>>(() => storedExternalArtworkCache())
   const [systemPlatform, setSystemPlatform] = React.useState<NodeJS.Platform | null>(null)
   const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(false)
   const [volume, setVolume] = React.useState(0.72)
@@ -2408,6 +2468,15 @@ function App(): React.ReactElement {
     [currentId, homeSnapshot]
   )
   const externalPlaybackKey = React.useMemo(() => externalTrackKey(externalPlaybackSnapshot), [externalPlaybackSnapshot])
+
+  React.useEffect(() => {
+    persistJsonSetting(EXTERNAL_LYRICS_CACHE_STORAGE_KEY, sanitizeExternalLyricsCache(externalLyricsByKey))
+  }, [externalLyricsByKey])
+
+  React.useEffect(() => {
+    persistJsonSetting(EXTERNAL_ARTWORK_CACHE_STORAGE_KEY, sanitizeExternalArtworkCache(externalArtworkByKey))
+  }, [externalArtworkByKey])
+
   const externalDisplayTrack = React.useMemo<Track | null>(() => {
     const snapshot = externalPlaybackSnapshot
     if (!snapshot) return null
@@ -3191,11 +3260,12 @@ function App(): React.ReactElement {
     if (!key || !title || title === '外部播放' || !window.kmgccc?.lookupCover) return
     const existingArtwork = externalArtworkByKey[key]
     const metadataArtworkUrl = snapshot?.artworkUrl?.trim()
+    const now = Date.now()
     const shouldRetryWithArtwork = Boolean(metadataArtworkUrl && existingArtwork && existingArtwork.metadataArtworkUrl !== metadataArtworkUrl && (existingArtwork.status === 'empty' || existingArtwork.status === 'failed'))
     if (existingArtwork && !shouldRetryWithArtwork) return
     setExternalArtworkByKey((entries) => ({
       ...entries,
-      [key]: { status: 'loading', metadataArtworkUrl }
+      [key]: { status: 'loading', metadataArtworkUrl, updatedAt: now }
     }))
     let cancelled = false
     const lookup = async (): Promise<string> => {
@@ -3221,14 +3291,14 @@ function App(): React.ReactElement {
       setExternalArtworkByKey((entries) => ({
         ...entries,
         [key]: artworkUrl
-          ? { status: 'ready', artworkUrl, metadataArtworkUrl }
-          : { status: 'empty', metadataArtworkUrl }
+          ? { status: 'ready', artworkUrl, metadataArtworkUrl, updatedAt: Date.now() }
+          : { status: 'empty', metadataArtworkUrl, updatedAt: Date.now() }
       }))
     }).catch(() => {
       if (cancelled) return
       setExternalArtworkByKey((entries) => ({
         ...entries,
-        [key]: { status: 'failed', metadataArtworkUrl }
+        [key]: { status: 'failed', metadataArtworkUrl, updatedAt: Date.now() }
       }))
     })
     return () => {
