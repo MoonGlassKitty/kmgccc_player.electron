@@ -2555,7 +2555,6 @@ function App(): React.ReactElement {
         previousTapeFullscreenSkinRef.current = selectedFullscreenSkinRef.current
         setSelectedNowPlayingSkin('kmgccc.cassette')
         setSelectedFullscreenSkin('kmgccc.cassette')
-        return
       }
       if (!snapshot.connected && wasConnected === true) {
         if (previousTapeNowPlayingSkinRef.current) setSelectedNowPlayingSkin(previousTapeNowPlayingSkinRef.current)
@@ -2565,7 +2564,7 @@ function App(): React.ReactElement {
       }
       timeoutId = window.setTimeout(() => {
         void checkTapeDevice()
-      }, snapshot.connected ? 4000 : 1000)
+      }, 1000)
     }
     void checkTapeDevice()
     return () => {
