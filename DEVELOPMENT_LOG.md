@@ -154,3 +154,4 @@
 - 播放页顶部拖拽判定继续加固：将顶部拖拽判定层提升到 `z-index:10000`，窗口控制按钮提升到 `10001`，并把判定高度扩展到标题栏下方 16px，避免窗口播放/全屏歌词页顶部只有局部区域能拖动。`npm run typecheck` 与 `npm run build` 已通过。
 - 页面元素默认禁止选中和原生拖拽：全局关闭普通 UI 的 `user-select` 与 `-webkit-user-drag`，图片和 SVG 禁止被拖出；输入框和文本域保留文字选择能力，避免影响编辑弹窗。`npm run typecheck` 与 `npm run build` 已通过。
 - 封面节奏律动关闭时清理当前歌 BPM：点击封面关闭律动会删除当前歌曲的临时测速缓存、界面 BPM 状态、长按/手动认可 BPM 以及 localStorage 中的当前歌记录；再次点击开启时必须重新实时计算，不再沿用关闭前的 BPM。`npm run typecheck` 与 `npm run build` 已通过。
+- 歌词翻译可读性提高：全屏 AMLL 与窗口/侧栏 AMLL 的翻译行 opacity 提高，未高亮翻译不再被二次压暗；普通歌词 fallback 的翻译行 opacity 也提升到 0.66，避免翻译过暗。`npm run typecheck` 与 `npm run build` 已通过。

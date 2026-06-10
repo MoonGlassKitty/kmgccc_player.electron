@@ -5099,18 +5099,23 @@ input {
   color: var(--amll-fullscreen-sub-active-color, rgba(255, 255, 255, 0.72));
   font-family: var(--lyrics-translation-font-family, var(--lyrics-main-font-family, system-ui, sans-serif));
   font-weight: var(--lyrics-translation-font-weight, 400);
-  opacity: 0.54;
+  opacity: 0.68;
   transition: color 360ms ease;
 }
 
 .fullscreen-amll-player .FmKaba_lyricBgLine .FmKaba_lyricSubLine {
   color: var(--amll-fullscreen-sub-inactive-color, rgba(255, 255, 255, 0.36));
-  opacity: 0.48;
+  opacity: 1;
 }
 
 .amll-lyrics-player.side .FmKaba_lyricSubLine {
   font-family: var(--lyrics-translation-font-family, var(--lyrics-main-font-family, system-ui, sans-serif));
   font-weight: var(--lyrics-translation-font-weight, 400);
+  opacity: 0.68;
+}
+
+.amll-lyrics-player.side .FmKaba_lyricBgLine .FmKaba_lyricSubLine {
+  opacity: 1;
 }
 
 .amll-lyrics-player.side .FmKaba_lyricBgLine {
@@ -5969,7 +5974,7 @@ input {
   color: currentColor;
   font-size: 18px;
   font-weight: 760;
-  opacity: 0.5;
+  opacity: 0.66;
 }
 
 @media (max-width: 1300px) {
