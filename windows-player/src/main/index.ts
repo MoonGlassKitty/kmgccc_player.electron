@@ -3108,7 +3108,10 @@ async function attachExternalPlaybackMetadata(snapshot: ExternalPlaybackSnapshot
   }
 
   const metadata = await lookup
-  if (!metadata) return enriched
+  if (!metadata) {
+    externalSnapshotMetadataByKey.delete(key)
+    return enriched
+  }
   return {
     ...enriched,
     title: enriched.title.trim() || metadata.title || enriched.title,
