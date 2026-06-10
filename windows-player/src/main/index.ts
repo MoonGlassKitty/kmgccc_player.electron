@@ -2768,9 +2768,18 @@ async function selectedExternalSession(mode = externalPlaybackSourceMode): Promi
   const manager = await requestMediaSessionManager()
   if (!manager) return null
   const current = manager.getCurrentSession?.() ?? null
-  if (current && sessionMatchesExternalMode(current, mode)) return current
   const sessions = winRtCollectionToArray<WinRtSession>(manager.getSessions?.())
-  return sessions.find((session) => sessionMatchesExternalMode(session, mode)) ?? null
+  const candidates = [
+    ...(current ? [current] : []),
+    ...sessions.filter((session) => session !== current)
+  ].filter((session) => sessionMatchesExternalMode(session, mode))
+  if (!candidates.length) return null
+  const scored = await Promise.all(candidates.map(async (session) => ({
+    session,
+    score: await scoreWinRtSession(session, session === current)
+  })))
+  scored.sort((first, second) => second.score - first.score)
+  return scored[0]?.session ?? null
 }
 
 function winRtTimeSpanToSeconds(value?: number): number {
@@ -2787,6 +2796,25 @@ function playbackStatusIsPlaying(playbackStatus?: number): boolean {
   const mediaControl = loadWinRtMediaControl()
   const playing = mediaControl?.GlobalSystemMediaTransportControlsSessionPlaybackStatus?.playing ?? 4
   return playbackStatus === playing
+}
+
+function playbackStatusIsPaused(playbackStatus?: number): boolean {
+  const paused = loadWinRtMediaControl()?.GlobalSystemMediaTransportControlsSessionPlaybackStatus?.paused ?? 5
+  return playbackStatus === paused
+}
+
+async function scoreWinRtSession(session: WinRtSession, isCurrent: boolean): Promise<number> {
+  const playbackInfo = session.getPlaybackInfo()
+  const controls = playbackInfo.controls ?? {}
+  const mediaProperties = await winRtAsync<WinRtMediaProperties>((callback) => session.tryGetMediaPropertiesAsync(callback), 1200)
+  let score = isCurrent ? 15 : 0
+  if (playbackStatusIsPlaying(playbackInfo.playbackStatus)) score += 100
+  else if (playbackStatusIsPaused(playbackInfo.playbackStatus)) score += 80
+  if ((mediaProperties?.title ?? '').trim()) score += 60
+  if (controls.isPlayEnabled || controls.isPauseEnabled || controls.isPlayPauseToggleEnabled) score += 30
+  if (controls.isNextEnabled || controls.isPreviousEnabled) score += 8
+  if (controls.isPlaybackPositionEnabled) score += 4
+  return score
 }
 
 function runPowerShellJson<T>(script: string, args: string[] = [], timeoutMs = 5000): Promise<T | null> {
@@ -2845,13 +2873,43 @@ function TimeSpanSeconds($value) {
   if ($value -is [TimeSpan]) { return [Math]::Max(0, $value.TotalSeconds) }
   return [Math]::Max(0, ([double]$value) / 10000000)
 }
+function ScoreSession($session, $isCurrent) {
+  $score = if ($isCurrent) { 15 } else { 0 }
+  $playback = $session.GetPlaybackInfo()
+  $controls = $playback.Controls
+  $status = $playback.PlaybackStatus.ToString()
+  if ($status -eq 'Playing') {
+    $score += 100
+  } elseif ($status -eq 'Paused') {
+    $score += 80
+  }
+  try {
+    $properties = AwaitOperation ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+    if (-not [string]::IsNullOrWhiteSpace($properties.Title)) { $score += 60 }
+  } catch {}
+  if ($controls.IsPlayEnabled -or $controls.IsPauseEnabled -or $controls.IsPlayPauseToggleEnabled) { $score += 30 }
+  if ($controls.IsNextEnabled -or $controls.IsPreviousEnabled) { $score += 8 }
+  if ($controls.IsPlaybackPositionEnabled) { $score += 4 }
+  return $score
+}
 function SelectSession($manager, $mode) {
   $current = $manager.GetCurrentSession()
-  if ($null -ne $current -and (MatchesMode $current $mode)) { return $current }
-  foreach ($session in $manager.GetSessions()) {
-    if (MatchesMode $session $mode) { return $session }
+  $bestSession = $null
+  $bestScore = -1
+  if ($null -ne $current -and (MatchesMode $current $mode)) {
+    $bestSession = $current
+    $bestScore = ScoreSession $current $true
   }
-  return $null
+  foreach ($session in $manager.GetSessions()) {
+    if (-not (MatchesMode $session $mode)) { continue }
+    if ($null -ne $current -and $session.SourceAppUserModelId -eq $current.SourceAppUserModelId) { continue }
+    $score = ScoreSession $session $false
+    if ($score -gt $bestScore) {
+      $bestSession = $session
+      $bestScore = $score
+    }
+  }
+  return $bestSession
 }
 $manager = AwaitOperation ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
 `
@@ -2938,7 +2996,7 @@ switch ($command) {
   'pause' { $result = AwaitOperation ($session.TryPauseAsync()) ([bool]) }
   'next' { $result = AwaitOperation ($session.TrySkipNextAsync()) ([bool]) }
   'previous' { $result = AwaitOperation ($session.TrySkipPreviousAsync()) ([bool]) }
-  'seek' { $result = AwaitOperation ($session.TryChangePlaybackPositionAsync(${positionTicks})) ([bool]) }
+  'seek' { $result = AwaitOperation ($session.TryChangePlaybackPositionAsync([TimeSpan]::FromTicks(${positionTicks}))) ([bool]) }
   default { $result = $false }
 }
 [bool]$result | ConvertTo-Json -Compress

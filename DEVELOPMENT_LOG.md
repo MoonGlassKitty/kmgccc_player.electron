@@ -166,3 +166,4 @@
 - 新增 Windows 继续开发交接文档：根目录 `交接.md` 记录当前 Electron 工程状态、外部播放源实现、Swift 参考文件、Windows 必测项、打包注意事项、已知风险和后续建议顺序，方便项目转到 Windows 环境继续开发。
 - 全屏歌词交互层级修正：全屏歌词打开时 `content-pane` 不再以整块 stacking context 压在全屏歌词页上，`fullscreen-lyrics-page` 提升到普通内容之上，同时保留底栏 hover 区、时间条和播放页按钮自己的层级；修复全屏 AMLL 歌词无法滚动选择、点击歌词无法跳转的问题。`npm run typecheck` 已通过。
 - 全屏歌词布局修正：全屏 AMLL 的对齐锚点下移，空歌词态在全屏歌词区内补足高度并轻微下移，避免整体贴在上方；`fullscreen.coverGradientBlur` 皮肤下背景已由封面铺开，不再额外渲染左侧封面舞台，避免出现封面叠封面。`npm run typecheck` 已通过。
+- Windows 外部播放源实机调试：在 Windows PowerShell 5.1 上确认 GSMTC 可见 `cloudmusic.exe`、`chrome.exe`、`msedge.exe`，NodeRT optional 包当前缺少 `binding.node`，实际路径会走 PowerShell fallback。修正外部会话选择策略：NodeRT 和 PowerShell fallback 都按播放中/暂停、有标题、可控、当前会话加权评分，避免“其他源”优先选中已停止且不可控的 Chrome；PowerShell seek 改为传 `[TimeSpan]::FromTicks(...)`。本机直测 `auto/thirdParty/other` 分别选中 `cloudmusic.exe/cloudmusic.exe/msedge.exe`；`npm run typecheck` 与 `npm run build` 已通过。
