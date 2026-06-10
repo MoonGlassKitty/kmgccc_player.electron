@@ -138,6 +138,27 @@ declare global {
     isDefault: boolean
   }
 
+  type ExternalPlaybackSourceMode = 'thirdParty' | 'other' | 'auto'
+
+  type ExternalPlaybackSnapshot = {
+    available: boolean
+    sourceMode: ExternalPlaybackSourceMode
+    connectionState: 'unavailable' | 'disconnected' | 'connectedNoMetadata' | 'runningHasData'
+    sourceAppUserModelId?: string
+    title: string
+    artist: string
+    album?: string
+    duration: number
+    currentTime: number
+    isPlaying: boolean
+    playbackRate: number
+    canControlPlayback: boolean
+    canSkip: boolean
+    canSeek: boolean
+    updatedAt: number
+    error?: string
+  }
+
   type LocalAudioImport = HomeTrack & {
     sourcePath: string
     sourceUrl: string
@@ -200,6 +221,9 @@ declare global {
       clearIndexCache: () => Promise<HomeSnapshot>
       clearExternalPlaybackCache: () => Promise<boolean>
       completeLibraryMetadata: () => Promise<{ completed: number; snapshot: HomeSnapshot }>
+      getExternalPlaybackSnapshot: (mode?: ExternalPlaybackSourceMode) => Promise<ExternalPlaybackSnapshot>
+      setExternalPlaybackSourceMode: (mode: ExternalPlaybackSourceMode) => Promise<ExternalPlaybackSnapshot>
+      sendExternalPlaybackCommand: (command: string, value?: number) => Promise<boolean>
       sampleWindowColor: (rect: { x: number; y: number; width: number; height: number }) => Promise<{ r: number; g: number; b: number } | null>
       getWallpaperTint: () => Promise<WallpaperTint>
     }

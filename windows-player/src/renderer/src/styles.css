@@ -3097,9 +3097,9 @@ input {
 
 .sidebar-source {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 0.72fr 1.28fr;
   height: 38px;
-  margin: 0 16px 18px 22px;
+  margin: 0 16px 6px 22px;
   padding: 3px;
   border-radius: 19px;
   background: rgba(0, 0, 0, 0.06);
@@ -3119,16 +3119,87 @@ input {
   border-radius: 16px;
   background: transparent;
   color: rgba(23, 37, 48, 0.64);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 760;
+  min-width: 0;
+  white-space: nowrap;
 }
 
-.sidebar-source .active {
+.sidebar-source > button.active,
+.sidebar-external-source.active {
   color: var(--cover-accent-text);
   background: color-mix(in srgb, var(--cover-accent) 84%, rgba(255, 255, 255, 0.34));
   box-shadow:
     0 0 0 1px var(--cover-accent-border) inset,
     0 1px 4px var(--cover-accent-shadow);
+}
+
+.sidebar-external-source {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  border-radius: 16px;
+  min-width: 0;
+}
+
+.sidebar-external-source > button:first-child {
+  overflow: hidden;
+  padding: 0 3px 0 9px;
+  text-overflow: ellipsis;
+}
+
+.sidebar-external-source > button:first-child span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-external-source .source-menu-trigger {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  opacity: 0.78;
+}
+
+.source-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: calc(var(--layer-popovers) + 2);
+  display: grid;
+  width: 156px;
+  gap: 4px;
+  padding: 7px;
+  border-radius: 16px;
+}
+
+.source-menu button {
+  justify-content: flex-start;
+  height: 30px;
+  padding: 0 10px;
+  color: rgba(23, 37, 48, 0.72);
+  text-align: left;
+}
+
+.source-menu button.selected {
+  color: var(--cover-accent-text);
+  background: color-mix(in srgb, var(--cover-accent) 22%, rgba(255, 255, 255, 0.34));
+}
+
+.sidebar-source-detail {
+  overflow: hidden;
+  margin: 0 18px 12px 24px;
+  color: rgba(23, 37, 48, 0.44);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-source-detail.active {
+  color: color-mix(in srgb, var(--cover-accent-text) 70%, rgba(23, 37, 48, 0.55));
 }
 
 .sidebar-nav,

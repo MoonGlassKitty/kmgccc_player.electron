@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol, shell 
 import { execFileSync } from 'node:child_process'
 import { createDecipheriv, createHash } from 'node:crypto'
 import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { basename, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -9,6 +10,7 @@ import { Readable } from 'node:stream'
 import { decryptQrcHex, parseQrc, type LyricLine as AmllParsedLyricLine } from '@applemusic-like-lyrics/lyric'
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL)
+const runtimeRequire = createRequire(import.meta.url)
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -154,6 +156,85 @@ type AudioImportBatchResult = {
 }
 
 type LyricsLookupPlatform = 'auto' | 'amll' | 'qq' | 'kugou' | 'netease'
+
+type ExternalPlaybackSourceMode = 'thirdParty' | 'other' | 'auto'
+
+type ExternalPlaybackSnapshot = {
+  available: boolean
+  sourceMode: ExternalPlaybackSourceMode
+  connectionState: 'unavailable' | 'disconnected' | 'connectedNoMetadata' | 'runningHasData'
+  sourceAppUserModelId?: string
+  title: string
+  artist: string
+  album?: string
+  duration: number
+  currentTime: number
+  isPlaying: boolean
+  playbackRate: number
+  canControlPlayback: boolean
+  canSkip: boolean
+  canSeek: boolean
+  updatedAt: number
+  error?: string
+}
+
+type WinRtMediaControlModule = {
+  GlobalSystemMediaTransportControlsSessionManager: {
+    requestAsync(callback: (error: Error | null, result: unknown) => void): void
+  }
+  GlobalSystemMediaTransportControlsSessionPlaybackStatus?: {
+    playing?: number
+    paused?: number
+    stopped?: number
+  }
+}
+
+type WinRtSessionManager = {
+  getCurrentSession(): WinRtSession | null
+  getSessions?(): unknown
+}
+
+type WinRtSession = {
+  sourceAppUserModelId?: string
+  tryGetMediaPropertiesAsync(callback: (error: Error | null, result: WinRtMediaProperties) => void): void
+  getTimelineProperties(): WinRtTimelineProperties
+  getPlaybackInfo(): WinRtPlaybackInfo
+  tryTogglePlayPauseAsync(callback: (error: Error | null, result: boolean) => void): void
+  tryPlayAsync(callback: (error: Error | null, result: boolean) => void): void
+  tryPauseAsync(callback: (error: Error | null, result: boolean) => void): void
+  trySkipNextAsync(callback: (error: Error | null, result: boolean) => void): void
+  trySkipPreviousAsync(callback: (error: Error | null, result: boolean) => void): void
+  tryChangePlaybackPositionAsync(position: number, callback: (error: Error | null, result: boolean) => void): void
+}
+
+type WinRtMediaProperties = {
+  title?: string
+  artist?: string
+  albumTitle?: string
+  albumArtist?: string
+}
+
+type WinRtTimelineProperties = {
+  startTime?: number
+  endTime?: number
+  position?: number
+  lastUpdatedTime?: Date
+}
+
+type WinRtPlaybackControls = {
+  isPlayEnabled?: boolean
+  isPauseEnabled?: boolean
+  isPlayPauseToggleEnabled?: boolean
+  isNextEnabled?: boolean
+  isPreviousEnabled?: boolean
+  isPlaybackPositionEnabled?: boolean
+}
+
+type WinRtPlaybackInfo = {
+  playbackStatus?: number
+  playbackRate?: number
+  controls?: WinRtPlaybackControls
+}
 
 type ItunesSearchResult = {
   trackName?: string
@@ -2585,6 +2666,226 @@ async function sampleWindowColor(owner: BrowserWindow, rect: WindowColorSampleRe
   }
 }
 
+let externalPlaybackSourceMode: ExternalPlaybackSourceMode = 'auto'
+let mediaControlModule: WinRtMediaControlModule | null | undefined
+let mediaSessionManagerPromise: Promise<WinRtSessionManager | null> | null = null
+
+const browserMediaOwners = [
+  'chrome',
+  'msedge',
+  'firefox',
+  'brave',
+  'opera',
+  'vivaldi',
+  'browser',
+  'safari'
+]
+
+function loadWinRtMediaControl(): WinRtMediaControlModule | null {
+  if (mediaControlModule !== undefined) return mediaControlModule
+  if (process.platform !== 'win32') {
+    mediaControlModule = null
+    return null
+  }
+  try {
+    mediaControlModule = runtimeRequire('@nodert-win11/windows.media.control') as WinRtMediaControlModule
+  } catch {
+    try {
+      mediaControlModule = runtimeRequire('windows.media.control') as WinRtMediaControlModule
+    } catch {
+      mediaControlModule = null
+    }
+  }
+  return mediaControlModule
+}
+
+function requestMediaSessionManager(): Promise<WinRtSessionManager | null> {
+  if (mediaSessionManagerPromise) return mediaSessionManagerPromise
+  const mediaControl = loadWinRtMediaControl()
+  if (!mediaControl) return Promise.resolve(null)
+  mediaSessionManagerPromise = new Promise((resolve) => {
+    mediaControl.GlobalSystemMediaTransportControlsSessionManager.requestAsync((error, result) => {
+      if (error || !result) {
+        resolve(null)
+        return
+      }
+      resolve(result as WinRtSessionManager)
+    })
+  })
+  return mediaSessionManagerPromise
+}
+
+function winRtAsync<T>(start: (callback: (error: Error | null, result: T) => void) => void, timeoutMs = 2500): Promise<T | null> {
+  return new Promise((resolve) => {
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      resolve(null)
+    }, timeoutMs)
+    try {
+      start((error, result) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve(error ? null : result)
+      })
+    } catch {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(null)
+    }
+  })
+}
+
+function winRtCollectionToArray<T>(value: unknown): T[] {
+  if (!value) return []
+  if (Array.isArray(value)) return value as T[]
+  const collection = value as { size?: number; length?: number; getAt?: (index: number) => T; [Symbol.iterator]?: () => Iterator<T> }
+  if (typeof collection[Symbol.iterator] === 'function') return [...(collection as Iterable<T>)]
+  const length = Number(collection.size ?? collection.length ?? 0)
+  if (!Number.isFinite(length) || length <= 0 || typeof collection.getAt !== 'function') return []
+  const result: T[] = []
+  for (let index = 0; index < length; index += 1) {
+    const item = collection.getAt(index)
+    if (item) result.push(item)
+  }
+  return result
+}
+
+function externalOwnerKind(sourceAppUserModelId?: string): 'thirdParty' | 'other' {
+  const owner = (sourceAppUserModelId ?? '').toLowerCase()
+  return browserMediaOwners.some((part) => owner.includes(part)) ? 'other' : 'thirdParty'
+}
+
+function sessionMatchesExternalMode(session: WinRtSession, mode: ExternalPlaybackSourceMode): boolean {
+  if (mode === 'auto') return true
+  return externalOwnerKind(session.sourceAppUserModelId) === mode
+}
+
+async function selectedExternalSession(mode = externalPlaybackSourceMode): Promise<WinRtSession | null> {
+  const manager = await requestMediaSessionManager()
+  if (!manager) return null
+  const current = manager.getCurrentSession?.() ?? null
+  if (current && sessionMatchesExternalMode(current, mode)) return current
+  const sessions = winRtCollectionToArray<WinRtSession>(manager.getSessions?.())
+  return sessions.find((session) => sessionMatchesExternalMode(session, mode)) ?? null
+}
+
+function winRtTimeSpanToSeconds(value?: number): number {
+  const numeric = Number(value ?? 0)
+  if (!Number.isFinite(numeric) || numeric <= 0) return 0
+  return numeric / 10_000_000
+}
+
+function secondsToWinRtTimeSpan(seconds: number): number {
+  return Math.max(0, Math.round(seconds * 10_000_000))
+}
+
+function playbackStatusIsPlaying(playbackStatus?: number): boolean {
+  const mediaControl = loadWinRtMediaControl()
+  const playing = mediaControl?.GlobalSystemMediaTransportControlsSessionPlaybackStatus?.playing ?? 4
+  return playbackStatus === playing
+}
+
+function estimatedExternalPosition(timeline: WinRtTimelineProperties, playbackInfo: WinRtPlaybackInfo): number {
+  const duration = winRtTimeSpanToSeconds(timeline.endTime) - winRtTimeSpanToSeconds(timeline.startTime)
+  let position = winRtTimeSpanToSeconds(timeline.position) - winRtTimeSpanToSeconds(timeline.startTime)
+  if (playbackStatusIsPlaying(playbackInfo.playbackStatus) && timeline.lastUpdatedTime instanceof Date) {
+    const rate = Number(playbackInfo.playbackRate ?? 1)
+    position += ((Date.now() - timeline.lastUpdatedTime.getTime()) / 1000) * Math.max(0, Number.isFinite(rate) ? rate : 1)
+  }
+  return duration > 0 ? Math.min(Math.max(position, 0), duration) : Math.max(position, 0)
+}
+
+async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): Promise<ExternalPlaybackSnapshot> {
+  if (process.platform !== 'win32') {
+    return {
+      available: false,
+      sourceMode: mode,
+      connectionState: 'unavailable',
+      title: '',
+      artist: '',
+      duration: 0,
+      currentTime: 0,
+      isPlaying: false,
+      playbackRate: 0,
+      canControlPlayback: false,
+      canSkip: false,
+      canSeek: false,
+      updatedAt: Date.now(),
+      error: 'Windows media session is only available on Windows.'
+    }
+  }
+  const moduleAvailable = Boolean(loadWinRtMediaControl())
+  const session = await selectedExternalSession(mode)
+  if (!session) {
+    return {
+      available: moduleAvailable,
+      sourceMode: mode,
+      connectionState: moduleAvailable ? 'disconnected' : 'unavailable',
+      title: '',
+      artist: '',
+      duration: 0,
+      currentTime: 0,
+      isPlaying: false,
+      playbackRate: 0,
+      canControlPlayback: false,
+      canSkip: false,
+      canSeek: false,
+      updatedAt: Date.now(),
+      error: moduleAvailable ? undefined : 'Windows.Media.Control module is unavailable.'
+    }
+  }
+
+  const mediaProperties = await winRtAsync<WinRtMediaProperties>((callback) => session.tryGetMediaPropertiesAsync(callback))
+  const playbackInfo = session.getPlaybackInfo()
+  const timeline = session.getTimelineProperties()
+  const duration = Math.max(0, winRtTimeSpanToSeconds(timeline.endTime) - winRtTimeSpanToSeconds(timeline.startTime))
+  const controls = playbackInfo.controls ?? {}
+  const title = (mediaProperties?.title ?? '').trim()
+  const artist = (mediaProperties?.artist ?? mediaProperties?.albumArtist ?? '').trim()
+  return {
+    available: true,
+    sourceMode: mode,
+    connectionState: title ? 'runningHasData' : 'connectedNoMetadata',
+    sourceAppUserModelId: session.sourceAppUserModelId,
+    title,
+    artist,
+    album: mediaProperties?.albumTitle?.trim() || undefined,
+    duration,
+    currentTime: estimatedExternalPosition(timeline, playbackInfo),
+    isPlaying: playbackStatusIsPlaying(playbackInfo.playbackStatus),
+    playbackRate: Number(playbackInfo.playbackRate ?? 0),
+    canControlPlayback: Boolean(controls.isPlayEnabled || controls.isPauseEnabled || controls.isPlayPauseToggleEnabled),
+    canSkip: Boolean(controls.isNextEnabled || controls.isPreviousEnabled),
+    canSeek: Boolean(controls.isPlaybackPositionEnabled),
+    updatedAt: Date.now()
+  }
+}
+
+async function runExternalPlaybackCommand(command: string, value?: number): Promise<boolean> {
+  const session = await selectedExternalSession()
+  if (!session) return false
+  switch (command) {
+    case 'playPause':
+      return Boolean(await winRtAsync<boolean>((callback) => session.tryTogglePlayPauseAsync(callback)))
+    case 'play':
+      return Boolean(await winRtAsync<boolean>((callback) => session.tryPlayAsync(callback)))
+    case 'pause':
+      return Boolean(await winRtAsync<boolean>((callback) => session.tryPauseAsync(callback)))
+    case 'next':
+      return Boolean(await winRtAsync<boolean>((callback) => session.trySkipNextAsync(callback)))
+    case 'previous':
+      return Boolean(await winRtAsync<boolean>((callback) => session.trySkipPreviousAsync(callback)))
+    case 'seek':
+      return Boolean(await winRtAsync<boolean>((callback) => session.tryChangePlaybackPositionAsync(secondsToWinRtTimeSpan(Number(value ?? 0)), callback)))
+    default:
+      return false
+  }
+}
+
 function getHomeSnapshot() {
   const library = loadPersistedLibrary()
   const tracks = mergeTrackList(library.tracks)
@@ -2720,6 +3021,16 @@ ipcMain.handle('window:sample-color', async (event, rect: WindowColorSampleRect)
   if (!owner) return null
   return sampleWindowColor(owner, rect)
 })
+ipcMain.handle('external-playback:get-snapshot', async (_event, mode?: ExternalPlaybackSourceMode) => {
+  const nextMode: ExternalPlaybackSourceMode = mode === 'thirdParty' || mode === 'other' || mode === 'auto' ? mode : externalPlaybackSourceMode
+  externalPlaybackSourceMode = nextMode
+  return getExternalPlaybackSnapshot(nextMode)
+})
+ipcMain.handle('external-playback:set-source-mode', async (_event, mode: ExternalPlaybackSourceMode) => {
+  externalPlaybackSourceMode = mode === 'thirdParty' || mode === 'other' || mode === 'auto' ? mode : 'auto'
+  return getExternalPlaybackSnapshot(externalPlaybackSourceMode)
+})
+ipcMain.handle('external-playback:command', async (_event, command: string, value?: number) => runExternalPlaybackCommand(command, value))
 ipcMain.handle('settings:get-library-location', () => libraryLocationInfo())
 ipcMain.handle('settings:choose-library-location', async (event) => {
   const owner = BrowserWindow.fromWebContents(event.sender)

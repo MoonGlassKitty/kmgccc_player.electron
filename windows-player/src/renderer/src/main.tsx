@@ -6,6 +6,7 @@ import { guess } from 'web-audio-beat-detector'
 import {
   ArrowDownUp,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleX,
@@ -138,6 +139,8 @@ type Track = {
   albumMetadataConfidence?: number
   albumArtworkUrl?: string
 }
+
+type PlaybackSourceKind = 'local' | 'external'
 
 type ArtworkBeat = {
   bpm: number
@@ -2337,6 +2340,9 @@ function App(): React.ReactElement {
   const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
   const [playbackQueueIds, setPlaybackQueueIds] = React.useState<string[]>(() => fallbackHomeSnapshot.tracks.map((track) => track.id))
   const [isPlaying, setIsPlaying] = React.useState(false)
+  const [playbackSource, setPlaybackSource] = React.useState<PlaybackSourceKind>('local')
+  const [externalPlaybackMode, setExternalPlaybackMode] = React.useState<ExternalPlaybackSourceMode>('auto')
+  const [externalPlaybackSnapshot, setExternalPlaybackSnapshot] = React.useState<ExternalPlaybackSnapshot | null>(null)
   const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(false)
   const [volume, setVolume] = React.useState(0.72)
   const [playbackTime, setPlaybackTime] = React.useState(0)
@@ -2363,7 +2369,27 @@ function App(): React.ReactElement {
     () => homeSnapshot.tracks.find((track) => track.id === currentId) ?? homeSnapshot.heroTrack ?? homeSnapshot.tracks[0],
     [currentId, homeSnapshot]
   )
-  const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(currentTrack), [currentTrack])
+  const externalDisplayTrack = React.useMemo<Track | null>(() => {
+    const snapshot = externalPlaybackSnapshot
+    if (!snapshot || snapshot.connectionState !== 'runningHasData' || !snapshot.title.trim()) return null
+    const artist = snapshot.artist.trim() || '未知艺人'
+    const album = snapshot.album?.trim() || '外部播放'
+    const ownerKey = snapshot.sourceAppUserModelId || snapshot.sourceMode
+    return {
+      id: `external-${ownerKey}-${snapshot.title}-${artist}-${Math.round(snapshot.duration)}`,
+      title: snapshot.title,
+      artist,
+      artistId: `external-artist-${artist}`,
+      album,
+      albumId: `external-album-${album}`,
+      duration: snapshot.duration,
+      sourcePath: '',
+      sourceUrl: '',
+      metadataSource: 'externalPlayback'
+    }
+  }, [externalPlaybackSnapshot])
+  const displayTrack = playbackSource === 'external' ? externalDisplayTrack : currentTrack
+  const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(displayTrack), [displayTrack])
   React.useEffect(() => {
     if (!isMultiSelectMode) setSelectedTrackIds(new Set())
   }, [isMultiSelectMode])
@@ -2373,8 +2399,11 @@ function App(): React.ReactElement {
       .filter((track): track is HomeTrack => Boolean(track))
     return queueTracks.length ? queueTracks : homeSnapshot.tracks
   }, [homeSnapshot.tracks, playbackQueueIds])
-  const fallbackCoverThemeStyle = React.useMemo(() => coverThemeFor(currentTrack, albums), [albums, currentTrack])
-  const currentArtworkUrl = React.useMemo(() => currentTrack ? trackArtwork(currentTrack, albums) : '', [albums, currentTrack])
+  const displayedPlaybackQueue = React.useMemo(() => (
+    playbackSource === 'external' && displayTrack ? [displayTrack] : playbackQueue
+  ), [displayTrack, playbackQueue, playbackSource])
+  const fallbackCoverThemeStyle = React.useMemo(() => coverThemeFor(displayTrack, albums), [albums, displayTrack])
+  const currentArtworkUrl = React.useMemo(() => displayTrack ? trackArtwork(displayTrack, albums) : '', [albums, displayTrack])
   const [coverThemeStyle, setCoverThemeStyle] = React.useState<React.CSSProperties>(fallbackCoverThemeStyle)
   const effectiveCoverThemeStyle = globalArtworkTintEnabled ? coverThemeStyle : coverThemeFor(null, albums)
   const effectiveAppearance = followSystemAppearance ? (isSystemDarkAppearance ? 'dark' : 'light') : manualAppearance
@@ -2557,7 +2586,7 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     let cancelled = false
     setCoverThemeStyle(fallbackCoverThemeStyle)
-    if (!currentTrack || !currentArtworkUrl) return
+    if (!displayTrack || !currentArtworkUrl) return
 
     const cached = artworkThemeCache.get(currentArtworkUrl)
     if (cached) {
@@ -2579,7 +2608,7 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true
     }
-  }, [currentArtworkUrl, currentTrack, fallbackCoverThemeStyle])
+  }, [currentArtworkUrl, displayTrack, fallbackCoverThemeStyle])
 
   React.useEffect(() => {
     if (!isArtworkBpmPulseEnabled || !isPlaying || !currentTrack?.id || !currentTrack.sourceUrl) {
@@ -2905,10 +2934,36 @@ function App(): React.ReactElement {
     miniPlayer?.style.setProperty('--mini-player-progress-ratio', String(ratio))
     miniPlayer?.style.setProperty('--mini-player-progress-width', `${ratio * 100}%`)
   }, [])
+  React.useEffect(() => {
+    if (playbackSource !== 'external') return
+    let cancelled = false
+    const poll = async (): Promise<void> => {
+      if (!window.kmgccc?.getExternalPlaybackSnapshot) return
+      const snapshot = await window.kmgccc.getExternalPlaybackSnapshot(externalPlaybackMode)
+      if (cancelled) return
+      setExternalPlaybackSnapshot(snapshot)
+      setIsPlaying(snapshot.isPlaying)
+      setPlaybackTime(snapshot.currentTime)
+      setPlaybackDuration(snapshot.duration)
+      writeMiniProgressRatio(snapshot.currentTime, snapshot.duration)
+    }
+    void poll()
+    const interval = window.setInterval(() => { void poll() }, 700)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [externalPlaybackMode, playbackSource, writeMiniProgressRatio])
 
   const seekTo = React.useCallback((seconds: number) => {
     if (!Number.isFinite(seconds)) return
     const nextTime = Math.max(0, seconds)
+    if (playbackSource === 'external') {
+      void window.kmgccc?.sendExternalPlaybackCommand?.('seek', nextTime)
+      writeMiniProgressRatio(nextTime, externalPlaybackSnapshot?.duration ?? playbackDuration)
+      setPlaybackTime(nextTime)
+      return
+    }
     const audio = audioRef.current
     const duration = Number.isFinite(audio?.duration) && audio && audio.duration > 0 ? audio.duration : currentTrack?.duration ?? 0
     if (audio && currentTrack?.sourceUrl) {
@@ -2921,27 +2976,32 @@ function App(): React.ReactElement {
     writeMiniProgressRatio(nextTime, duration)
     lastPlaybackTimeRef.current = nextTime
     setPlaybackTime(nextTime)
-  }, [currentTrack?.duration, currentTrack?.sourceUrl, writeMiniProgressRatio])
+  }, [currentTrack?.duration, currentTrack?.sourceUrl, externalPlaybackSnapshot?.duration, playbackDuration, playbackSource, writeMiniProgressRatio])
   const seekToLyricTime = React.useCallback((seconds: number) => {
     seekTo(Math.max(0, seconds - lyricPlaybackOffsetSeconds + 0.22))
   }, [lyricPlaybackOffsetSeconds, seekTo])
   const togglePlayback = React.useCallback(() => {
+    if (playbackSource === 'external') {
+      void window.kmgccc?.sendExternalPlaybackCommand?.('playPause')
+      setIsPlaying((value) => !value)
+      return
+    }
     setIsPlaying((value) => !value)
-  }, [])
+  }, [playbackSource])
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.code !== 'Space' || event.repeat) return
       const target = event.target as HTMLElement | null
       const tagName = target?.tagName?.toLowerCase()
       const isEditableTarget = !!target?.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select' || tagName === 'button'
-      if (isEditableTarget || !currentTrack?.sourceUrl) return
+      if (isEditableTarget || (playbackSource === 'local' && !currentTrack?.sourceUrl)) return
       event.preventDefault()
       togglePlayback()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currentTrack?.sourceUrl, togglePlayback])
+  }, [currentTrack?.sourceUrl, playbackSource, togglePlayback])
   const playTrackByIndex = React.useCallback((index: number) => {
     const tracks = playbackQueue
     if (!tracks.length) return
@@ -2952,6 +3012,10 @@ function App(): React.ReactElement {
     setIsPlaying(true)
   }, [playbackQueue])
   const playPreviousTrack = React.useCallback(() => {
+    if (playbackSource === 'external') {
+      void window.kmgccc?.sendExternalPlaybackCommand?.('previous')
+      return
+    }
     const currentIndex = playbackQueue.findIndex((track) => track.id === currentId)
     if (currentIndex < 0) return
     if (playbackTime > 3) {
@@ -2959,8 +3023,12 @@ function App(): React.ReactElement {
       return
     }
     playTrackByIndex(currentIndex - 1)
-  }, [currentId, playbackQueue, playTrackByIndex, playbackTime, seekTo])
+  }, [currentId, playbackQueue, playTrackByIndex, playbackSource, playbackTime, seekTo])
   const playNextTrack = React.useCallback(() => {
+    if (playbackSource === 'external') {
+      void window.kmgccc?.sendExternalPlaybackCommand?.('next')
+      return
+    }
     const tracks = playbackQueue
     if (!tracks.length) return
     const currentIndex = tracks.findIndex((track) => track.id === currentId)
@@ -2971,13 +3039,33 @@ function App(): React.ReactElement {
       return
     }
     playTrackByIndex(currentIndex >= 0 ? currentIndex + 1 : 0)
-  }, [currentId, playbackQueue, isShuffleEnabled, playTrackByIndex])
+  }, [currentId, playbackQueue, isShuffleEnabled, playTrackByIndex, playbackSource])
   const toggleShuffle = React.useCallback(() => {
     setIsShuffleEnabled((value) => !value)
   }, [])
   const changeVolume = React.useCallback((nextVolume: number) => {
     setVolume(clampNumber(nextVolume, 0, 1))
   }, [])
+  const selectPlaybackSource = React.useCallback(async (source: PlaybackSourceKind, mode: ExternalPlaybackSourceMode = externalPlaybackMode) => {
+    if (source === 'external') {
+      audioRef.current?.pause()
+      setPlaybackSource('external')
+      setExternalPlaybackMode(mode)
+      const snapshot = await window.kmgccc?.setExternalPlaybackSourceMode?.(mode)
+      if (snapshot) {
+        setExternalPlaybackSnapshot(snapshot)
+        setIsPlaying(snapshot.isPlaying)
+        setPlaybackTime(snapshot.currentTime)
+        setPlaybackDuration(snapshot.duration)
+        writeMiniProgressRatio(snapshot.currentTime, snapshot.duration)
+      }
+      return
+    }
+    setPlaybackSource('local')
+    setIsPlaying(false)
+    setPlaybackTime(audioRef.current?.currentTime ?? playbackTime)
+    setPlaybackDuration(currentTrack?.duration ?? playbackDuration)
+  }, [currentTrack?.duration, externalPlaybackMode, playbackDuration, playbackTime, writeMiniProgressRatio])
   const navigateHome = React.useCallback(() => {
     setRoute({ name: 'home' })
   }, [])
@@ -3131,12 +3219,14 @@ function App(): React.ReactElement {
     })
   }, [sidebarWidth])
   const selectTrack = React.useCallback((id: string) => {
+    setPlaybackSource('local')
     setPlaybackQueueIds((ids) => ids.length ? ids : homeSnapshot.tracks.map((track) => track.id))
     setCurrentId(id)
     setIsPlaying(true)
   }, [homeSnapshot.tracks])
   const playTracksAsQueue = React.useCallback((tracks: HomeTrack[], preferredTrackId?: string) => {
     if (!tracks.length) return
+    setPlaybackSource('local')
     const firstId = preferredTrackId && tracks.some((track) => track.id === preferredTrackId) ? preferredTrackId : tracks[0].id
     setPlaybackQueueIds(tracks.map((track) => track.id))
     setCurrentId(firstId)
@@ -3148,6 +3238,7 @@ function App(): React.ReactElement {
     playTracksAsQueue(tracksForRoute(targetRoute, homeSnapshot), preferredTrackId)
   }, [homeSnapshot, playTracksAsQueue])
   const playHomeTrack = React.useCallback((trackId: string) => {
+    setPlaybackSource('local')
     setPlaybackQueueIds(homeSnapshot.tracks.map((track) => track.id))
     setCurrentId(trackId)
     setIsPlaying(true)
@@ -3455,6 +3546,11 @@ function App(): React.ReactElement {
     const audio = audioRef.current
     if (!audio) return
 
+    if (playbackSource === 'external') {
+      audio.pause()
+      return
+    }
+
     if (!currentTrack?.sourceUrl) {
       audio.pause()
       audio.removeAttribute('src')
@@ -3478,10 +3574,11 @@ function App(): React.ReactElement {
     if (isPlaying) {
       void audio.play().catch(() => setIsPlaying(false))
     }
-  }, [currentTrack, isPlaying])
+  }, [currentTrack, isPlaying, playbackSource])
 
   React.useEffect(() => {
     const audio = audioRef.current
+    if (playbackSource === 'external') return
     if (!audio || !currentTrack?.sourceUrl) return
 
     const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : currentTrack.duration
@@ -3491,9 +3588,10 @@ function App(): React.ReactElement {
     } else {
       audio.pause()
     }
-  }, [currentTrack?.duration, currentTrack?.sourceUrl, isPlaying, writeMiniProgressRatio])
+  }, [currentTrack?.duration, currentTrack?.sourceUrl, isPlaying, playbackSource, writeMiniProgressRatio])
 
   React.useEffect(() => {
+    if (playbackSource === 'external') return
     if (!isPlaying) return
     const tick = () => {
       const audio = audioRef.current
@@ -3503,7 +3601,7 @@ function App(): React.ReactElement {
     tick()
     const timer = window.setInterval(tick, 1000)
     return () => window.clearInterval(timer)
-  }, [currentTrack?.duration, currentTrack?.sourceUrl, isPlaying, writeMiniProgressRatio])
+  }, [currentTrack?.duration, currentTrack?.sourceUrl, isPlaying, playbackSource, writeMiniProgressRatio])
 
   React.useEffect(() => {
     const audio = audioRef.current
@@ -3513,7 +3611,7 @@ function App(): React.ReactElement {
 
   React.useEffect(() => {
     const shouldSampleLed = selectedVisualizerMode === 'led' || (isFullscreenLyricsOpen && selectedFullscreenVisualizerMode === 'led')
-    if (!isPlaying || !shouldSampleLed || !currentTrack?.sourceUrl) {
+    if (playbackSource === 'external' || !isPlaying || !shouldSampleLed || !currentTrack?.sourceUrl) {
       if (ledAnimationFrameRef.current !== null) {
         window.cancelAnimationFrame(ledAnimationFrameRef.current)
         ledAnimationFrameRef.current = null
@@ -3570,9 +3668,10 @@ function App(): React.ReactElement {
         ledAnimationFrameRef.current = null
       }
     }
-  }, [currentTrack?.sourceUrl, ensureAudioAnalyser, isFullscreenLyricsOpen, isPlaying, ledCount, ledCutoffHz, ledSpeed, selectedFullscreenVisualizerMode, selectedVisualizerMode, volume])
+  }, [currentTrack?.sourceUrl, ensureAudioAnalyser, isFullscreenLyricsOpen, isPlaying, ledCount, ledCutoffHz, ledSpeed, playbackSource, selectedFullscreenVisualizerMode, selectedVisualizerMode, volume])
 
   const updateAudioMetadata = React.useCallback(() => {
+    if (playbackSource === 'external') return
     const audio = audioRef.current
     if (!audio || !currentTrack || !Number.isFinite(audio.duration)) return
 
@@ -3580,9 +3679,10 @@ function App(): React.ReactElement {
     if (currentTrack.duration <= 0) {
       setHomeSnapshot((snapshot) => snapshotWithTrackDuration(snapshot, currentTrack.id, audio.duration))
     }
-  }, [currentTrack])
+  }, [currentTrack, playbackSource])
 
   const updateAudioTime = React.useCallback(() => {
+    if (playbackSource === 'external') return
     const audio = audioRef.current
     if (!audio) return
     const nextTime = audio.currentTime
@@ -3592,16 +3692,17 @@ function App(): React.ReactElement {
     if (!audio.paused && Math.abs(nextTime - lastPlaybackTimeRef.current) < refreshInterval) return
     lastPlaybackTimeRef.current = nextTime
     setPlaybackTime(nextTime)
-  }, [currentTrack?.duration, currentTrackHasTimedLyrics, isFullscreenLyricsOpen, isLyricsSidebarOpen, writeMiniProgressRatio])
+  }, [currentTrack?.duration, currentTrackHasTimedLyrics, isFullscreenLyricsOpen, isLyricsSidebarOpen, playbackSource, writeMiniProgressRatio])
 
   const handleAudioEnded = React.useCallback(() => {
+    if (playbackSource === 'external') return
     if (homeSnapshot.tracks.length > 1) {
       playNextTrack()
       return
     }
     setIsPlaying(false)
     setPlaybackTime(0)
-  }, [homeSnapshot.tracks.length, playNextTrack])
+  }, [homeSnapshot.tracks.length, playNextTrack, playbackSource])
 
   React.useEffect(() => {
     if (route.name === 'home' && previousRouteNameRef.current !== 'home') {
@@ -3689,6 +3790,10 @@ function App(): React.ReactElement {
           snapshot={homeSnapshot}
           route={route}
           onNavigate={setRoute}
+          playbackSource={playbackSource}
+          externalPlaybackMode={externalPlaybackMode}
+          externalPlaybackSnapshot={externalPlaybackSnapshot}
+          onSelectPlaybackSource={selectPlaybackSource}
           isCollapsed={isSidebarVisuallyCollapsed}
           onToggle={toggleSidebar}
           onResizeStart={handleSidebarResizeStart}
@@ -3744,7 +3849,7 @@ function App(): React.ReactElement {
             />
           ) : route.name === 'nowPlaying' ? (
             <NowPlayingPage
-              track={currentTrack}
+              track={displayTrack ?? currentTrack}
               albums={albums}
               bkThemeStyle={effectiveCoverThemeStyle}
               isPlaying={isPlaying}
@@ -3766,7 +3871,7 @@ function App(): React.ReactElement {
               onArtworkBpmPulseToggle={toggleArtworkBpmPulse}
               onArtworkManualBpmOpen={openManualBpmBoard}
               onArtworkBeatApprove={approveCurrentArtworkBeat}
-              artworkBeatFeedback={currentTrack?.id && artworkBeatSaveFeedback?.trackId === currentTrack.id ? artworkBeatSaveFeedback : null}
+              artworkBeatFeedback={playbackSource === 'local' && currentTrack?.id && artworkBeatSaveFeedback?.trackId === currentTrack.id ? artworkBeatSaveFeedback : null}
               onLyricToneSeedChange={setLyricToneSeed}
             />
           ) : (
@@ -3802,19 +3907,19 @@ function App(): React.ReactElement {
             />
           )}
 
-          {currentTrack ? (
+          {displayTrack ? (
             <>
               {isFullscreenLyricsOpen ? <div className="mini-player-hover-zone no-drag" aria-hidden="true" /> : null}
               <MiniPlayer
-                track={currentTrack}
-                tracks={playbackQueue}
+                track={displayTrack}
+                tracks={displayedPlaybackQueue}
                 albums={albums}
-                currentId={currentId}
+                currentId={displayTrack.id}
                 isPlaying={isPlaying}
                 isShuffleEnabled={isShuffleEnabled}
                 volume={volume}
                 playbackTime={playbackTime}
-                playbackDuration={playbackDuration || currentTrack.duration}
+                playbackDuration={playbackDuration || displayTrack.duration}
                 onPlayPause={togglePlayback}
                 onPrevious={playPreviousTrack}
                 onNext={playNextTrack}
@@ -3833,7 +3938,7 @@ function App(): React.ReactElement {
         </main>
         {isLyricsSidebarOpen ? (
           <LyricsSidePanel
-            track={currentTrack}
+            track={displayTrack ?? currentTrack}
             albums={albums}
             playbackTime={effectiveLyricPlaybackTime}
             isPlaying={isPlaying}
@@ -3968,7 +4073,7 @@ function App(): React.ReactElement {
         ) : null}
         {isFullscreenLyricsOpen ? (
           <FullscreenLyricsPage
-            track={currentTrack}
+            track={displayTrack ?? currentTrack}
             albums={albums}
             bkThemeStyle={fullscreenCoverThemeStyle}
             playbackTime={effectiveLyricPlaybackTime}
@@ -3992,7 +4097,7 @@ function App(): React.ReactElement {
             onArtworkBpmPulseToggle={toggleArtworkBpmPulse}
             onArtworkManualBpmOpen={openManualBpmBoard}
             onArtworkBeatApprove={approveCurrentArtworkBeat}
-            artworkBeatFeedback={currentTrack?.id && artworkBeatSaveFeedback?.trackId === currentTrack.id ? artworkBeatSaveFeedback : null}
+            artworkBeatFeedback={playbackSource === 'local' && currentTrack?.id && artworkBeatSaveFeedback?.trackId === currentTrack.id ? artworkBeatSaveFeedback : null}
             renderQuality={fullscreenLyricsRenderQuality}
             reduceHighlight={fullscreenDiscreteWordHighlightEnabled}
             lyricToneSeed={lyricToneSeed}
@@ -4753,6 +4858,10 @@ const Sidebar = React.memo(function Sidebar({
   snapshot,
   route,
   onNavigate,
+  playbackSource,
+  externalPlaybackMode,
+  externalPlaybackSnapshot,
+  onSelectPlaybackSource,
   isCollapsed,
   onToggle,
   onResizeStart,
@@ -4773,6 +4882,10 @@ const Sidebar = React.memo(function Sidebar({
   snapshot: HomeSnapshot
   route: AppRoute
   onNavigate: (route: AppRoute) => void
+  playbackSource: PlaybackSourceKind
+  externalPlaybackMode: ExternalPlaybackSourceMode
+  externalPlaybackSnapshot: ExternalPlaybackSnapshot | null
+  onSelectPlaybackSource: (source: PlaybackSourceKind, mode?: ExternalPlaybackSourceMode) => void
   isCollapsed: boolean
   onToggle: () => void
   onResizeStart: (event: React.PointerEvent) => void
@@ -4792,6 +4905,22 @@ const Sidebar = React.memo(function Sidebar({
 }): React.ReactElement {
   const [isArtistsExpanded, setIsArtistsExpanded] = React.useState(false)
   const [isAlbumsExpanded, setIsAlbumsExpanded] = React.useState(false)
+  const [isSourceMenuOpen, setIsSourceMenuOpen] = React.useState(false)
+  const externalModeLabels: Record<ExternalPlaybackSourceMode, string> = {
+    thirdParty: '第三方音乐软件',
+    other: '其他源',
+    auto: '自动检测'
+  }
+  const externalSourceDetail = React.useMemo(() => {
+    if (playbackSource !== 'external') return '未连接'
+    if (!externalPlaybackSnapshot?.available) return '不可用'
+    if (externalPlaybackSnapshot.connectionState === 'disconnected') return '未检测到'
+    return externalPlaybackSnapshot.sourceAppUserModelId || externalModeLabels[externalPlaybackMode]
+  }, [externalPlaybackMode, externalPlaybackSnapshot, playbackSource])
+  const chooseExternalMode = React.useCallback((mode: ExternalPlaybackSourceMode) => {
+    setIsSourceMenuOpen(false)
+    onSelectPlaybackSource('external', mode)
+  }, [onSelectPlaybackSource])
   return (
     <aside className="sidebar glass-panel chrome-drag">
       <div className="sidebar-resize-handle no-drag" role="separator" aria-orientation="vertical" aria-label="调整侧边栏宽度" onPointerDown={onResizeStart} />
@@ -4908,11 +5037,41 @@ const Sidebar = React.memo(function Sidebar({
 
       <div className="sidebar-footer no-drag">
         <div className="sidebar-source" role="tablist" aria-label="播放源">
-          <button className="active" type="button">
+          <button className={playbackSource === 'local' ? 'active' : ''} type="button" onClick={() => onSelectPlaybackSource('local')}>
             本地
           </button>
-          <button type="button">Apple Music</button>
+          <div className={`sidebar-external-source ${playbackSource === 'external' ? 'active' : ''}`}>
+            <button type="button" onClick={() => onSelectPlaybackSource('external', externalPlaybackMode)}>
+              <span>{externalModeLabels[externalPlaybackMode]}</span>
+            </button>
+            <button
+              className="source-menu-trigger"
+              type="button"
+              aria-label="选择外部播放源"
+              aria-expanded={isSourceMenuOpen}
+              onClick={(event) => {
+                event.stopPropagation()
+                setIsSourceMenuOpen((value) => !value)
+              }}
+            >
+              <ChevronDown size={14} />
+            </button>
+            {isSourceMenuOpen ? (
+              <div className="source-menu glass-panel" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
+                <button className={externalPlaybackMode === 'thirdParty' ? 'selected' : ''} type="button" onClick={() => chooseExternalMode('thirdParty')}>
+                  第三方音乐软件
+                </button>
+                <button className={externalPlaybackMode === 'other' ? 'selected' : ''} type="button" onClick={() => chooseExternalMode('other')}>
+                  其他源
+                </button>
+                <button className={externalPlaybackMode === 'auto' ? 'selected' : ''} type="button" onClick={() => chooseExternalMode('auto')}>
+                  自动检测
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
+        <div className={`sidebar-source-detail ${playbackSource === 'external' ? 'active' : ''}`}>{externalSourceDetail}</div>
 
         <div className="sidebar-bottom">
           <button className="round-control" type="button" aria-label="设置" onClick={onOpenSettings}>

@@ -35,6 +35,9 @@ contextBridge.exposeInMainWorld('kmgccc', {
   clearIndexCache: () => ipcRenderer.invoke('settings:clear-index-cache'),
   clearExternalPlaybackCache: () => ipcRenderer.invoke('settings:clear-external-playback-cache'),
   completeLibraryMetadata: () => ipcRenderer.invoke('settings:complete-library-metadata'),
+  getExternalPlaybackSnapshot: (mode?: 'thirdParty' | 'other' | 'auto') => ipcRenderer.invoke('external-playback:get-snapshot', mode),
+  setExternalPlaybackSourceMode: (mode: 'thirdParty' | 'other' | 'auto') => ipcRenderer.invoke('external-playback:set-source-mode', mode),
+  sendExternalPlaybackCommand: (command: string, value?: number) => ipcRenderer.invoke('external-playback:command', command, value),
   sampleWindowColor: (rect: { x: number; y: number; width: number; height: number }) => ipcRenderer.invoke('window:sample-color', rect),
   getWallpaperTint: () => ipcRenderer.invoke('system:get-wallpaper-tint')
 })
