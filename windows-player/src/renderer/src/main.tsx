@@ -3338,7 +3338,9 @@ function App(): React.ReactElement {
     }))
     let cancelled = false
     let resolved = false
-    let pendingLookups = 0
+    let pendingOnlineLookups = 0
+    let localFallbackDone = false
+    let localFallbackResult: LyricsLookupResponse | null = null
     let publishedQuality = 0
     const request = {
       title,
@@ -3350,7 +3352,11 @@ function App(): React.ReactElement {
       includeTranslation: true
     }
     const finishEmptyIfDone = (): void => {
-      if (cancelled || resolved || pendingLookups > 0) return
+      if (cancelled || resolved || pendingOnlineLookups > 0 || !localFallbackDone) return
+      if (localFallbackResult) {
+        publishResult(localFallbackResult)
+        return
+      }
       setExternalLyricsByKey((entries) => ({
         ...entries,
         [key]: { status: 'empty', metadataSongId, updatedAt: Date.now() }
@@ -3376,23 +3382,33 @@ function App(): React.ReactElement {
         }
       }))
     }
-    const enqueueLookup = (lookup: Promise<LyricsLookupResponse | null | undefined>): void => {
-      pendingLookups += 1
+    const enqueueOnlineLookup = (lookup: Promise<LyricsLookupResponse | null | undefined>): void => {
+      pendingOnlineLookups += 1
       lookup
         .then((result) => publishResult(result))
         .catch(() => {
           // Other lyric sources keep racing; a single source failure is not terminal.
         })
         .finally(() => {
-          pendingLookups -= 1
+          pendingOnlineLookups -= 1
           finishEmptyIfDone()
         })
     }
-    enqueueLookup(Promise.resolve(localExternalLyricsLookup(homeSnapshot.tracks, title, artist, album, request.duration)))
-    enqueueLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'qq' }))
-    enqueueLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'netease' }))
-    enqueueLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'lrclib' }))
-    enqueueLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'auto' }))
+    Promise.resolve(localExternalLyricsLookup(homeSnapshot.tracks, title, artist, album, request.duration))
+      .then((result) => {
+        localFallbackResult = result
+      })
+      .catch(() => {
+        localFallbackResult = null
+      })
+      .finally(() => {
+        localFallbackDone = true
+        finishEmptyIfDone()
+      })
+    enqueueOnlineLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'qq' }))
+    enqueueOnlineLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'netease' }))
+    enqueueOnlineLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'lrclib' }))
+    enqueueOnlineLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'auto' }))
     return () => {
       cancelled = true
     }

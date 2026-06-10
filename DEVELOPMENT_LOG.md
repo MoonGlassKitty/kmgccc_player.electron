@@ -195,3 +195,4 @@
 - CloudMusic 第三方歌词翻译恢复：外部歌词缓存升级到 v2，避免旧的压扁缓存继续挡住重新获取；第三方歌词竞速、本地缓存恢复和本地资料库命中都保留 `syncedLyrics`/`lyricsText` 双字段，不再把翻译覆盖成原文；网易云 YRC 分支优先保留 `tlyric` 翻译，renderer 会把分离的翻译 LRC 按时间戳合并到 AMLL `translatedLyric`，并允许后返回的带翻译结果覆盖先到的普通歌词。`npm run typecheck` 与 `npm run build` 已通过。
 - CloudMusic 第三方歌词源回退补齐：确认 `Green Grass Of Tunnel - Múm` 在 LRCLIB 有同步歌词，但外部播放自动歌词只并发本地资料库、QQ、网易云定向查询，漏掉 `auto` 完整链路的 LRCLIB 回退；现在外部播放也并发 `platform: auto`，让网易云/QQ 未命中时仍能拿到 LRCLIB 歌词，并继续由质量评分选择更完整的结果。
 - CloudMusic 第三方 LRCLIB 直连：确认 `Paris - The Chainsmokers` 在 LRCLIB 有同步歌词；外部播放层已经并发查本地、QQ、网易云和 auto，但 LRCLIB 之前只在 `auto` 内部串行回退末端，不是独立并发源。主进程新增 `platform: lrclib` 独立歌词查询，renderer 外部播放并发源加入 LRCLIB 直连，英文歌/网易云无词歌曲可更快落歌词。
+- CloudMusic 第三方本地歌词兜底顺序：外部播放歌词现在在线源（QQ、网易云、LRCLIB、auto）并发抢结果，本地资料库歌词也立即查但只暂存；只有在线源全部失败/为空时才发布本地歌词，避免本地旧歌词或弱匹配过早抢占在线结果，同时保证全网找不到时仍能回落本地。
