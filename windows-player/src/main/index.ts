@@ -175,6 +175,8 @@ type ExternalPlaybackSnapshot = {
   canSkip: boolean
   canSeek: boolean
   updatedAt: number
+  artworkUrl?: string
+  neteaseSongId?: number
   error?: string
 }
 
@@ -366,6 +368,8 @@ type MetadataCandidate = {
   score: number
 }
 
+const externalSnapshotMetadataByKey = new Map<string, Promise<TrackMetadataLookupResult | null>>()
+
 type TrackMetadataLookupResult = {
   title?: string
   artist?: string
@@ -374,6 +378,16 @@ type TrackMetadataLookupResult = {
   artworkUrl?: string
   neteaseSongId?: number
   metadataSource: string
+}
+
+type CloudMusicLocalTrackCandidate = {
+  title: string
+  artist: string
+  album: string
+  duration: number
+  artworkUrl?: string
+  neteaseSongId?: number
+  score: number
 }
 
 type LrcLibResult = {
@@ -1305,6 +1319,111 @@ function scoreMetadataCandidate(track: LocalAudioImport, candidate: Omit<Metadat
   return score
 }
 
+function cloudMusicWebdataFilePath(name: string): string {
+  return join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), 'NetEase', 'CloudMusic', 'webdata', 'file', name)
+}
+
+function cloudMusicLyricCachePath(songId: number): string {
+  return join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), 'NetEase', 'CloudMusic', 'webdata', 'lyric', String(songId))
+}
+
+function cloudMusicArtistNameFromTrack(track: Record<string, unknown>): string {
+  const artists = Array.isArray(track.artists) ? track.artists : []
+  return artists
+    .map((artist) => artist && typeof artist === 'object' && 'name' in artist ? String((artist as { name?: unknown }).name ?? '').trim() : '')
+    .filter(Boolean)
+    .join(', ')
+}
+
+function cloudMusicAlbumNameFromTrack(track: Record<string, unknown>): string {
+  const album = track.album
+  if (!album || typeof album !== 'object') return ''
+  const typedAlbum = album as { name?: unknown; albumName?: unknown }
+  return String(typedAlbum.name ?? typedAlbum.albumName ?? '').trim()
+}
+
+function cloudMusicArtworkFromTrack(track: Record<string, unknown>): string | undefined {
+  const album = track.album
+  if (!album || typeof album !== 'object') return undefined
+  const typedAlbum = album as { picUrl?: unknown; cover?: unknown }
+  const url = String(typedAlbum.picUrl ?? typedAlbum.cover ?? '').trim()
+  return url || undefined
+}
+
+function collectCloudMusicTracks(value: unknown, tracks: Record<string, unknown>[] = [], seen = new Set<unknown>()): Record<string, unknown>[] {
+  if (!value || typeof value !== 'object' || seen.has(value)) return tracks
+  seen.add(value)
+
+  if (Array.isArray(value)) {
+    for (const item of value) collectCloudMusicTracks(item, tracks, seen)
+    return tracks
+  }
+
+  const object = value as Record<string, unknown>
+  if (object.track && typeof object.track === 'object') collectCloudMusicTracks(object.track, tracks, seen)
+
+  const title = typeof object.name === 'string' ? object.name.trim() : ''
+  const id = positiveInteger(object.id)
+  if (title && id && Array.isArray(object.artists)) tracks.push(object)
+
+  for (const [key, child] of Object.entries(object)) {
+    if (key !== 'track' && child && typeof child === 'object') collectCloudMusicTracks(child, tracks, seen)
+  }
+  return tracks
+}
+
+function readCloudMusicWebdataTracks(): Record<string, unknown>[] {
+  const tracks: Record<string, unknown>[] = []
+  for (const name of ['queue', 'history', 'playingList']) {
+    const path = cloudMusicWebdataFilePath(name)
+    if (!existsSync(path)) continue
+    try {
+      tracks.push(...collectCloudMusicTracks(JSON.parse(readFileSync(path, 'utf8'))))
+    } catch {
+      continue
+    }
+  }
+  return tracks
+}
+
+function lookupCloudMusicLocalTrackMetadata(track: LocalAudioImport): CloudMusicLocalTrackCandidate | null {
+  const candidates = readCloudMusicWebdataTracks()
+    .map((candidate): CloudMusicLocalTrackCandidate | null => {
+      const title = String(candidate.name ?? '').trim()
+      const artist = cloudMusicArtistNameFromTrack(candidate)
+      const album = cloudMusicAlbumNameFromTrack(candidate)
+      const neteaseSongId = positiveInteger(candidate.id)
+      if (!title || !neteaseSongId) return null
+
+      const durationMs = positiveInteger(candidate.duration) ?? 0
+      const duration = durationMs > 0 ? Math.round(durationMs / 1000) : 0
+      let score = textSimilarityScore(track.title, title) * 8
+      if (!isUnknown(track.artist)) score += textSimilarityScore(track.artist, artist) * 5
+      if (!isUnknown(track.album) && album) score += textSimilarityScore(track.album, album) * 2
+      if (track.duration > 0 && duration > 0) {
+        const diff = Math.abs(track.duration - duration)
+        if (diff <= 3) score += 3
+        else if (diff > 20) score -= 3
+      }
+
+      return {
+        title,
+        artist,
+        album,
+        duration,
+        artworkUrl: cloudMusicArtworkFromTrack(candidate),
+        neteaseSongId,
+        score
+      }
+    })
+    .filter((candidate): candidate is CloudMusicLocalTrackCandidate => Boolean(candidate))
+    .sort((a, b) => b.score - a.score)
+
+  const selected = candidates[0]
+  if (!selected || selected.score < 9.2 || textSimilarityScore(track.title, selected.title) < 0.82) return null
+  return selected
+}
+
 function hasMetadataConflict(track: LocalAudioImport, candidate: Omit<MetadataCandidate, 'score' | 'source'>): boolean {
   if (textSimilarityScore(track.title, candidate.title) < 0.62) return true
   if (!isUnknown(track.artist) && textSimilarityScore(track.artist, candidate.artist) < 0.50) return true
@@ -1533,6 +1652,19 @@ async function lookupTrackMetadata(values: Record<string, unknown>): Promise<Tra
     duration,
     sourcePath: '',
     sourceUrl: ''
+  }
+
+  const cloudMusicLocal = lookupCloudMusicLocalTrackMetadata(track)
+  if (cloudMusicLocal) {
+    return {
+      title: cloudMusicLocal.title,
+      artist: cloudMusicLocal.artist,
+      album: cloudMusicLocal.album,
+      duration: cloudMusicLocal.duration,
+      artworkUrl: cloudMusicLocal.artworkUrl ? await dataUrlForRemoteImage(cloudMusicLocal.artworkUrl) : undefined,
+      neteaseSongId: cloudMusicLocal.neteaseSongId,
+      metadataSource: 'cloudmusic-local'
+    }
   }
 
   const netease = await fetchNetEaseSongMetadata(track).catch(() => null)
@@ -2282,10 +2414,43 @@ function netEaseYrcToInlineLrc(yrcLyrics: string): string {
     .join('\n')
 }
 
+function lyricsFromCloudMusicCache(neteaseSongId: number): LyricsLookupResult | null {
+  const path = cloudMusicLyricCachePath(neteaseSongId)
+  if (!existsSync(path)) return null
+  try {
+    const payload = JSON.parse(readFileSync(path, 'utf8')) as NetEaseLyricPayload
+    if (payload.yrc?.lyric?.trim()) {
+      const syncedLyrics = netEaseYrcToInlineLrc(payload.yrc.lyric)
+      if (syncedLyrics.trim()) {
+        return {
+          lyricsText: payload.lrc?.lyric ? normalizeNetEaseLrc(payload.lrc.lyric) : payload.tlyric?.lyric || undefined,
+          syncedLyrics,
+          neteaseSongId
+        }
+      }
+    }
+
+    const lrcLyrics = payload.lrc?.lyric?.trim()
+    if (lrcLyrics) {
+      return {
+        lyricsText: payload.tlyric?.lyric || undefined,
+        syncedLyrics: normalizeNetEaseLrc(lrcLyrics),
+        neteaseSongId
+      }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
 async function fetchNetEaseLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
   const metadata = track.neteaseSongId ? null : await fetchNetEaseSongMetadata(track).catch(() => null)
   const neteaseSongId = positiveInteger(track.neteaseSongId ?? metadata?.neteaseSongId)
   if (!neteaseSongId) return null
+
+  const cachedLyrics = lyricsFromCloudMusicCache(neteaseSongId)
+  if (cachedLyrics) return cachedLyrics
 
   const url = new URL('https://music.163.com/api/song/lyric/v1')
   url.searchParams.set('id', String(neteaseSongId))
@@ -2326,27 +2491,39 @@ async function fetchNetEaseLyrics(track: LocalAudioImport): Promise<LyricsLookup
 }
 
 async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
-  const amllLyrics = await fetchAmllTtmlLyrics(track)
+  const cloudMusicLocal = track.neteaseSongId ? null : lookupCloudMusicLocalTrackMetadata(track)
+  const lookupTrack = cloudMusicLocal
+    ? {
+      ...track,
+      title: cloudMusicLocal.title || track.title,
+      artist: cloudMusicLocal.artist || track.artist,
+      album: cloudMusicLocal.album || track.album,
+      duration: cloudMusicLocal.duration || track.duration,
+      neteaseSongId: cloudMusicLocal.neteaseSongId
+    }
+    : track
+
+  const amllLyrics = await fetchAmllTtmlLyrics(lookupTrack)
   if (amllLyrics) return amllLyrics
 
-  const amllSearchLyrics = await fetchAmllDbSearchLyrics(track).catch(() => null)
+  const amllSearchLyrics = await fetchAmllDbSearchLyrics(lookupTrack).catch(() => null)
   if (amllSearchLyrics) return amllSearchLyrics
 
-  const lddcLyrics = await fetchLddcLyrics(track).catch(() => null)
+  const lddcLyrics = await fetchLddcLyrics(lookupTrack).catch(() => null)
   if (lddcLyrics) return lddcLyrics
 
-  const netEaseLyrics = await fetchNetEaseLyrics(track).catch(() => null)
+  const netEaseLyrics = await fetchNetEaseLyrics(lookupTrack).catch(() => null)
   if (netEaseLyrics?.syncedLyrics && /<\d{1,2}:\d{2}(?:[.:]\d{1,3})?>/.test(netEaseLyrics.syncedLyrics)) return netEaseLyrics
 
-  const qqMusicLyrics = await fetchQQMusicLyrics(track).catch(() => null)
+  const qqMusicLyrics = await fetchQQMusicLyrics(lookupTrack).catch(() => null)
   if (qqMusicLyrics) return { ...netEaseLyrics, ...qqMusicLyrics }
 
   if (netEaseLyrics) return netEaseLyrics
 
   const url = new URL('https://lrclib.net/api/search')
-  url.searchParams.set('track_name', track.title)
-  if (!isUnknown(track.artist)) url.searchParams.set('artist_name', track.artist)
-  if (!isUnknown(track.album)) url.searchParams.set('album_name', track.album)
+  url.searchParams.set('track_name', lookupTrack.title)
+  if (!isUnknown(lookupTrack.artist)) url.searchParams.set('artist_name', lookupTrack.artist)
+  if (!isUnknown(lookupTrack.album)) url.searchParams.set('album_name', lookupTrack.album)
 
   const response = await fetch(url, {
     headers: { 'User-Agent': 'kmgccc-player-electron/0.1.0' },
@@ -2363,8 +2540,8 @@ async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult 
   return {
     lyricsText: selected.plainLyrics ?? undefined,
     syncedLyrics: selected.syncedLyrics ?? undefined,
-    neteaseSongId: track.neteaseSongId,
-    qqMusicSongId: track.qqMusicSongId
+    neteaseSongId: lookupTrack.neteaseSongId,
+    qqMusicSongId: lookupTrack.qqMusicSongId
   }
 }
 
@@ -2899,6 +3076,50 @@ function enrichExternalPlaybackSnapshot(snapshot: ExternalPlaybackSnapshot): Ext
   }
 }
 
+function externalSnapshotMetadataKey(snapshot: ExternalPlaybackSnapshot): string {
+  return [
+    snapshot.sourceAppUserModelId || snapshot.sourceMode,
+    snapshot.title.trim(),
+    snapshot.artist.trim(),
+    snapshot.album?.trim() || '',
+    Math.round(snapshot.duration)
+  ].join('|')
+}
+
+async function attachExternalPlaybackMetadata(snapshot: ExternalPlaybackSnapshot): Promise<ExternalPlaybackSnapshot> {
+  const enriched = enrichExternalPlaybackSnapshot(snapshot)
+  const title = enriched.title.trim()
+  if (!title || enriched.connectionState !== 'runningHasData') return enriched
+
+  const key = externalSnapshotMetadataKey(enriched)
+  let lookup = externalSnapshotMetadataByKey.get(key)
+  if (!lookup) {
+    lookup = lookupTrackMetadata({
+      title,
+      artist: enriched.artist.trim(),
+      album: enriched.album?.trim() || '',
+      duration: enriched.duration > 0 ? enriched.duration : 0
+    }).catch(() => null)
+    externalSnapshotMetadataByKey.set(key, lookup)
+    if (externalSnapshotMetadataByKey.size > 80) {
+      const oldest = externalSnapshotMetadataByKey.keys().next().value
+      if (oldest) externalSnapshotMetadataByKey.delete(oldest)
+    }
+  }
+
+  const metadata = await lookup
+  if (!metadata) return enriched
+  return {
+    ...enriched,
+    title: enriched.title.trim() || metadata.title || enriched.title,
+    artist: enriched.artist.trim() || metadata.artist || enriched.artist,
+    album: enriched.album?.trim() || metadata.album,
+    duration: enriched.duration > 0 ? enriched.duration : metadata.duration ?? enriched.duration,
+    artworkUrl: metadata.artworkUrl || enriched.artworkUrl,
+    neteaseSongId: metadata.neteaseSongId ?? enriched.neteaseSongId
+  }
+}
+
 async function scoreWinRtSession(session: WinRtSession, isCurrent: boolean): Promise<number> {
   const playbackInfo = session.getPlaybackInfo()
   const controls = playbackInfo.controls ?? {}
@@ -3134,12 +3355,12 @@ async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): P
   const moduleAvailable = Boolean(loadWinRtMediaControl())
   if (!moduleAvailable) {
     const powershellSnapshot = await getPowerShellExternalPlaybackSnapshot(mode)
-    if (powershellSnapshot) return enrichExternalPlaybackSnapshot(powershellSnapshot)
+    if (powershellSnapshot) return attachExternalPlaybackMetadata(powershellSnapshot)
   }
   const session = await selectedExternalSession(mode)
   if (!session) {
     const powershellSnapshot = await getPowerShellExternalPlaybackSnapshot(mode)
-    if (powershellSnapshot) return enrichExternalPlaybackSnapshot(powershellSnapshot)
+    if (powershellSnapshot) return attachExternalPlaybackMetadata(powershellSnapshot)
     return {
       available: moduleAvailable,
       sourceMode: mode,
@@ -3165,7 +3386,7 @@ async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): P
   const controls = playbackInfo.controls ?? {}
   const title = (mediaProperties?.title ?? '').trim()
   const artist = (mediaProperties?.artist ?? mediaProperties?.albumArtist ?? '').trim()
-  return enrichExternalPlaybackSnapshot({
+  return attachExternalPlaybackMetadata({
     available: true,
     sourceMode: mode,
     connectionState: title ? 'runningHasData' : 'connectedNoMetadata',
@@ -3442,9 +3663,6 @@ ipcMain.handle('library:lookup-album-metadata', async (_event, values: Record<st
 })
 ipcMain.handle('library:lookup-artist-metadata', async (_event, values: Record<string, unknown>) => {
   return lookupArtistMetadata(values)
-})
-ipcMain.handle('library:lookup-track-metadata', async (_event, values: Record<string, unknown>) => {
-  return lookupTrackMetadata(values)
 })
 ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, unknown>) => {
   const title = typeof values.title === 'string' ? values.title.trim() : ''

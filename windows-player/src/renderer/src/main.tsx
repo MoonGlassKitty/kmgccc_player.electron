@@ -155,11 +155,6 @@ type ExternalArtworkCacheEntry = {
   status: 'loading' | 'ready' | 'empty' | 'failed'
 }
 
-type ExternalMetadataCacheEntry = {
-  metadata?: TrackMetadataLookupResult
-  status: 'loading' | 'ready' | 'empty' | 'failed'
-}
-
 type ExternalPlaybackClock = {
   key: string
   currentTime: number
@@ -2379,7 +2374,6 @@ function App(): React.ReactElement {
   const [externalPlaybackSnapshot, setExternalPlaybackSnapshot] = React.useState<ExternalPlaybackSnapshot | null>(null)
   const [externalLyricsByKey, setExternalLyricsByKey] = React.useState<Record<string, ExternalLyricsCacheEntry>>({})
   const [externalArtworkByKey, setExternalArtworkByKey] = React.useState<Record<string, ExternalArtworkCacheEntry>>({})
-  const [externalMetadataByKey, setExternalMetadataByKey] = React.useState<Record<string, ExternalMetadataCacheEntry>>({})
   const [systemPlatform, setSystemPlatform] = React.useState<NodeJS.Platform | null>(null)
   const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(false)
   const [volume, setVolume] = React.useState(0.72)
@@ -2412,13 +2406,12 @@ function App(): React.ReactElement {
   const externalDisplayTrack = React.useMemo<Track | null>(() => {
     const snapshot = externalPlaybackSnapshot
     if (!snapshot) return null
-    const metadata = externalMetadataByKey[externalPlaybackKey]?.metadata
-    const artist = metadata?.artist?.trim() || snapshot.artist.trim() || '未知艺人'
-    const album = metadata?.album?.trim() || snapshot.album?.trim() || '外部播放'
+    const artist = snapshot.artist.trim() || '未知艺人'
+    const album = snapshot.album?.trim() || '外部播放'
     const ownerKey = snapshot.sourceAppUserModelId || snapshot.sourceMode
     const lyrics = externalLyricsByKey[externalPlaybackKey]
     const artwork = externalArtworkByKey[externalPlaybackKey]
-    const title = metadata?.title?.trim() || snapshot.title.trim() || (() => {
+    const title = snapshot.title.trim() || (() => {
       switch (snapshot.connectionState) {
         case 'connectedNoMetadata':
           return '等待媒体信息'
@@ -2431,8 +2424,8 @@ function App(): React.ReactElement {
           return '外部播放'
       }
     })()
-    const duration = metadata?.duration && metadata.duration > 0 ? metadata.duration : snapshot.duration > 0 ? snapshot.duration : 12 * 60
-    const artworkUrl = artwork?.artworkUrl || metadata?.artworkUrl
+    const duration = snapshot.duration > 0 ? snapshot.duration : 12 * 60
+    const artworkUrl = artwork?.artworkUrl || snapshot.artworkUrl
     return {
       id: `external-${ownerKey}-${title}-${artist}-${Math.round(snapshot.duration)}`,
       title,
@@ -2448,7 +2441,7 @@ function App(): React.ReactElement {
       syncedLyrics: lyrics?.syncedLyrics,
       metadataSource: 'externalPlayback'
     }
-  }, [externalArtworkByKey, externalLyricsByKey, externalMetadataByKey, externalPlaybackKey, externalPlaybackSnapshot])
+  }, [externalArtworkByKey, externalLyricsByKey, externalPlaybackKey, externalPlaybackSnapshot])
   const displayTrack = playbackSource === 'external' ? externalDisplayTrack : currentTrack
   const isExternalPlaybackSupported = systemPlatform === 'win32'
   const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(displayTrack), [displayTrack])
@@ -3069,52 +3062,10 @@ function App(): React.ReactElement {
     const key = externalPlaybackKey
     const title = snapshot?.title.trim() ?? ''
     const artist = snapshot?.artist.trim() ?? ''
-    const album = snapshot?.album?.trim() ?? ''
-    if (!key || !title || title === '外部播放' || !window.kmgccc?.lookupTrackMetadata) return
-    if (externalMetadataByKey[key]) return
-    setExternalMetadataByKey((entries) => ({
-      ...entries,
-      [key]: { status: 'loading' }
-    }))
-    let cancelled = false
-    window.kmgccc.lookupTrackMetadata({
-      title,
-      artist,
-      album,
-      duration: snapshot?.duration && snapshot.duration < 12 * 60 ? snapshot.duration : 0
-    }).then((metadata) => {
-      if (cancelled) return
-      setExternalMetadataByKey((entries) => ({
-        ...entries,
-        [key]: metadata
-          ? { status: 'ready', metadata }
-          : { status: 'empty' }
-      }))
-    }).catch(() => {
-      if (cancelled) return
-      setExternalMetadataByKey((entries) => ({
-        ...entries,
-        [key]: { status: 'failed' }
-      }))
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [externalMetadataByKey, externalPlaybackKey, externalPlaybackSnapshot, playbackSource])
-
-  React.useEffect(() => {
-    if (playbackSource !== 'external') return
-    const snapshot = externalPlaybackSnapshot
-    const key = externalPlaybackKey
-    const title = snapshot?.title.trim() ?? ''
-    const artist = snapshot?.artist.trim() ?? ''
-    const metadata = key ? externalMetadataByKey[key]?.metadata : undefined
-    const lookupTitle = metadata?.title?.trim() || title
-    const lookupArtist = metadata?.artist?.trim() || artist
-    const album = metadata?.album?.trim() || snapshot?.album?.trim() || ''
-    if (!key || !lookupTitle || lookupTitle === '外部播放' || !window.kmgccc?.lookupLyrics) return
+    const album = snapshot?.album?.trim() || ''
+    if (!key || !title || title === '外部播放' || !window.kmgccc?.lookupLyrics) return
     const existingLyrics = externalLyricsByKey[key]
-    const metadataSongId = metadata?.neteaseSongId
+    const metadataSongId = snapshot?.neteaseSongId
     const shouldRetryWithMetadata = Boolean(metadataSongId && existingLyrics && existingLyrics.metadataSongId !== metadataSongId && (existingLyrics.status === 'empty' || existingLyrics.status === 'failed'))
     if (existingLyrics && !shouldRetryWithMetadata) return
     setExternalLyricsByKey((entries) => ({
@@ -3123,11 +3074,11 @@ function App(): React.ReactElement {
     }))
     let cancelled = false
     window.kmgccc.lookupLyrics({
-      title: lookupTitle,
-      artist: lookupArtist,
+      title,
+      artist,
       album,
-      duration: metadata?.duration || (snapshot?.duration && snapshot.duration < 12 * 60 ? snapshot.duration : 0),
-      neteaseSongId: metadata?.neteaseSongId,
+      duration: snapshot?.duration && snapshot.duration < 12 * 60 ? snapshot.duration : 0,
+      neteaseSongId: metadataSongId,
       mode: 'synced',
       includeTranslation: true,
       platform: 'auto'
@@ -3150,7 +3101,7 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true
     }
-  }, [externalLyricsByKey, externalMetadataByKey, externalPlaybackKey, externalPlaybackSnapshot, playbackSource])
+  }, [externalLyricsByKey, externalPlaybackKey, externalPlaybackSnapshot, playbackSource])
 
   React.useEffect(() => {
     if (playbackSource !== 'external') return
@@ -3158,13 +3109,10 @@ function App(): React.ReactElement {
     const key = externalPlaybackKey
     const title = snapshot?.title.trim() ?? ''
     const artist = snapshot?.artist.trim() ?? ''
-    const metadata = key ? externalMetadataByKey[key]?.metadata : undefined
-    const lookupTitle = metadata?.title?.trim() || title
-    const lookupArtist = metadata?.artist?.trim() || artist
-    const album = metadata?.album?.trim() || snapshot?.album?.trim() || ''
-    if (!key || !lookupTitle || lookupTitle === '外部播放' || !window.kmgccc?.lookupCover) return
+    const album = snapshot?.album?.trim() || ''
+    if (!key || !title || title === '外部播放' || !window.kmgccc?.lookupCover) return
     const existingArtwork = externalArtworkByKey[key]
-    const metadataArtworkUrl = metadata?.artworkUrl?.trim()
+    const metadataArtworkUrl = snapshot?.artworkUrl?.trim()
     const shouldRetryWithArtwork = Boolean(metadataArtworkUrl && existingArtwork && existingArtwork.metadataArtworkUrl !== metadataArtworkUrl && (existingArtwork.status === 'empty' || existingArtwork.status === 'failed'))
     if (existingArtwork && !shouldRetryWithArtwork) return
     setExternalArtworkByKey((entries) => ({
@@ -3173,19 +3121,19 @@ function App(): React.ReactElement {
     }))
     let cancelled = false
     const lookup = async (): Promise<string> => {
-      if (metadata?.artworkUrl?.trim()) return metadata.artworkUrl.trim()
+      if (metadataArtworkUrl) return metadataArtworkUrl
       const albumCandidates = album
         ? await window.kmgccc!.lookupCover({
           kind: 'album',
-          title: lookupTitle,
-          artist: lookupArtist,
+          title,
+          artist,
           album
         })
         : []
       const trackCandidates = albumCandidates.length ? [] : await window.kmgccc!.lookupCover({
         kind: 'track',
-        title: lookupTitle,
-        artist: lookupArtist,
+        title,
+        artist,
         album
       })
       return (albumCandidates[0]?.artworkUrl || trackCandidates[0]?.artworkUrl || '').trim()
@@ -3208,7 +3156,7 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true
     }
-  }, [externalArtworkByKey, externalMetadataByKey, externalPlaybackKey, externalPlaybackSnapshot, playbackSource])
+  }, [externalArtworkByKey, externalPlaybackKey, externalPlaybackSnapshot, playbackSource])
 
   const seekTo = React.useCallback((seconds: number) => {
     if (!Number.isFinite(seconds)) return

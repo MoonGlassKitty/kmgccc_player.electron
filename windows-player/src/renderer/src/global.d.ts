@@ -156,17 +156,9 @@ declare global {
     canSkip: boolean
     canSeek: boolean
     updatedAt: number
-    error?: string
-  }
-
-  type TrackMetadataLookupResult = {
-    title?: string
-    artist?: string
-    album?: string
-    duration?: number
     artworkUrl?: string
     neteaseSongId?: number
-    metadataSource: string
+    error?: string
   }
 
   type LocalAudioImport = HomeTrack & {
@@ -210,7 +202,6 @@ declare global {
       syncTrackInfo: (track: LocalAudioImport) => Promise<TrackMetadataSyncResult>
       lookupAlbumMetadata: (values: Record<string, unknown>) => Promise<Record<string, unknown> | null>
       lookupArtistMetadata: (values: Record<string, unknown>) => Promise<Record<string, unknown> | null>
-      lookupTrackMetadata: (values: Record<string, unknown>) => Promise<TrackMetadataLookupResult | null>
       lookupLyrics: (values: Record<string, unknown>) => Promise<{ lyricsText?: string; syncedLyrics?: string; neteaseSongId?: number; qqMusicSongId?: string } | null>
       lookupCover: (values: Record<string, unknown>) => Promise<Array<{ artworkUrl: string; source: string; label?: string }>>
       clearLibrary: () => Promise<HomeSnapshot>
