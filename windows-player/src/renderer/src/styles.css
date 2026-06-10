@@ -5685,6 +5685,10 @@ input {
   height: 104px;
 }
 
+.fullscreen-lyrics-open .mini-player-hover-zone {
+  height: 148px;
+}
+
 .fullscreen-lyrics-open .mini-player,
 .fullscreen-lyrics-open .mini-fullscreen-actions,
 .fullscreen-lyrics-open .mini-timeline-layer {
@@ -5693,9 +5697,16 @@ input {
   pointer-events: none;
 }
 
+.fullscreen-lyrics-open .mini-timeline-layer {
+  pointer-events: auto;
+}
+
 .fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-player,
 .fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-fullscreen-actions,
 .fullscreen-lyrics-open .mini-player-hover-zone:hover ~ .mini-timeline-layer,
+.fullscreen-lyrics-open .mini-timeline-layer:hover ~ .mini-player,
+.fullscreen-lyrics-open .mini-timeline-layer:hover ~ .mini-fullscreen-actions,
+.fullscreen-lyrics-open .mini-timeline-layer:hover,
 .fullscreen-lyrics-open .mini-player:hover,
 .fullscreen-lyrics-open .mini-fullscreen-actions:hover,
 .fullscreen-lyrics-open .mini-timeline-layer:hover {
