@@ -2752,17 +2752,23 @@ async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult 
 }
 
 async function fetchLrcLibLyrics(track: LocalAudioImport): Promise<LyricsLookupResult | null> {
-  const url = new URL('https://lrclib.net/api/search')
-  url.searchParams.set('track_name', track.title)
-  if (!isUnknown(track.artist)) url.searchParams.set('artist_name', track.artist)
-  if (!isUnknown(track.album)) url.searchParams.set('album_name', track.album)
-
-  const response = await fetch(url, {
-    headers: { 'User-Agent': 'kmgccc-player-electron/0.1.0' },
-    signal: AbortSignal.timeout(12000)
-  })
-  if (!response.ok) return null
-  const candidates = (await response.json()) as LrcLibResult[]
+  const titles = Array.from(new Set([
+    track.title,
+    track.title.replace(/[（(].*?[）)]/g, '').trim()
+  ].filter(Boolean)))
+  const artist = isUnknown(track.artist) ? '' : track.artist
+  const candidates: LrcLibResult[] = []
+  for (const title of titles) {
+    const url = new URL('https://lrclib.net/api/search')
+    url.searchParams.set('track_name', title)
+    if (artist) url.searchParams.set('artist_name', artist)
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'kmgccc-player-electron/0.1.0' },
+      signal: AbortSignal.timeout(6000)
+    })
+    if (response.ok) candidates.push(...((await response.json()) as LrcLibResult[]))
+    if (candidates.some((candidate) => candidate.syncedLyrics)) break
+  }
   const selected = candidates
     .filter((candidate) => candidate.plainLyrics || candidate.syncedLyrics)
     .map((candidate) => ({ candidate, score: scoreLyricsCandidate(track, candidate) }))
@@ -2793,9 +2799,9 @@ async function fetchLyricsForPlatform(track: LocalAudioImport, platform: LyricsL
   }
   if (platform === 'netease') {
     return (
+      (await fetchNetEaseLyrics(track).catch(() => null)) ??
       (await fetchAmllTtmlLyrics(track).catch(() => null)) ??
       (await fetchAmllDbSearchLyrics(track).catch(() => null)) ??
-      (await fetchNetEaseLyrics(track).catch(() => null)) ??
       (await fetchLddcLyrics(track, lddcSourcesForPlatform(platform)).catch(() => null))
     )
   }

@@ -197,3 +197,4 @@
 - CloudMusic 第三方 LRCLIB 直连：确认 `Paris - The Chainsmokers` 在 LRCLIB 有同步歌词；外部播放层已经并发查本地、QQ、网易云和 auto，但 LRCLIB 之前只在 `auto` 内部串行回退末端，不是独立并发源。主进程新增 `platform: lrclib` 独立歌词查询，renderer 外部播放并发源加入 LRCLIB 直连，英文歌/网易云无词歌曲可更快落歌词。
 - CloudMusic 第三方本地歌词兜底顺序：外部播放歌词现在在线源（QQ、网易云、LRCLIB、auto）并发抢结果，本地资料库歌词也立即查但只暂存；只有在线源全部失败/为空时才发布本地歌词，避免本地旧歌词或弱匹配过早抢占在线结果，同时保证全网找不到时仍能回落本地。
 - 网易云 tlyric-only 歌词放宽：实测 `樹海 / 雪国` 的网易云歌词接口 `2158321861` 返回 `code=200`，但 `lrc/yrc` 为空、只有带时间轴的 `tlyric`；`fetchNetEaseLyrics` 与 CloudMusic 本地 lyric cache 解析现在在 yrc/lrc 都缺失时接受 `tlyric` 作为同步歌词，避免把这类可用歌词误判为空。
+- 第三方歌词匹配继续放宽：`platform: netease` 现在优先请求网易云原始 lyric v1，再回退 AMLL/AMLLDB/LDDC，避免有 NCM ID 和 lrc 时被增强源延迟；LRCLIB 查询不再携带 album 严格筛选，并会追加去括号版本标题（如去掉 Acoustic/Remix 标注）重试，减少标题/专辑细节导致的漏词。
