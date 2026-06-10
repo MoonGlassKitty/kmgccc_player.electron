@@ -165,3 +165,4 @@
 - Windows 打包修正：发现旧 portable exe 没有实际打进 `@nodert-win11`，安装 optional dependencies 后 macOS 交叉打包又会因 NodeRT 原生模块 rebuild 失败；新增 PowerShell WinRT fallback，NodeRT 可用时优先走 NodeRT，不可用时用系统 `Windows.Media.Control` PowerShell 路径读取/控制 GSMTC。electron-builder 配置关闭 `npmRebuild`，避免 mac 交叉编译 Windows 原生模块失败；重新打包并确认 asar 包含 `@nodert-win11` 与 fallback 主进程代码，新的 `/Users/moonglasskitty/Desktop/kmgccc Player 0.1.0.exe` 已覆盖。`npm run typecheck` 与 `npm run package:win` 已通过。
 - 新增 Windows 继续开发交接文档：根目录 `交接.md` 记录当前 Electron 工程状态、外部播放源实现、Swift 参考文件、Windows 必测项、打包注意事项、已知风险和后续建议顺序，方便项目转到 Windows 环境继续开发。
 - 全屏歌词交互层级修正：全屏歌词打开时 `content-pane` 不再以整块 stacking context 压在全屏歌词页上，`fullscreen-lyrics-page` 提升到普通内容之上，同时保留底栏 hover 区、时间条和播放页按钮自己的层级；修复全屏 AMLL 歌词无法滚动选择、点击歌词无法跳转的问题。`npm run typecheck` 已通过。
+- 全屏歌词布局修正：全屏 AMLL 的对齐锚点下移，空歌词态在全屏歌词区内补足高度并轻微下移，避免整体贴在上方；`fullscreen.coverGradientBlur` 皮肤下背景已由封面铺开，不再额外渲染左侧封面舞台，避免出现封面叠封面。`npm run typecheck` 已通过。
