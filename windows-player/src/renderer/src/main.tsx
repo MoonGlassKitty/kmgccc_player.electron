@@ -8900,7 +8900,16 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
   const isArtistIndex = route.name === 'artistDetail' && route.id === 'all-artists'
   const isAlbumIndex = route.name === 'albumDetail' && route.id === 'all-albums'
   const artworkShape = route.name === 'artistDetail' && route.id !== 'all-artists' ? 'artist' : 'square'
+  const detailAlbum = route.name === 'albumDetail' && route.id !== 'all-albums' ? snapshot.albums.find((entry) => entry.id === route.id) : undefined
+  const detailArtist = route.name === 'artistDetail' && route.id !== 'all-artists' ? snapshot.artists.find((entry) => entry.id === route.id) : undefined
   const headerPlaylist = route.name === 'playlistDetail' ? snapshot.playlists.find((entry) => entry.id === route.id) : undefined
+  const detailDescription = React.useMemo(() => {
+    if (detailAlbum) {
+      return detailAlbum.description?.trim() || `${detailAlbum.artist} 的专辑《${detailAlbum.title}》，收录 ${tracks.length} 首歌曲。`
+    }
+    if (detailArtist?.description?.trim()) return detailArtist.description.trim()
+    return ''
+  }, [detailAlbum, detailArtist?.description, tracks.length])
   const headerContextItems = React.useMemo((): ContextMenuItem[] => {
     const items: ContextMenuItem[] = [
       { label: '播放', onSelect: () => onPlayRoute(route) }
@@ -8939,28 +8948,29 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
           <div className="artist-copy">
             <h1>{route.name === 'allTracks' ? '所有歌曲' : route.title}</h1>
             <p className="artist-meta">{detailSubtitle(route, snapshot, tracks)}</p>
+            {detailDescription ? <p className="artist-description">{detailDescription}</p> : null}
             <div className="detail-actions">
               <button className="play-cta" type="button" disabled={!tracks.length} onClick={() => onPlayRoute(route)}>
                 <Play size={16} fill="currentColor" />
                 播放
               </button>
               {route.name === 'artistDetail' && route.id !== 'all-artists' ? (
-                <button className="edit-button" type="button" onClick={() => {
+                <button className="edit-button" type="button" aria-label="编辑艺人" title="编辑艺人" onClick={() => {
                   const artist = snapshot.artists.find((entry) => entry.id === route.id)
                   if (artist) onEditArtist(artist)
-                }}>编辑艺人</button>
+                }}><Pencil size={18} /></button>
               ) : null}
               {route.name === 'albumDetail' && route.id !== 'all-albums' ? (
-                <button className="edit-button" type="button" onClick={() => {
+                <button className="edit-button" type="button" aria-label="编辑专辑" title="编辑专辑" onClick={() => {
                   const album = snapshot.albums.find((entry) => entry.id === route.id)
                   if (album) onEditAlbum(album)
-                }}>编辑专辑</button>
+                }}><Pencil size={18} /></button>
               ) : null}
               {route.name === 'playlistDetail' && route.id !== 'playlist-library' ? (
-                <button className="edit-button" type="button" onClick={() => {
+                <button className="edit-button" type="button" aria-label="编辑歌单" title="编辑歌单" onClick={() => {
                   const playlist = snapshot.playlists.find((entry) => entry.id === route.id)
                   if (playlist) onEditPlaylist(playlist)
-                }}>编辑歌单</button>
+                }}><Pencil size={18} /></button>
               ) : null}
             </div>
           </div>
