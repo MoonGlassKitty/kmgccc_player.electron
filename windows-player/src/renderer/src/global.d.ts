@@ -157,6 +157,7 @@ declare global {
     canSeek: boolean
     updatedAt: number
     artworkUrl?: string
+    audioSourceUrl?: string
     neteaseSongId?: number
     error?: string
   }

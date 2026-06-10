@@ -2441,7 +2441,7 @@ function App(): React.ReactElement {
       duration,
       artworkUrl,
       sourcePath: '',
-      sourceUrl: '',
+      sourceUrl: snapshot.audioSourceUrl ?? '',
       lyricsText: lyrics?.lyricsText,
       syncedLyrics: lyrics?.syncedLyrics,
       metadataSource: 'externalPlayback'
@@ -2682,9 +2682,10 @@ function App(): React.ReactElement {
     if (beatCacheRef.current[detectionTrackId]) return
     const approvedBeat = approvedArtworkBeatById[detectionTrackId]
     if (!displayTrack.sourceUrl) {
-      const fallbackBeat = approvedBeat ?? { bpm: 72, offset: playbackTimeRef.current }
-      beatCacheRef.current = { ...beatCacheRef.current, [detectionTrackId]: fallbackBeat }
-      setTrackBeatById((previous) => ({ ...previous, [detectionTrackId]: fallbackBeat }))
+      if (approvedBeat) {
+        beatCacheRef.current = { ...beatCacheRef.current, [detectionTrackId]: approvedBeat }
+        setTrackBeatById((previous) => ({ ...previous, [detectionTrackId]: approvedBeat }))
+      }
       return
     }
     let cancelled = false

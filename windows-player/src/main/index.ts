@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol, shell } from 'electron'
 import { execFile, execFileSync } from 'node:child_process'
 import { createDecipheriv, createHash } from 'node:crypto'
-import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { basename, dirname, extname, join } from 'node:path'
@@ -176,6 +176,7 @@ type ExternalPlaybackSnapshot = {
   canSeek: boolean
   updatedAt: number
   artworkUrl?: string
+  audioSourceUrl?: string
   neteaseSongId?: number
   error?: string
 }
@@ -378,6 +379,7 @@ type MetadataCandidate = {
 }
 
 const externalSnapshotMetadataByKey = new Map<string, Promise<TrackMetadataLookupResult | null>>()
+const externalAudioSourceBySongId = new Map<number, Promise<string | null>>()
 
 type TrackMetadataLookupResult = {
   title?: string
@@ -1336,6 +1338,78 @@ function cloudMusicLyricCachePath(songId: number): string {
   return join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), 'NetEase', 'CloudMusic', 'webdata', 'lyric', String(songId))
 }
 
+function cloudMusicCacheDir(): string {
+  const defaultPath = join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), 'NetEase', 'CloudMusic', 'Cache', 'Cache')
+  const configPath = join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), 'NetEase', 'CloudMusic', 'cache_path')
+  if (!existsSync(configPath)) return defaultPath
+  try {
+    const payload = readFileSync(configPath)
+    const text = payload.includes(0) ? payload.toString('utf16le') : payload.toString('utf8')
+    return text.trim() || defaultPath
+  } catch {
+    return defaultPath
+  }
+}
+
+function cloudMusicAudioCacheOutputDir(): string {
+  return join(app.getPath('userData'), 'cloudmusic-audio-cache')
+}
+
+function decodedCloudMusicAudioFormat(payload: Buffer): 'flac' | 'mp3' | null {
+  if (payload.length < 4) return null
+  if (payload.subarray(0, 4).toString('ascii') === 'fLaC') return 'flac'
+  if (payload.subarray(0, 3).toString('ascii') === 'ID3') return 'mp3'
+  if (payload[0] === 0xff && (payload[1] & 0xe0) === 0xe0) return 'mp3'
+  return null
+}
+
+function decodeCloudMusicUcCache(sourcePath: string, songId: number): string | null {
+  try {
+    const encrypted = readFileSync(sourcePath)
+    if (encrypted.length < 1024 * 512) return null
+    const decoded = Buffer.allocUnsafe(encrypted.length)
+    for (let index = 0; index < encrypted.length; index += 1) {
+      decoded[index] = encrypted[index] ^ 0xa3
+    }
+    const format = decodedCloudMusicAudioFormat(decoded)
+    if (!format) return null
+    const outputDir = cloudMusicAudioCacheOutputDir()
+    mkdirSync(outputDir, { recursive: true })
+    const outputPath = join(outputDir, `${songId}-${createHash('sha1').update(sourcePath).digest('hex').slice(0, 12)}.${format}`)
+    if (!existsSync(outputPath) || statSync(outputPath).size !== decoded.length) writeFileSync(outputPath, decoded)
+    return outputPath
+  } catch {
+    return null
+  }
+}
+
+function cloudMusicCachedAudioPath(songId: number, expectedSize = 0): string | null {
+  const cacheDir = cloudMusicCacheDir()
+  if (!existsSync(cacheDir)) return null
+  try {
+    const files = readdirSync(cacheDir)
+      .filter((name) => name.startsWith(`${songId}-`) && name.endsWith('.uc'))
+      .map((name) => join(cacheDir, name))
+      .filter((path) => {
+        try {
+          const size = statSync(path).size
+          if (size < 1024 * 512) return false
+          return expectedSize > 0 ? size >= expectedSize * 0.75 : true
+        } catch {
+          return false
+        }
+      })
+      .sort((first, second) => statSync(second).mtimeMs - statSync(first).mtimeMs)
+    for (const path of files) {
+      const decodedPath = decodeCloudMusicUcCache(path, songId)
+      if (decodedPath) return decodedPath
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
 function cloudMusicArtistNameFromTrack(track: Record<string, unknown>): string {
   const artists = Array.isArray(track.artists) ? track.artists : []
   return artists
@@ -1393,6 +1467,124 @@ function readCloudMusicWebdataTracks(): Record<string, unknown>[] {
     }
   }
   return tracks
+}
+
+function readCloudMusicWebdataValues(): unknown[] {
+  const values: unknown[] = []
+  for (const name of ['queue', 'history', 'playingList']) {
+    const path = cloudMusicWebdataFilePath(name)
+    if (!existsSync(path)) continue
+    try {
+      values.push(JSON.parse(readFileSync(path, 'utf8')))
+    } catch {
+      continue
+    }
+  }
+  return values
+}
+
+function cloudMusicTrackExpectedAudioSize(songId: number): number {
+  let size = 0
+  for (const track of readCloudMusicWebdataTracks()) {
+    if (positiveInteger(track.id) !== songId) continue
+    for (const key of ['hrMusic', 'sqMusic', 'hMusic', 'mMusic', 'lMusic', 'bMusic']) {
+      const value = track[key]
+      if (value && typeof value === 'object') {
+        size = Math.max(size, positiveInteger((value as Record<string, unknown>).size) ?? 0)
+      }
+    }
+  }
+  return size
+}
+
+type CloudMusicPlaybackUrl = {
+  url: string
+  format?: string
+  size?: number
+  time?: number
+}
+
+function collectCloudMusicPlaybackUrls(value: unknown, songId: number, urls: CloudMusicPlaybackUrl[] = [], seen = new Set<unknown>()): CloudMusicPlaybackUrl[] {
+  if (!value || typeof value !== 'object' || seen.has(value)) return urls
+  seen.add(value)
+
+  if (Array.isArray(value)) {
+    for (const item of value) collectCloudMusicPlaybackUrls(item, songId, urls, seen)
+    return urls
+  }
+
+  const object = value as Record<string, unknown>
+  const id = positiveInteger(object.id)
+  const url = typeof object.url === 'string' ? object.url.trim() : ''
+  if (id === songId && /^https?:\/\//i.test(url)) {
+    urls.push({
+      url,
+      format: typeof object.type === 'string' ? object.type : undefined,
+      size: positiveInteger(object.size) ?? undefined,
+      time: positiveInteger(object.time) ?? undefined
+    })
+  }
+  for (const child of Object.values(object)) {
+    if (child && typeof child === 'object') collectCloudMusicPlaybackUrls(child, songId, urls, seen)
+  }
+  return urls
+}
+
+async function downloadCloudMusicAudio(url: string, songId: number, formatHint?: string, expectedSize = 0): Promise<string | null> {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(45000) })
+    if (!response.ok) return null
+    const payload = Buffer.from(await response.arrayBuffer())
+    if (payload.length < 1024 * 512) return null
+    if (expectedSize > 0 && payload.length < expectedSize * 0.75) return null
+    const detectedFormat = decodedCloudMusicAudioFormat(payload)
+    const hintedFormat = formatHint?.toLowerCase() === 'flac' ? 'flac' : formatHint?.toLowerCase() === 'mp3' ? 'mp3' : null
+    const format = detectedFormat ?? hintedFormat
+    if (!format) return null
+    const outputDir = cloudMusicAudioCacheOutputDir()
+    mkdirSync(outputDir, { recursive: true })
+    const outputPath = join(outputDir, `${songId}-${createHash('sha1').update(url).digest('hex').slice(0, 12)}.${format}`)
+    if (!existsSync(outputPath) || statSync(outputPath).size !== payload.length) writeFileSync(outputPath, payload)
+    return outputPath
+  } catch {
+    return null
+  }
+}
+
+async function resolveCloudMusicAudioSourceUrl(songId: number): Promise<string | null> {
+  const expectedSize = cloudMusicTrackExpectedAudioSize(songId)
+  const cachedPath = cloudMusicCachedAudioPath(songId, expectedSize)
+  if (cachedPath) return mediaUrlForPath(cachedPath)
+
+  const playbackUrls = readCloudMusicWebdataValues()
+    .flatMap((value) => collectCloudMusicPlaybackUrls(value, songId))
+    .sort((first, second) => (second.size ?? 0) - (first.size ?? 0))
+  for (const candidate of playbackUrls) {
+    const downloadedPath = await downloadCloudMusicAudio(candidate.url, songId, candidate.format, candidate.size ?? expectedSize)
+    if (downloadedPath) return mediaUrlForPath(downloadedPath)
+  }
+  return null
+}
+
+function cloudMusicAudioSourceUrl(songId: number): Promise<string | null> {
+  let lookup = externalAudioSourceBySongId.get(songId)
+  if (!lookup) {
+    lookup = resolveCloudMusicAudioSourceUrl(songId)
+      .then((result) => {
+        if (!result) externalAudioSourceBySongId.delete(songId)
+        return result
+      })
+      .catch(() => {
+        externalAudioSourceBySongId.delete(songId)
+        return null
+      })
+    externalAudioSourceBySongId.set(songId, lookup)
+    if (externalAudioSourceBySongId.size > 24) {
+      const oldest = externalAudioSourceBySongId.keys().next().value
+      if (oldest) externalAudioSourceBySongId.delete(oldest)
+    }
+  }
+  return lookup
 }
 
 function lookupCloudMusicLocalTrackMetadata(track: LocalAudioImport): CloudMusicLocalTrackCandidate | null {
@@ -3146,8 +3338,14 @@ async function attachExternalPlaybackMetadata(snapshot: ExternalPlaybackSnapshot
   const metadata = await lookup
   if (!metadata) {
     externalSnapshotMetadataByKey.delete(key)
+    if (enriched.neteaseSongId) {
+      const audioSourceUrl = await cloudMusicAudioSourceUrl(enriched.neteaseSongId)
+      if (audioSourceUrl) return { ...enriched, audioSourceUrl }
+    }
     return enriched
   }
+  const neteaseSongId = metadata.neteaseSongId ?? enriched.neteaseSongId
+  const audioSourceUrl = neteaseSongId ? await cloudMusicAudioSourceUrl(neteaseSongId) : null
   return {
     ...enriched,
     title: enriched.title.trim() || metadata.title || enriched.title,
@@ -3155,7 +3353,8 @@ async function attachExternalPlaybackMetadata(snapshot: ExternalPlaybackSnapshot
     album: enriched.album?.trim() || metadata.album,
     duration: enriched.duration > 0 ? enriched.duration : metadata.duration ?? enriched.duration,
     artworkUrl: metadata.artworkUrl || enriched.artworkUrl,
-    neteaseSongId: metadata.neteaseSongId ?? enriched.neteaseSongId
+    audioSourceUrl: audioSourceUrl ?? enriched.audioSourceUrl,
+    neteaseSongId
   }
 }
 
