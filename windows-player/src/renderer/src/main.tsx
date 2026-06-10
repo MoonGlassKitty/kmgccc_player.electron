@@ -2410,7 +2410,7 @@ function App(): React.ReactElement {
       duration: snapshot.duration,
       sourcePath: '',
       sourceUrl: '',
-      artworkUrl: metadata?.artworkUrl,
+      artworkUrl: snapshot.artworkUrl || metadata?.artworkUrl,
       lyricsText: snapshot.lyricsText || metadata?.lyricsText,
       syncedLyrics: snapshot.syncedLyrics || metadata?.syncedLyrics,
       metadataSource: 'externalPlayback'

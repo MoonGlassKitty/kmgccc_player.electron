@@ -179,6 +179,13 @@ type ExternalPlaybackSnapshot = {
   error?: string
 }
 
+type ExternalPlaybackMetadataCacheEntry = {
+  artworkUrl?: string
+  lyricsText?: string
+  syncedLyrics?: string
+  attemptedAt: number
+}
+
 type MediaRemotePayload = {
   bundleIdentifier?: string
   parentApplicationBundleIdentifier?: string
@@ -2702,6 +2709,8 @@ async function sampleWindowColor(owner: BrowserWindow, rect: WindowColorSampleRe
 
 let externalPlaybackSourceMode: ExternalPlaybackSourceMode = 'auto'
 let mediaRemoteAdapterPaths: MediaRemoteAdapterPaths | null | undefined
+const externalMetadataByIdentity = new Map<string, ExternalPlaybackMetadataCacheEntry>()
+const pendingExternalMetadataIdentities = new Set<string>()
 
 const browserMediaOwners = [
   'com.apple.safari',
@@ -2867,11 +2876,94 @@ function estimatedMediaRemotePosition(payload: MediaRemotePayload): number {
   return Math.max(position, 0)
 }
 
+function mergeExternalMetadataCache(identity: string, values: Partial<Omit<ExternalPlaybackMetadataCacheEntry, 'attemptedAt'>>): void {
+  const current = externalMetadataByIdentity.get(identity)
+  externalMetadataByIdentity.set(identity, {
+    ...current,
+    ...values,
+    attemptedAt: Date.now()
+  })
+}
+
+function ensureExternalPlaybackMetadata(identity: string, payload: MediaRemotePayload): void {
+  const current = externalMetadataByIdentity.get(identity)
+  if (
+    pendingExternalMetadataIdentities.has(identity) ||
+    (current && (current.artworkUrl || current.lyricsText || current.syncedLyrics)) ||
+    (current?.attemptedAt && Date.now() - current.attemptedAt < 30_000)
+  ) {
+    return
+  }
+
+  const title = (payload.title ?? '').trim()
+  if (!title) return
+  const artist = (payload.artist ?? '').trim() || '未知艺人'
+  const album = payload.album?.trim() || '外部播放'
+  const duration = finiteSeconds(payload.duration)
+  const ids = idsForMetadata(artist, album)
+  const track: LocalAudioImport = {
+    id: `external-${createHash('sha1').update(identity).digest('hex').slice(0, 12)}`,
+    title,
+    artist,
+    artistId: ids.artistId,
+    album,
+    albumId: ids.albumId,
+    duration,
+    sourcePath: '',
+    sourceUrl: ''
+  }
+
+  pendingExternalMetadataIdentities.add(identity)
+  externalMetadataByIdentity.set(identity, { ...current, attemptedAt: Date.now() })
+  void fetchLrcLibLyrics(track)
+    .then((lyrics) => {
+      if (!lyrics?.lyricsText && !lyrics?.syncedLyrics) return
+      mergeExternalMetadataCache(identity, {
+        lyricsText: lyrics.lyricsText,
+        syncedLyrics: lyrics.syncedLyrics
+      })
+    })
+    .catch(() => undefined)
+
+  void fetchItunesMetadata(track)
+    .then((metadata) => {
+      const artworkUrl = upgradeArtworkUrl(metadata?.artworkUrl100)
+      if (!artworkUrl) return
+      mergeExternalMetadataCache(identity, { artworkUrl })
+    })
+    .catch(() => undefined)
+
+  const coverLookup = lookupCoverCandidates({ kind: 'track', title, artist, album, duration })
+    .then((covers) => {
+      const artworkUrl = covers[0]?.artworkUrl
+      if (artworkUrl) mergeExternalMetadataCache(identity, { artworkUrl })
+    })
+    .catch(() => undefined)
+
+  const lyricLookup = fetchLyricsForPlatform(track, 'auto')
+    .then((lyrics) => {
+      if (lyrics?.lyricsText || lyrics?.syncedLyrics) {
+        mergeExternalMetadataCache(identity, {
+          lyricsText: lyrics.lyricsText,
+          syncedLyrics: lyrics.syncedLyrics
+        })
+      }
+    })
+    .catch(() => undefined)
+
+  void Promise.allSettled([coverLookup, lyricLookup]).finally(() => {
+    pendingExternalMetadataIdentities.delete(identity)
+  })
+}
+
 function mediaRemoteSnapshotFromPayload(payload: MediaRemotePayload, mode: ExternalPlaybackSourceMode): ExternalPlaybackSnapshot {
   const title = (payload.title ?? '').trim()
   const artist = (payload.artist ?? '').trim()
   const duration = finiteSeconds(payload.duration)
   const playbackRate = Number(payload.playbackRate ?? (payload.playing ? 1 : 0))
+  const identity = externalPayloadIdentity(payload)
+  const metadata = title ? externalMetadataByIdentity.get(identity) : undefined
+  if (title) ensureExternalPlaybackMetadata(identity, payload)
   return {
     available: true,
     sourceMode: mode,
@@ -2887,6 +2979,9 @@ function mediaRemoteSnapshotFromPayload(payload: MediaRemotePayload, mode: Exter
     canControlPlayback: true,
     canSkip: true,
     canSeek: duration > 0,
+    artworkUrl: metadata?.artworkUrl,
+    lyricsText: metadata?.lyricsText,
+    syncedLyrics: metadata?.syncedLyrics,
     updatedAt: Date.now()
   }
 }
@@ -3208,7 +3303,7 @@ ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, un
   const platform: LyricsLookupPlatform = ['amll', 'qq', 'kugou', 'netease'].includes(platformValue) ? platformValue as LyricsLookupPlatform : 'auto'
   if (!title) return null
   const ids = idsForMetadata(artist || '未知艺人', album || '未知专辑')
-  return fetchLyricsForPlatform({
+  const result = await fetchLyricsForPlatform({
     id: `lookup-${createHash('sha1').update(`${title}|${artist}|${album}|${duration}`).digest('hex').slice(0, 12)}`,
     title,
     artist: artist || '未知艺人',
@@ -3221,6 +3316,7 @@ ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, un
     sourcePath: '',
     sourceUrl: ''
   }, platform)
+  return result
 })
 ipcMain.handle('library:lookup-cover', async (_event, values: Record<string, unknown>) => {
   return lookupCoverCandidates(values)
