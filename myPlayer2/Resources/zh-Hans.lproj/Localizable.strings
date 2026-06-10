@@ -27,10 +27,6 @@
 "playback.source.apple_music" = "Apple Music";
 "playback.source.system_now_playing" = "其他";
 "playback.source.help" = "切换播放来源";
-"playback.external_source.third_party" = "第三方音乐软件";
-"playback.external_source.other" = "其他源";
-"playback.external_source.auto" = "自动检测";
-"playback.external_source.menu.help" = "选择外部播放源";
 "apple_music.not_running" = "Music 未运行";
 "apple_music.temporarily_unavailable" = "暂时无法读取 Music";
 "apple_music.disconnected" = "Music 监听已断开";
