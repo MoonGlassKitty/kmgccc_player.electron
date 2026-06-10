@@ -2503,6 +2503,11 @@ async function fetchLyrics(track: LocalAudioImport): Promise<LyricsLookupResult 
     }
     : track
 
+  if (lookupTrack.neteaseSongId) {
+    const netEaseLyrics = await fetchNetEaseLyrics(lookupTrack).catch(() => null)
+    if (netEaseLyrics) return netEaseLyrics
+  }
+
   const amllLyrics = await fetchAmllTtmlLyrics(lookupTrack)
   if (amllLyrics) return amllLyrics
 

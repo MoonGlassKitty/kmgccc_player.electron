@@ -3066,7 +3066,7 @@ function App(): React.ReactElement {
     if (!key || !title || title === '外部播放' || !window.kmgccc?.lookupLyrics) return
     const existingLyrics = externalLyricsByKey[key]
     const metadataSongId = snapshot?.neteaseSongId
-    const shouldRetryWithMetadata = Boolean(metadataSongId && existingLyrics && existingLyrics.metadataSongId !== metadataSongId && (existingLyrics.status === 'empty' || existingLyrics.status === 'failed'))
+    const shouldRetryWithMetadata = Boolean(metadataSongId && existingLyrics && existingLyrics.metadataSongId !== metadataSongId && (existingLyrics.status === 'empty' || existingLyrics.status === 'failed' || existingLyrics.status === 'loading'))
     if (existingLyrics && !shouldRetryWithMetadata) return
     setExternalLyricsByKey((entries) => ({
       ...entries,
