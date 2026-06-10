@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol, shell } from 'electron'
-import { execFileSync } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { createDecipheriv, createHash } from 'node:crypto'
 import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -2789,6 +2789,163 @@ function playbackStatusIsPlaying(playbackStatus?: number): boolean {
   return playbackStatus === playing
 }
 
+function runPowerShellJson<T>(script: string, args: string[] = [], timeoutMs = 5000): Promise<T | null> {
+  if (process.platform !== 'win32') return Promise.resolve(null)
+  return new Promise((resolve) => {
+    execFile(
+      'powershell.exe',
+      ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script, ...args],
+      { timeout: timeoutMs, windowsHide: true, maxBuffer: 1024 * 1024 },
+      (error, stdout) => {
+        if (error || !stdout.trim()) {
+          resolve(null)
+          return
+        }
+        try {
+          resolve(JSON.parse(stdout) as T)
+        } catch {
+          resolve(null)
+        }
+      }
+    )
+  })
+}
+
+const powershellMediaSessionPrelude = String.raw`
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+[Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType = WindowsRuntime] | Out-Null
+$asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+  $_.Name -eq 'AsTask' -and
+  $_.IsGenericMethod -and
+  $_.GetParameters().Count -eq 1 -and
+  $_.GetParameters()[0].ParameterType.Name.StartsWith('IAsyncOperation')
+})[0]
+function AwaitOperation($operation, $resultType) {
+  $task = $asTaskGeneric.MakeGenericMethod($resultType).Invoke($null, @($operation))
+  return $task.GetAwaiter().GetResult()
+}
+function SessionKind($owner) {
+  if ([string]::IsNullOrWhiteSpace($owner)) {
+    $lower = ''
+  } else {
+    $lower = $owner.ToLowerInvariant()
+  }
+  foreach ($part in @('chrome', 'msedge', 'firefox', 'brave', 'opera', 'vivaldi', 'browser', 'safari')) {
+    if ($lower.Contains($part)) { return 'other' }
+  }
+  return 'thirdParty'
+}
+function MatchesMode($session, $mode) {
+  if ($mode -eq 'auto') { return $true }
+  return (SessionKind $session.SourceAppUserModelId) -eq $mode
+}
+function TimeSpanSeconds($value) {
+  if ($null -eq $value) { return 0 }
+  if ($value -is [TimeSpan]) { return [Math]::Max(0, $value.TotalSeconds) }
+  return [Math]::Max(0, ([double]$value) / 10000000)
+}
+function SelectSession($manager, $mode) {
+  $current = $manager.GetCurrentSession()
+  if ($null -ne $current -and (MatchesMode $current $mode)) { return $current }
+  foreach ($session in $manager.GetSessions()) {
+    if (MatchesMode $session $mode) { return $session }
+  }
+  return $null
+}
+$manager = AwaitOperation ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+`
+
+async function getPowerShellExternalPlaybackSnapshot(mode: ExternalPlaybackSourceMode): Promise<ExternalPlaybackSnapshot | null> {
+  const escapedMode = JSON.stringify(mode)
+  const script = `${powershellMediaSessionPrelude}
+$mode = ${escapedMode}
+$session = SelectSession $manager $mode
+if ($null -eq $session) {
+  [pscustomobject]@{
+    available = $true
+    sourceMode = $mode
+    connectionState = 'disconnected'
+    title = ''
+    artist = ''
+    duration = 0
+    currentTime = 0
+    isPlaying = $false
+    playbackRate = 0
+    canControlPlayback = $false
+    canSkip = $false
+    canSeek = $false
+    updatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+  } | ConvertTo-Json -Compress
+  exit 0
+}
+$properties = AwaitOperation ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+$timeline = $session.GetTimelineProperties()
+$playback = $session.GetPlaybackInfo()
+$controls = $playback.Controls
+$duration = [Math]::Max(0, (TimeSpanSeconds $timeline.EndTime) - (TimeSpanSeconds $timeline.StartTime))
+$position = [Math]::Max(0, (TimeSpanSeconds $timeline.Position) - (TimeSpanSeconds $timeline.StartTime))
+if ($duration -gt 0) { $position = [Math]::Min($position, $duration) }
+$status = $playback.PlaybackStatus.ToString()
+if ([string]::IsNullOrWhiteSpace($properties.Artist)) {
+  $artist = [string]$properties.AlbumArtist
+} else {
+  $artist = [string]$properties.Artist
+}
+if ($null -eq $playback.PlaybackRate) {
+  $rate = 0
+} else {
+  $rate = [double]$playback.PlaybackRate
+}
+if ([string]::IsNullOrWhiteSpace($properties.Title)) {
+  $connectionState = 'connectedNoMetadata'
+} else {
+  $connectionState = 'runningHasData'
+}
+[pscustomobject]@{
+  available = $true
+  sourceMode = $mode
+  connectionState = $connectionState
+  sourceAppUserModelId = $session.SourceAppUserModelId
+  title = [string]$properties.Title
+  artist = $artist
+  album = [string]$properties.AlbumTitle
+  duration = $duration
+  currentTime = $position
+  isPlaying = ($status -eq 'Playing')
+  playbackRate = $rate
+  canControlPlayback = [bool]($controls.IsPlayEnabled -or $controls.IsPauseEnabled -or $controls.IsPlayPauseToggleEnabled)
+  canSkip = [bool]($controls.IsNextEnabled -or $controls.IsPreviousEnabled)
+  canSeek = [bool]$controls.IsPlaybackPositionEnabled
+  updatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+} | ConvertTo-Json -Compress
+`
+  return runPowerShellJson<ExternalPlaybackSnapshot>(script)
+}
+
+async function runPowerShellExternalPlaybackCommand(mode: ExternalPlaybackSourceMode, command: string, value?: number): Promise<boolean> {
+  const escapedMode = JSON.stringify(mode)
+  const escapedCommand = JSON.stringify(command)
+  const positionTicks = secondsToWinRtTimeSpan(Number(value ?? 0))
+  const script = `${powershellMediaSessionPrelude}
+$mode = ${escapedMode}
+$command = ${escapedCommand}
+$session = SelectSession $manager $mode
+if ($null -eq $session) { $false | ConvertTo-Json -Compress; exit 0 }
+switch ($command) {
+  'playPause' { $result = AwaitOperation ($session.TryTogglePlayPauseAsync()) ([bool]) }
+  'play' { $result = AwaitOperation ($session.TryPlayAsync()) ([bool]) }
+  'pause' { $result = AwaitOperation ($session.TryPauseAsync()) ([bool]) }
+  'next' { $result = AwaitOperation ($session.TrySkipNextAsync()) ([bool]) }
+  'previous' { $result = AwaitOperation ($session.TrySkipPreviousAsync()) ([bool]) }
+  'seek' { $result = AwaitOperation ($session.TryChangePlaybackPositionAsync(${positionTicks})) ([bool]) }
+  default { $result = $false }
+}
+[bool]$result | ConvertTo-Json -Compress
+`
+  return Boolean(await runPowerShellJson<boolean>(script))
+}
+
 function estimatedExternalPosition(timeline: WinRtTimelineProperties, playbackInfo: WinRtPlaybackInfo): number {
   const duration = winRtTimeSpanToSeconds(timeline.endTime) - winRtTimeSpanToSeconds(timeline.startTime)
   let position = winRtTimeSpanToSeconds(timeline.position) - winRtTimeSpanToSeconds(timeline.startTime)
@@ -2819,8 +2976,14 @@ async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): P
     }
   }
   const moduleAvailable = Boolean(loadWinRtMediaControl())
+  if (!moduleAvailable) {
+    const powershellSnapshot = await getPowerShellExternalPlaybackSnapshot(mode)
+    if (powershellSnapshot) return powershellSnapshot
+  }
   const session = await selectedExternalSession(mode)
   if (!session) {
+    const powershellSnapshot = await getPowerShellExternalPlaybackSnapshot(mode)
+    if (powershellSnapshot) return powershellSnapshot
     return {
       available: moduleAvailable,
       sourceMode: mode,
@@ -2867,7 +3030,7 @@ async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): P
 
 async function runExternalPlaybackCommand(command: string, value?: number): Promise<boolean> {
   const session = await selectedExternalSession()
-  if (!session) return false
+  if (!session) return runPowerShellExternalPlaybackCommand(externalPlaybackSourceMode, command, value)
   switch (command) {
     case 'playPause':
       return Boolean(await winRtAsync<boolean>((callback) => session.tryTogglePlayPauseAsync(callback)))
