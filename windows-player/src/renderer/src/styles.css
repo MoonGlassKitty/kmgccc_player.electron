@@ -2356,7 +2356,7 @@ input {
   position: absolute;
   top: 0;
   right: 0;
-  z-index: 101;
+  z-index: 10001;
   display: grid;
   grid-template-columns: repeat(3, 46px);
   height: 34px;
@@ -2388,9 +2388,10 @@ input {
   top: 0;
   right: 138px;
   left: var(--sidebar-width);
-  z-index: 100;
-  height: var(--win-titlebar-height);
+  z-index: 10000;
+  height: calc(var(--win-titlebar-height) + 16px);
   pointer-events: auto;
+  -webkit-app-region: drag;
 }
 
 .import-sync-backdrop {
