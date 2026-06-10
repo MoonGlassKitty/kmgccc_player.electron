@@ -3410,21 +3410,24 @@ $targetName = 'Oldwu-Studio Digital Audio'
 $targetVidPid = 'VID_8888&PID_1717'
 $devices = @()
 try {
-  $devices += Get-PnpDevice -PresentOnly | Where-Object {
-    ($_.InstanceId -like "*$targetVidPid*") -or ($_.FriendlyName -like "*$targetName*") -or ($_.Name -like "*$targetName*")
-  } | ForEach-Object {
-    $name = $_.FriendlyName
-    if (-not $name) { $name = $_.Name }
-    [pscustomobject]@{ Name = $name; InstanceId = $_.InstanceId }
-  }
-} catch {}
-try {
   $devices += Get-CimInstance Win32_PnPEntity | Where-Object {
-    ($_.DeviceID -like "*$targetVidPid*") -or ($_.Name -like "*$targetName*")
+    (($_.DeviceID -like "*$targetVidPid*") -or ($_.Name -like "*$targetName*")) -and ($_.ConfigManagerErrorCode -eq 0 -or $_.Status -eq 'OK')
   } | ForEach-Object {
     [pscustomobject]@{ Name = $_.Name; InstanceId = $_.DeviceID }
   }
 } catch {}
+if ($devices.Count -le 0) {
+  try {
+    $devices += Get-PnpDevice -PresentOnly | Where-Object {
+      ($_.InstanceId -like "*$targetVidPid*") -or ($_.FriendlyName -like "*$targetName*") -or ($_.Name -like "*$targetName*")
+    } | ForEach-Object {
+      $name = $_.FriendlyName
+      if (-not $name) { $name = $_.Name }
+      [pscustomobject]@{ Name = $name; InstanceId = $_.InstanceId }
+    }
+  }
+  catch {}
+}
 $names = @($devices | ForEach-Object { [string]$_.Name } | Where-Object { $_ -and $_.Trim() } | Select-Object -Unique)
 $instanceIds = @($devices | ForEach-Object { [string]$_.InstanceId } | Where-Object { $_ -and $_.Trim() } | Select-Object -Unique)
 [pscustomobject]@{

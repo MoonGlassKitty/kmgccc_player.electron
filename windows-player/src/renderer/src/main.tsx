@@ -2493,6 +2493,7 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     if (!window.kmgccc?.getTapeDevicePresence) return
     let cancelled = false
+    let timeoutId: number | null = null
     const checkTapeDevice = async (): Promise<void> => {
       const snapshot = await window.kmgccc?.getTapeDevicePresence?.()
       if (cancelled || !snapshot) return
@@ -2511,14 +2512,14 @@ function App(): React.ReactElement {
         previousTapeNowPlayingSkinRef.current = null
         previousTapeFullscreenSkinRef.current = null
       }
+      timeoutId = window.setTimeout(() => {
+        void checkTapeDevice()
+      }, snapshot.connected ? 4000 : 1000)
     }
     void checkTapeDevice()
-    const interval = window.setInterval(() => {
-      void checkTapeDevice()
-    }, 4000)
     return () => {
       cancelled = true
-      window.clearInterval(interval)
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
     }
   }, [])
 
