@@ -3391,6 +3391,7 @@ function App(): React.ReactElement {
     enqueueLookup(Promise.resolve(localExternalLyricsLookup(homeSnapshot.tracks, title, artist, album, request.duration)))
     enqueueLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'qq' }))
     enqueueLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'netease' }))
+    enqueueLookup(window.kmgccc.lookupLyrics({ ...request, platform: 'auto' }))
     return () => {
       cancelled = true
     }
