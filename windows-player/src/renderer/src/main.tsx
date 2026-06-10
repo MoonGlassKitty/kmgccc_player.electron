@@ -161,6 +161,9 @@ type ExternalPlaybackClock = {
   updatedAt: number
 }
 
+const EXTERNAL_PLAYBACK_FALLBACK_DURATION_SECONDS = 12 * 60
+const EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS = 1.5
+
 function externalTrackKey(snapshot: ExternalPlaybackSnapshot | null): string {
   if (!snapshot) return ''
   return [
@@ -3022,24 +3025,31 @@ function App(): React.ReactElement {
       const now = Date.now()
       let currentTime = snapshot.currentTime
       let duration = snapshot.duration
-      if (snapshot.available && key && duration <= 0) {
+      if (snapshot.available && key) {
         const previousClock = externalPlaybackClockRef.current
+        const smtcTime = Number.isFinite(snapshot.currentTime) && snapshot.currentTime > 0 ? snapshot.currentTime : 0
+        const effectiveDuration = duration > 0 ? duration : EXTERNAL_PLAYBACK_FALLBACK_DURATION_SECONDS
         if (previousClock.key !== key) {
-          externalPlaybackClockRef.current = { key, currentTime: 0, updatedAt: now }
+          externalPlaybackClockRef.current = { key, currentTime: clampNumber(smtcTime, 0, effectiveDuration), updatedAt: now }
         } else if (snapshot.isPlaying) {
           const elapsedSeconds = Math.max(0, (now - previousClock.updatedAt) / 1000)
+          const predictedTime = clampNumber(previousClock.currentTime + elapsedSeconds, 0, effectiveDuration)
+          const driftSeconds = smtcTime - predictedTime
+          const shouldSnapToSmtc =
+            Math.abs(driftSeconds) > EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS ||
+            (smtcTime < 1 && predictedTime > EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS)
           externalPlaybackClockRef.current = {
             key,
-            currentTime: previousClock.currentTime + elapsedSeconds,
+            currentTime: shouldSnapToSmtc ? clampNumber(smtcTime, 0, effectiveDuration) : predictedTime,
             updatedAt: now
           }
         } else {
-          externalPlaybackClockRef.current = { ...previousClock, updatedAt: now }
+          externalPlaybackClockRef.current = { key, currentTime: clampNumber(smtcTime, 0, effectiveDuration), updatedAt: now }
         }
         currentTime = externalPlaybackClockRef.current.currentTime
-        duration = 12 * 60
-      } else if (key) {
-        externalPlaybackClockRef.current = { key, currentTime: snapshot.currentTime, updatedAt: now }
+        duration = effectiveDuration
+      } else {
+        externalPlaybackClockRef.current = { key: '', currentTime: 0, updatedAt: now }
       }
       const normalizedSnapshot = { ...snapshot, currentTime, duration }
       setExternalPlaybackSnapshot(normalizedSnapshot)
@@ -3164,7 +3174,7 @@ function App(): React.ReactElement {
     if (playbackSource === 'external') {
       void window.kmgccc?.sendExternalPlaybackCommand?.('seek', nextTime)
       const key = externalTrackKey(externalPlaybackSnapshot)
-      if (key && (externalPlaybackSnapshot?.duration ?? 0) >= 12 * 60) {
+      if (key) {
         externalPlaybackClockRef.current = {
           key,
           currentTime: nextTime,
