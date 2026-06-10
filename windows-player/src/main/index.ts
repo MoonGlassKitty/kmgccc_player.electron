@@ -172,6 +172,9 @@ type ExternalPlaybackSnapshot = {
   canControlPlayback: boolean
   canSkip: boolean
   canSeek: boolean
+  artworkUrl?: string
+  lyricsText?: string
+  syncedLyrics?: string
   updatedAt: number
   error?: string
 }
@@ -193,6 +196,8 @@ type MediaRemotePayload = {
   elapsedTimeNow?: number
   timestamp?: string
   playbackRate?: number
+  artworkMimeType?: string
+  artworkData?: string
   repeatMode?: number
   shuffleMode?: number
   uniqueIdentifier?: string
@@ -2643,6 +2648,8 @@ async function sampleWindowColor(owner: BrowserWindow, rect: WindowColorSampleRe
 
 let externalPlaybackSourceMode: ExternalPlaybackSourceMode = 'auto'
 let mediaRemoteAdapterPaths: MediaRemoteAdapterPaths | null | undefined
+const externalArtworkByIdentity = new Map<string, string | null>()
+const pendingExternalArtworkIdentities = new Set<string>()
 
 const browserMediaOwners = [
   'com.apple.safari',
@@ -2711,7 +2718,7 @@ function resolveMediaRemoteAdapterPaths(): MediaRemoteAdapterPaths | null {
   return mediaRemoteAdapterPaths
 }
 
-function runMediaRemoteJson<T>(args: string[], timeoutMs = 5000): Promise<T | null> {
+function runMediaRemoteJson<T>(args: string[], timeoutMs = 5000, maxBuffer = 1024 * 1024): Promise<T | null> {
   if (process.platform !== 'darwin') return Promise.resolve(null)
   const paths = resolveMediaRemoteAdapterPaths()
   if (!paths) return Promise.resolve(null)
@@ -2719,7 +2726,7 @@ function runMediaRemoteJson<T>(args: string[], timeoutMs = 5000): Promise<T | nu
     execFile(
       '/usr/bin/perl',
       [paths.script, paths.framework, ...args],
-      { timeout: timeoutMs, maxBuffer: 1024 * 1024 },
+      { timeout: timeoutMs, maxBuffer },
       (error, stdout) => {
         if (error || !stdout.trim()) {
           resolve(null)
@@ -2784,6 +2791,43 @@ function finiteSeconds(value: unknown): number {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : 0
 }
 
+function externalPayloadIdentity(payload: Pick<MediaRemotePayload, 'bundleIdentifier' | 'parentApplicationBundleIdentifier' | 'clientBundleIdentifier' | 'ownerBundleIdentifier' | 'applicationBundleIdentifier' | 'title' | 'artist' | 'album' | 'duration'>): string {
+  return [
+    ownerBundleCandidates(payload as MediaRemotePayload)[0] ?? 'unknown',
+    (payload.title ?? '').trim().toLowerCase(),
+    (payload.artist ?? '').trim().toLowerCase(),
+    (payload.album ?? '').trim().toLowerCase(),
+    Math.round(finiteSeconds(payload.duration))
+  ].join('|')
+}
+
+function mediaRemoteArtworkDataUrl(payload: MediaRemotePayload): string | undefined {
+  const artworkData = payload.artworkData?.trim()
+  if (!artworkData) return undefined
+  const mimeType = payload.artworkMimeType?.trim() || 'image/jpeg'
+  return `data:${mimeType};base64,${artworkData}`
+}
+
+function ensureExternalArtwork(identity: string, mode: ExternalPlaybackSourceMode): void {
+  if (externalArtworkByIdentity.has(identity) || pendingExternalArtworkIdentities.has(identity)) return
+  pendingExternalArtworkIdentities.add(identity)
+  void runMediaRemoteJson<MediaRemotePayload | MediaRemoteEnvelope>(['get', '--now'], 5000, 8 * 1024 * 1024)
+    .then((raw) => {
+      const payload = mediaRemotePayloadFromJson(raw)
+      if (!payload || !payloadMatchesExternalMode(payload, mode) || externalPayloadIdentity(payload) !== identity) {
+        externalArtworkByIdentity.set(identity, null)
+        return
+      }
+      externalArtworkByIdentity.set(identity, mediaRemoteArtworkDataUrl(payload) ?? null)
+    })
+    .catch(() => {
+      externalArtworkByIdentity.set(identity, null)
+    })
+    .finally(() => {
+      pendingExternalArtworkIdentities.delete(identity)
+    })
+}
+
 function estimatedMediaRemotePosition(payload: MediaRemotePayload): number {
   const duration = finiteSeconds(payload.duration)
   let position = finiteSeconds(payload.elapsedTimeNow ?? payload.elapsedTime)
@@ -2803,6 +2847,9 @@ function mediaRemoteSnapshotFromPayload(payload: MediaRemotePayload, mode: Exter
   const artist = (payload.artist ?? '').trim()
   const duration = finiteSeconds(payload.duration)
   const playbackRate = Number(payload.playbackRate ?? (payload.playing ? 1 : 0))
+  const identity = externalPayloadIdentity(payload)
+  const artworkUrl = mediaRemoteArtworkDataUrl(payload) ?? externalArtworkByIdentity.get(identity) ?? undefined
+  if (title && !artworkUrl) ensureExternalArtwork(identity, mode)
   return {
     available: true,
     sourceMode: mode,
@@ -2817,7 +2864,8 @@ function mediaRemoteSnapshotFromPayload(payload: MediaRemotePayload, mode: Exter
     playbackRate: Number.isFinite(playbackRate) ? playbackRate : 0,
     canControlPlayback: true,
     canSkip: true,
-    canSeek: false,
+    canSeek: duration > 0,
+    artworkUrl,
     updatedAt: Date.now()
   }
 }
@@ -2868,7 +2916,7 @@ async function getExternalPlaybackSnapshot(mode = externalPlaybackSourceMode): P
   return mediaRemoteSnapshotFromPayload(payload, mode)
 }
 
-async function runExternalPlaybackCommand(command: string): Promise<boolean> {
+async function runExternalPlaybackCommand(command: string, value?: number): Promise<boolean> {
   switch (command) {
     case 'playPause':
       return runMediaRemoteCommand(['send', '2'])
@@ -2880,8 +2928,11 @@ async function runExternalPlaybackCommand(command: string): Promise<boolean> {
       return runMediaRemoteCommand(['send', '4'])
     case 'previous':
       return runMediaRemoteCommand(['send', '5'])
-    case 'seek':
-      return false
+    case 'seek': {
+      const seconds = Number(value ?? 0)
+      if (!Number.isFinite(seconds) || seconds < 0) return false
+      return runMediaRemoteCommand(['seek', String(Math.round(seconds * 1_000_000))], 3500)
+    }
     default:
       return false
   }
@@ -3031,7 +3082,7 @@ ipcMain.handle('external-playback:set-source-mode', async (_event, mode: Externa
   externalPlaybackSourceMode = mode === 'thirdParty' || mode === 'other' || mode === 'auto' ? mode : 'auto'
   return getExternalPlaybackSnapshot(externalPlaybackSourceMode)
 })
-ipcMain.handle('external-playback:command', async (_event, command: string) => runExternalPlaybackCommand(command))
+ipcMain.handle('external-playback:command', async (_event, command: string, value?: number) => runExternalPlaybackCommand(command, value))
 
 ipcMain.handle('system:get-platform', () => process.platform)
 ipcMain.handle('settings:get-library-location', () => libraryLocationInfo())

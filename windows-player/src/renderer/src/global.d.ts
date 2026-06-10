@@ -155,6 +155,9 @@ declare global {
     canControlPlayback: boolean
     canSkip: boolean
     canSeek: boolean
+    artworkUrl?: string
+    lyricsText?: string
+    syncedLyrics?: string
     updatedAt: number
     error?: string
   }

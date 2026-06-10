@@ -2344,6 +2344,7 @@ function App(): React.ReactElement {
   const [playbackSource, setPlaybackSource] = React.useState<PlaybackSourceKind>('local')
   const [externalPlaybackMode, setExternalPlaybackMode] = React.useState<ExternalPlaybackSourceMode>('auto')
   const [externalPlaybackSnapshot, setExternalPlaybackSnapshot] = React.useState<ExternalPlaybackSnapshot | null>(null)
+  const [externalMetadataByIdentity, setExternalMetadataByIdentity] = React.useState<Record<string, Pick<Track, 'artworkUrl' | 'lyricsText' | 'syncedLyrics'>>>({})
   const [systemPlatform, setSystemPlatform] = React.useState<NodeJS.Platform | null>(null)
   const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(false)
   const [volume, setVolume] = React.useState(0.72)
@@ -2363,6 +2364,7 @@ function App(): React.ReactElement {
   const smoothedLedValuesRef = React.useRef<number[]>([])
   const lastPlaybackTimeRef = React.useRef(0)
   const loadedAudioTrackRef = React.useRef<string>('')
+  const pendingExternalMetadataRef = React.useRef<Set<string>>(new Set())
   const previousRouteNameRef = React.useRef<AppRoute['name']>('home')
   const previousEntryTargetRef = React.useRef<EntryRevealTarget | 'other'>('home')
   const entryRevealTimersRef = React.useRef<number[]>([])
@@ -2377,6 +2379,14 @@ function App(): React.ReactElement {
     const artist = snapshot.artist.trim() || '未知艺人'
     const album = snapshot.album?.trim() || '外部播放'
     const ownerKey = snapshot.sourceAppUserModelId || snapshot.sourceMode
+    const metadataKey = [
+      ownerKey,
+      snapshot.title.trim().toLowerCase(),
+      artist.toLowerCase(),
+      album.toLowerCase(),
+      Math.round(snapshot.duration)
+    ].join('|')
+    const metadata = externalMetadataByIdentity[metadataKey]
     const title = snapshot.title.trim() || (() => {
       switch (snapshot.connectionState) {
         case 'connectedNoMetadata':
@@ -2400,9 +2410,12 @@ function App(): React.ReactElement {
       duration: snapshot.duration,
       sourcePath: '',
       sourceUrl: '',
+      artworkUrl: snapshot.artworkUrl || metadata?.artworkUrl,
+      lyricsText: snapshot.lyricsText || metadata?.lyricsText,
+      syncedLyrics: snapshot.syncedLyrics || metadata?.syncedLyrics,
       metadataSource: 'externalPlayback'
     }
-  }, [externalPlaybackSnapshot])
+  }, [externalMetadataByIdentity, externalPlaybackSnapshot])
   const displayTrack = playbackSource === 'external' ? externalDisplayTrack : currentTrack
   const isExternalPlaybackSupported = systemPlatform === 'darwin'
   const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(displayTrack), [displayTrack])
@@ -2992,6 +3005,67 @@ function App(): React.ReactElement {
       window.clearInterval(interval)
     }
   }, [externalPlaybackMode, playbackSource, writeMiniProgressRatio])
+
+  React.useEffect(() => {
+    const snapshot = externalPlaybackSnapshot
+    if (playbackSource !== 'external' || !snapshot || snapshot.connectionState !== 'runningHasData') return
+    const title = snapshot.title.trim()
+    if (!title) return
+    const artist = snapshot.artist.trim() || '未知艺人'
+    const album = snapshot.album?.trim() || '外部播放'
+    const ownerKey = snapshot.sourceAppUserModelId || snapshot.sourceMode
+    const metadataKey = [
+      ownerKey,
+      title.toLowerCase(),
+      artist.toLowerCase(),
+      album.toLowerCase(),
+      Math.round(snapshot.duration)
+    ].join('|')
+    if (externalMetadataByIdentity[metadataKey] || pendingExternalMetadataRef.current.has(metadataKey)) return
+    pendingExternalMetadataRef.current.add(metadataKey)
+    let cancelled = false
+    const loadMetadata = async (): Promise<void> => {
+      try {
+        const [lyricsResult, coverCandidates] = await Promise.allSettled([
+          window.kmgccc?.lookupLyrics?.({
+            title,
+            artist,
+            album,
+            duration: snapshot.duration,
+            platform: 'auto'
+          }),
+          snapshot.artworkUrl
+            ? Promise.resolve([])
+            : window.kmgccc?.lookupCover?.({
+              kind: 'track',
+              title,
+              artist,
+              album,
+              duration: snapshot.duration
+            })
+        ])
+        if (cancelled) return
+        const lyrics = lyricsResult.status === 'fulfilled' ? lyricsResult.value : null
+        const covers = coverCandidates.status === 'fulfilled' ? coverCandidates.value ?? [] : []
+        const nextMetadata = {
+          artworkUrl: snapshot.artworkUrl || covers[0]?.artworkUrl,
+          lyricsText: lyrics?.lyricsText,
+          syncedLyrics: lyrics?.syncedLyrics
+        }
+        if (nextMetadata.artworkUrl || nextMetadata.lyricsText || nextMetadata.syncedLyrics) {
+          setExternalMetadataByIdentity((current) => ({ ...current, [metadataKey]: nextMetadata }))
+        } else {
+          setExternalMetadataByIdentity((current) => ({ ...current, [metadataKey]: {} }))
+        }
+      } finally {
+        pendingExternalMetadataRef.current.delete(metadataKey)
+      }
+    }
+    void loadMetadata()
+    return () => {
+      cancelled = true
+    }
+  }, [externalMetadataByIdentity, externalPlaybackSnapshot, playbackSource])
 
   const seekTo = React.useCallback((seconds: number) => {
     if (!Number.isFinite(seconds)) return
