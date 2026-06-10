@@ -2343,6 +2343,7 @@ function App(): React.ReactElement {
   const [playbackSource, setPlaybackSource] = React.useState<PlaybackSourceKind>('local')
   const [externalPlaybackMode, setExternalPlaybackMode] = React.useState<ExternalPlaybackSourceMode>('auto')
   const [externalPlaybackSnapshot, setExternalPlaybackSnapshot] = React.useState<ExternalPlaybackSnapshot | null>(null)
+  const [systemPlatform, setSystemPlatform] = React.useState<NodeJS.Platform | null>(null)
   const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(false)
   const [volume, setVolume] = React.useState(0.72)
   const [playbackTime, setPlaybackTime] = React.useState(0)
@@ -2371,13 +2372,26 @@ function App(): React.ReactElement {
   )
   const externalDisplayTrack = React.useMemo<Track | null>(() => {
     const snapshot = externalPlaybackSnapshot
-    if (!snapshot || snapshot.connectionState !== 'runningHasData' || !snapshot.title.trim()) return null
+    if (!snapshot) return null
     const artist = snapshot.artist.trim() || '未知艺人'
     const album = snapshot.album?.trim() || '外部播放'
     const ownerKey = snapshot.sourceAppUserModelId || snapshot.sourceMode
+    const title = snapshot.title.trim() || (() => {
+      switch (snapshot.connectionState) {
+        case 'connectedNoMetadata':
+          return '等待媒体信息'
+        case 'disconnected':
+          return '未检测到外部播放'
+        case 'unavailable':
+          return '外部播放暂不可用'
+        case 'runningHasData':
+        default:
+          return '外部播放'
+      }
+    })()
     return {
-      id: `external-${ownerKey}-${snapshot.title}-${artist}-${Math.round(snapshot.duration)}`,
-      title: snapshot.title,
+      id: `external-${ownerKey}-${title}-${artist}-${Math.round(snapshot.duration)}`,
+      title,
       artist,
       artistId: `external-artist-${artist}`,
       album,
@@ -2389,6 +2403,7 @@ function App(): React.ReactElement {
     }
   }, [externalPlaybackSnapshot])
   const displayTrack = playbackSource === 'external' ? externalDisplayTrack : currentTrack
+  const isExternalPlaybackSupported = systemPlatform === 'win32'
   const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(displayTrack), [displayTrack])
   React.useEffect(() => {
     if (!isMultiSelectMode) setSelectedTrackIds(new Set())
@@ -2891,6 +2906,28 @@ function App(): React.ReactElement {
   }, [])
 
   React.useEffect(() => {
+    let cancelled = false
+    window.kmgccc?.getSystemPlatform?.()
+      .then((platform) => {
+        if (!cancelled) setSystemPlatform(platform)
+      })
+      .catch(() => {
+        if (!cancelled) setSystemPlatform(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  React.useEffect(() => {
+    if (systemPlatform && systemPlatform !== 'win32' && playbackSource === 'external') {
+      setPlaybackSource('local')
+      setExternalPlaybackSnapshot(null)
+      setIsPlaying(false)
+    }
+  }, [playbackSource, systemPlatform])
+
+  React.useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth)
     updateViewportWidth()
     window.addEventListener('resize', updateViewportWidth)
@@ -3048,6 +3085,7 @@ function App(): React.ReactElement {
   }, [])
   const selectPlaybackSource = React.useCallback(async (source: PlaybackSourceKind, mode: ExternalPlaybackSourceMode = externalPlaybackMode) => {
     if (source === 'external') {
+      if (!isExternalPlaybackSupported) return
       audioRef.current?.pause()
       setPlaybackSource('external')
       setExternalPlaybackMode(mode)
@@ -3065,7 +3103,7 @@ function App(): React.ReactElement {
     setIsPlaying(false)
     setPlaybackTime(audioRef.current?.currentTime ?? playbackTime)
     setPlaybackDuration(currentTrack?.duration ?? playbackDuration)
-  }, [currentTrack?.duration, externalPlaybackMode, playbackDuration, playbackTime, writeMiniProgressRatio])
+  }, [currentTrack?.duration, externalPlaybackMode, isExternalPlaybackSupported, playbackDuration, playbackTime, writeMiniProgressRatio])
   const navigateHome = React.useCallback(() => {
     setRoute({ name: 'home' })
   }, [])
@@ -3793,6 +3831,7 @@ function App(): React.ReactElement {
           playbackSource={playbackSource}
           externalPlaybackMode={externalPlaybackMode}
           externalPlaybackSnapshot={externalPlaybackSnapshot}
+          isExternalPlaybackSupported={isExternalPlaybackSupported}
           onSelectPlaybackSource={selectPlaybackSource}
           isCollapsed={isSidebarVisuallyCollapsed}
           onToggle={toggleSidebar}
@@ -4861,6 +4900,7 @@ const Sidebar = React.memo(function Sidebar({
   playbackSource,
   externalPlaybackMode,
   externalPlaybackSnapshot,
+  isExternalPlaybackSupported,
   onSelectPlaybackSource,
   isCollapsed,
   onToggle,
@@ -4885,6 +4925,7 @@ const Sidebar = React.memo(function Sidebar({
   playbackSource: PlaybackSourceKind
   externalPlaybackMode: ExternalPlaybackSourceMode
   externalPlaybackSnapshot: ExternalPlaybackSnapshot | null
+  isExternalPlaybackSupported: boolean
   onSelectPlaybackSource: (source: PlaybackSourceKind, mode?: ExternalPlaybackSourceMode) => void
   isCollapsed: boolean
   onToggle: () => void
@@ -4912,15 +4953,18 @@ const Sidebar = React.memo(function Sidebar({
     auto: '自动检测'
   }
   const externalSourceDetail = React.useMemo(() => {
+    if (!isExternalPlaybackSupported) return '仅 Windows 可用'
     if (playbackSource !== 'external') return '未连接'
     if (!externalPlaybackSnapshot?.available) return '不可用'
     if (externalPlaybackSnapshot.connectionState === 'disconnected') return '未检测到'
+    if (externalPlaybackSnapshot.connectionState === 'connectedNoMetadata') return '等待媒体信息'
     return externalPlaybackSnapshot.sourceAppUserModelId || externalModeLabels[externalPlaybackMode]
-  }, [externalPlaybackMode, externalPlaybackSnapshot, playbackSource])
+  }, [externalPlaybackMode, externalPlaybackSnapshot, isExternalPlaybackSupported, playbackSource])
   const chooseExternalMode = React.useCallback((mode: ExternalPlaybackSourceMode) => {
+    if (!isExternalPlaybackSupported) return
     setIsSourceMenuOpen(false)
     onSelectPlaybackSource('external', mode)
-  }, [onSelectPlaybackSource])
+  }, [isExternalPlaybackSupported, onSelectPlaybackSource])
   return (
     <aside className="sidebar glass-panel chrome-drag">
       <div className="sidebar-resize-handle no-drag" role="separator" aria-orientation="vertical" aria-label="调整侧边栏宽度" onPointerDown={onResizeStart} />
@@ -5040,8 +5084,8 @@ const Sidebar = React.memo(function Sidebar({
           <button className={playbackSource === 'local' ? 'active' : ''} type="button" onClick={() => onSelectPlaybackSource('local')}>
             本地
           </button>
-          <div className={`sidebar-external-source ${playbackSource === 'external' ? 'active' : ''}`}>
-            <button type="button" onClick={() => onSelectPlaybackSource('external', externalPlaybackMode)}>
+          <div className={`sidebar-external-source ${playbackSource === 'external' ? 'active' : ''} ${!isExternalPlaybackSupported ? 'disabled' : ''}`}>
+            <button type="button" disabled={!isExternalPlaybackSupported} onClick={() => onSelectPlaybackSource('external', externalPlaybackMode)}>
               <span>{externalModeLabels[externalPlaybackMode]}</span>
             </button>
             <button
@@ -5049,8 +5093,10 @@ const Sidebar = React.memo(function Sidebar({
               type="button"
               aria-label="选择外部播放源"
               aria-expanded={isSourceMenuOpen}
+              disabled={!isExternalPlaybackSupported}
               onClick={(event) => {
                 event.stopPropagation()
+                if (!isExternalPlaybackSupported) return
                 setIsSourceMenuOpen((value) => !value)
               }}
             >
@@ -5058,13 +5104,13 @@ const Sidebar = React.memo(function Sidebar({
             </button>
             {isSourceMenuOpen ? (
               <div className="source-menu glass-panel" style={{ '--filter-url': 'url(#lg-sidebar)' } as React.CSSProperties}>
-                <button className={externalPlaybackMode === 'thirdParty' ? 'selected' : ''} type="button" onClick={() => chooseExternalMode('thirdParty')}>
+                <button className={externalPlaybackMode === 'thirdParty' ? 'selected' : ''} type="button" disabled={!isExternalPlaybackSupported} onClick={() => chooseExternalMode('thirdParty')}>
                   第三方音乐软件
                 </button>
-                <button className={externalPlaybackMode === 'other' ? 'selected' : ''} type="button" onClick={() => chooseExternalMode('other')}>
+                <button className={externalPlaybackMode === 'other' ? 'selected' : ''} type="button" disabled={!isExternalPlaybackSupported} onClick={() => chooseExternalMode('other')}>
                   其他源
                 </button>
-                <button className={externalPlaybackMode === 'auto' ? 'selected' : ''} type="button" onClick={() => chooseExternalMode('auto')}>
+                <button className={externalPlaybackMode === 'auto' ? 'selected' : ''} type="button" disabled={!isExternalPlaybackSupported} onClick={() => chooseExternalMode('auto')}>
                   自动检测
                 </button>
               </div>

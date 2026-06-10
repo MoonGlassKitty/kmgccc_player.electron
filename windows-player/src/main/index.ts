@@ -3031,6 +3031,8 @@ ipcMain.handle('external-playback:set-source-mode', async (_event, mode: Externa
   return getExternalPlaybackSnapshot(externalPlaybackSourceMode)
 })
 ipcMain.handle('external-playback:command', async (_event, command: string, value?: number) => runExternalPlaybackCommand(command, value))
+
+ipcMain.handle('system:get-platform', () => process.platform)
 ipcMain.handle('settings:get-library-location', () => libraryLocationInfo())
 ipcMain.handle('settings:choose-library-location', async (event) => {
   const owner = BrowserWindow.fromWebContents(event.sender)

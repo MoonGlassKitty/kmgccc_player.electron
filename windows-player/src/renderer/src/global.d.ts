@@ -224,6 +224,7 @@ declare global {
       getExternalPlaybackSnapshot: (mode?: ExternalPlaybackSourceMode) => Promise<ExternalPlaybackSnapshot>
       setExternalPlaybackSourceMode: (mode: ExternalPlaybackSourceMode) => Promise<ExternalPlaybackSnapshot>
       sendExternalPlaybackCommand: (command: string, value?: number) => Promise<boolean>
+      getSystemPlatform: () => Promise<NodeJS.Platform>
       sampleWindowColor: (rect: { x: number; y: number; width: number; height: number }) => Promise<{ r: number; g: number; b: number } | null>
       getWallpaperTint: () => Promise<WallpaperTint>
     }
