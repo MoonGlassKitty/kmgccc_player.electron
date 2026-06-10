@@ -2921,7 +2921,7 @@ function App(): React.ReactElement {
   }, [])
 
   React.useEffect(() => {
-    if (systemPlatform && systemPlatform !== 'win32' && playbackSource === 'external') {
+    if (systemPlatform && systemPlatform !== 'darwin' && playbackSource === 'external') {
       setPlaybackSource('local')
       setExternalPlaybackSnapshot(null)
       setIsPlaying(false)
