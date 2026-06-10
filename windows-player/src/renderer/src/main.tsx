@@ -3946,6 +3946,40 @@ function App(): React.ReactElement {
             />
           )}
 
+          {isFullscreenLyricsOpen ? (
+            <FullscreenLyricsPage
+              track={displayTrack ?? currentTrack}
+              albums={albums}
+              bkThemeStyle={fullscreenCoverThemeStyle}
+              playbackTime={effectiveLyricPlaybackTime}
+              isPlaying={isPlaying}
+              volume={volume}
+              ledCount={ledCount}
+              ledBrightnessLevels={ledBrightnessLevels}
+              ledSpeed={ledSpeed}
+              ledValues={ledValues}
+              skinID={selectedFullscreenSkin}
+              visualizerMode={selectedFullscreenVisualizerMode}
+              artBackgroundEnabled={isFullscreenArtBackgroundEnabled}
+              artworkFrameMaskEnabled={isArtworkFrameMaskEnabled}
+              artworkFrameIndex={artworkFrameIndex}
+              rotatingCdMode={isRotatingCdMode}
+              appleDynamicBackgroundEnabled={isAppleDynamicBackgroundEnabled}
+              appleMeshSpeed={appleMeshSpeed}
+              cassetteKmgLookEnabled={isCassetteKmgLookEnabled}
+              onSeek={seekToLyricTime}
+              isArtworkBpmPulseEnabled={isArtworkBpmPulseEnabled}
+              onArtworkBpmPulseToggle={toggleArtworkBpmPulse}
+              onArtworkManualBpmOpen={openManualBpmBoard}
+              onArtworkBeatApprove={approveCurrentArtworkBeat}
+              artworkBeatFeedback={playbackSource === 'local' && currentTrack?.id && artworkBeatSaveFeedback?.trackId === currentTrack.id ? artworkBeatSaveFeedback : null}
+              renderQuality={fullscreenLyricsRenderQuality}
+              reduceHighlight={fullscreenDiscreteWordHighlightEnabled}
+              lyricToneSeed={lyricToneSeed}
+              onLyricToneSeedChange={setLyricToneSeed}
+            />
+          ) : null}
+
           {displayTrack ? (
             <>
               {isFullscreenLyricsOpen ? <div className="mini-player-hover-zone no-drag" aria-hidden="true" /> : null}
@@ -4108,39 +4142,6 @@ function App(): React.ReactElement {
             settingsActionStatus={settingsActionStatus}
             onSettingsActionStatusChange={setSettingsActionStatus}
             onRefreshLibrarySnapshot={refreshLibrarySnapshot}
-          />
-        ) : null}
-        {isFullscreenLyricsOpen ? (
-          <FullscreenLyricsPage
-            track={displayTrack ?? currentTrack}
-            albums={albums}
-            bkThemeStyle={fullscreenCoverThemeStyle}
-            playbackTime={effectiveLyricPlaybackTime}
-            isPlaying={isPlaying}
-            volume={volume}
-            ledCount={ledCount}
-            ledBrightnessLevels={ledBrightnessLevels}
-            ledSpeed={ledSpeed}
-            ledValues={ledValues}
-            skinID={selectedFullscreenSkin}
-            visualizerMode={selectedFullscreenVisualizerMode}
-            artBackgroundEnabled={isFullscreenArtBackgroundEnabled}
-            artworkFrameMaskEnabled={isArtworkFrameMaskEnabled}
-            artworkFrameIndex={artworkFrameIndex}
-            rotatingCdMode={isRotatingCdMode}
-            appleDynamicBackgroundEnabled={isAppleDynamicBackgroundEnabled}
-            appleMeshSpeed={appleMeshSpeed}
-            cassetteKmgLookEnabled={isCassetteKmgLookEnabled}
-            onSeek={seekToLyricTime}
-            isArtworkBpmPulseEnabled={isArtworkBpmPulseEnabled}
-            onArtworkBpmPulseToggle={toggleArtworkBpmPulse}
-            onArtworkManualBpmOpen={openManualBpmBoard}
-            onArtworkBeatApprove={approveCurrentArtworkBeat}
-            artworkBeatFeedback={playbackSource === 'local' && currentTrack?.id && artworkBeatSaveFeedback?.trackId === currentTrack.id ? artworkBeatSaveFeedback : null}
-            renderQuality={fullscreenLyricsRenderQuality}
-            reduceHighlight={fullscreenDiscreteWordHighlightEnabled}
-            lyricToneSeed={lyricToneSeed}
-            onLyricToneSeedChange={setLyricToneSeed}
           />
         ) : null}
         {libraryDialog ? (
