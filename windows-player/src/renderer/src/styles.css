@@ -2356,7 +2356,7 @@ input {
   position: absolute;
   top: 0;
   right: 0;
-  z-index: var(--layer-pointer);
+  z-index: 101;
   display: grid;
   grid-template-columns: repeat(3, 46px);
   height: 34px;
@@ -2388,7 +2388,7 @@ input {
   top: 0;
   right: 138px;
   left: var(--sidebar-width);
-  z-index: var(--layer-floating-glass);
+  z-index: 100;
   height: var(--win-titlebar-height);
   pointer-events: auto;
 }
