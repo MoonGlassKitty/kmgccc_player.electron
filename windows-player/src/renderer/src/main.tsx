@@ -169,8 +169,7 @@ function externalTrackKey(snapshot: ExternalPlaybackSnapshot | null): string {
   return [
     snapshot.sourceAppUserModelId || snapshot.sourceMode,
     snapshot.title.trim(),
-    snapshot.artist.trim(),
-    snapshot.album?.trim() || ''
+    snapshot.artist.trim()
   ].join('|')
 }
 
