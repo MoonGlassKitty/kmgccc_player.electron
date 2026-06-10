@@ -3394,6 +3394,48 @@ function runPowerShellJson<T>(script: string, args: string[] = [], timeoutMs = 5
   })
 }
 
+type TapeDevicePresenceSnapshot = {
+  connected: boolean
+  names: string[]
+  instanceIds: string[]
+}
+
+async function getTapeDevicePresence(): Promise<TapeDevicePresenceSnapshot> {
+  if (process.platform !== 'win32') return { connected: false, names: [], instanceIds: [] }
+  const script = String.raw`
+$ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [Console]::OutputEncoding
+$targetName = 'Oldwu-Studio Digital Audio'
+$targetVidPid = 'VID_8888&PID_1717'
+$devices = @()
+try {
+  $devices += Get-PnpDevice -PresentOnly | Where-Object {
+    ($_.InstanceId -like "*$targetVidPid*") -or ($_.FriendlyName -like "*$targetName*") -or ($_.Name -like "*$targetName*")
+  } | ForEach-Object {
+    $name = $_.FriendlyName
+    if (-not $name) { $name = $_.Name }
+    [pscustomobject]@{ Name = $name; InstanceId = $_.InstanceId }
+  }
+} catch {}
+try {
+  $devices += Get-CimInstance Win32_PnPEntity | Where-Object {
+    ($_.DeviceID -like "*$targetVidPid*") -or ($_.Name -like "*$targetName*")
+  } | ForEach-Object {
+    [pscustomobject]@{ Name = $_.Name; InstanceId = $_.DeviceID }
+  }
+} catch {}
+$names = @($devices | ForEach-Object { [string]$_.Name } | Where-Object { $_ -and $_.Trim() } | Select-Object -Unique)
+$instanceIds = @($devices | ForEach-Object { [string]$_.InstanceId } | Where-Object { $_ -and $_.Trim() } | Select-Object -Unique)
+[pscustomobject]@{
+  connected = ($instanceIds.Count -gt 0 -or $names.Count -gt 0)
+  names = $names
+  instanceIds = $instanceIds
+} | ConvertTo-Json -Compress
+`
+  return await runPowerShellJson<TapeDevicePresenceSnapshot>(script, [], 3500) ?? { connected: false, names: [], instanceIds: [] }
+}
+
 const powershellMediaSessionPrelude = String.raw`
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
@@ -3985,6 +4027,7 @@ ipcMain.handle('external-playback:get-volume', async () => getPowerShellExternal
 ipcMain.handle('external-playback:set-volume', async (_event, volume: number) => setPowerShellExternalPlaybackVolume(externalPlaybackSourceMode, volume))
 
 ipcMain.handle('system:get-platform', () => process.platform)
+ipcMain.handle('system:get-tape-device-presence', () => getTapeDevicePresence())
 ipcMain.handle('settings:get-library-location', () => libraryLocationInfo())
 ipcMain.handle('settings:choose-library-location', async (event) => {
   const owner = BrowserWindow.fromWebContents(event.sender)

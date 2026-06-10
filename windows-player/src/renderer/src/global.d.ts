@@ -171,6 +171,12 @@ declare global {
     error?: string
   }
 
+  type TapeDevicePresenceSnapshot = {
+    connected: boolean
+    names: string[]
+    instanceIds: string[]
+  }
+
   type LocalAudioImport = HomeTrack & {
     sourcePath: string
     sourceUrl: string
@@ -236,6 +242,7 @@ declare global {
       getExternalPlaybackVolume: () => Promise<ExternalPlaybackVolumeSnapshot>
       setExternalPlaybackVolume: (volume: number) => Promise<ExternalPlaybackVolumeSnapshot>
       getSystemPlatform: () => Promise<NodeJS.Platform>
+      getTapeDevicePresence: () => Promise<TapeDevicePresenceSnapshot>
       sampleWindowColor: (rect: { x: number; y: number; width: number; height: number }) => Promise<{ r: number; g: number; b: number } | null>
       getWallpaperTint: () => Promise<WallpaperTint>
     }

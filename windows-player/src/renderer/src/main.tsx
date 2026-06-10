@@ -2458,6 +2458,7 @@ function App(): React.ReactElement {
   const lastPlaybackTimeRef = React.useRef(0)
   const playbackTimeRef = React.useRef(0)
   const externalPlaybackClockRef = React.useRef<ExternalPlaybackClock>({ key: '', currentTime: 0, updatedAt: 0 })
+  const tapeDeviceConnectedRef = React.useRef<boolean | null>(null)
   const loadedAudioTrackRef = React.useRef<string>('')
   const previousRouteNameRef = React.useRef<AppRoute['name']>('home')
   const previousEntryTargetRef = React.useRef<EntryRevealTarget | 'other'>('home')
@@ -2476,6 +2477,28 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     persistJsonSetting(EXTERNAL_ARTWORK_CACHE_STORAGE_KEY, sanitizeExternalArtworkCache(externalArtworkByKey))
   }, [externalArtworkByKey])
+
+  React.useEffect(() => {
+    if (!window.kmgccc?.getTapeDevicePresence) return
+    let cancelled = false
+    const checkTapeDevice = async (): Promise<void> => {
+      const snapshot = await window.kmgccc?.getTapeDevicePresence?.()
+      if (cancelled || !snapshot) return
+      const wasConnected = tapeDeviceConnectedRef.current
+      tapeDeviceConnectedRef.current = snapshot.connected
+      if (!snapshot.connected || wasConnected === true) return
+      setSelectedNowPlayingSkin('kmgccc.cassette')
+      setSelectedFullscreenSkin('kmgccc.cassette')
+    }
+    void checkTapeDevice()
+    const interval = window.setInterval(() => {
+      void checkTapeDevice()
+    }, 4000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [])
 
   const externalDisplayTrack = React.useMemo<Track | null>(() => {
     const snapshot = externalPlaybackSnapshot
