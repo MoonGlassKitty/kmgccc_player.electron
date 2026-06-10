@@ -366,6 +366,16 @@ type MetadataCandidate = {
   score: number
 }
 
+type TrackMetadataLookupResult = {
+  title?: string
+  artist?: string
+  album?: string
+  duration?: number
+  artworkUrl?: string
+  neteaseSongId?: number
+  metadataSource: string
+}
+
 type LrcLibResult = {
   trackName?: string
   artistName?: string
@@ -1502,6 +1512,52 @@ async function lookupArtistMetadata(values: Record<string, unknown>): Promise<Re
     metadataSource: 'itunes',
     metadataFetchedAt: new Date().toISOString(),
     metadataConfidence: Math.min(0.9, Math.max(0.62, selected.score))
+  }
+}
+
+async function lookupTrackMetadata(values: Record<string, unknown>): Promise<TrackMetadataLookupResult | null> {
+  const title = typeof values.title === 'string' ? values.title.trim() : ''
+  const artist = typeof values.artist === 'string' ? values.artist.trim() : ''
+  const album = typeof values.album === 'string' ? values.album.trim() : ''
+  const duration = typeof values.duration === 'number' && Number.isFinite(values.duration) ? values.duration : 0
+  if (!title) return null
+
+  const ids = idsForMetadata(artist || '未知艺人', album || '未知专辑')
+  const track: LocalAudioImport = {
+    id: `metadata-${createHash('sha1').update(`${title}|${artist}|${album}|${duration}`).digest('hex').slice(0, 12)}`,
+    title,
+    artist: artist || '未知艺人',
+    artistId: ids.artistId,
+    album: album || '未知专辑',
+    albumId: ids.albumId,
+    duration,
+    sourcePath: '',
+    sourceUrl: ''
+  }
+
+  const netease = await fetchNetEaseSongMetadata(track).catch(() => null)
+  if (netease) {
+    return {
+      title: netease.title,
+      artist: netease.artist,
+      album: netease.album,
+      duration: netease.duration,
+      artworkUrl: netease.artworkUrl ? await dataUrlForRemoteImage(netease.artworkUrl) : undefined,
+      neteaseSongId: netease.neteaseSongId,
+      metadataSource: 'netease'
+    }
+  }
+
+  const itunes = await fetchItunesMetadata(track).catch(() => null)
+  if (!itunes) return null
+  const artworkUrl = upgradeArtworkUrl(itunes.artworkUrl100)
+  return {
+    title: itunes.trackName,
+    artist: itunes.artistName,
+    album: itunes.collectionName,
+    duration: itunes.trackTimeMillis ? Math.round(itunes.trackTimeMillis / 1000) : undefined,
+    artworkUrl: artworkUrl ? await dataUrlForRemoteImage(artworkUrl) : undefined,
+    metadataSource: 'itunes'
   }
 }
 
@@ -2815,7 +2871,7 @@ function metadataFromCloudMusicWindowTitle(): Pick<ExternalPlaybackSnapshot, 'ti
         '-ExecutionPolicy',
         'Bypass',
         '-Command',
-        "Get-Process -Name cloudmusic -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle } | Select-Object -First 1 -ExpandProperty MainWindowTitle"
+        "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; Get-Process -Name cloudmusic -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle } | Select-Object -First 1 -ExpandProperty MainWindowTitle"
       ],
       { encoding: 'utf8', windowsHide: true, timeout: 1200 }
     )
@@ -2881,6 +2937,8 @@ function runPowerShellJson<T>(script: string, args: string[] = [], timeoutMs = 5
 
 const powershellMediaSessionPrelude = String.raw`
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [Console]::OutputEncoding
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType = WindowsRuntime] | Out-Null
 $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
@@ -3384,6 +3442,9 @@ ipcMain.handle('library:lookup-album-metadata', async (_event, values: Record<st
 })
 ipcMain.handle('library:lookup-artist-metadata', async (_event, values: Record<string, unknown>) => {
   return lookupArtistMetadata(values)
+})
+ipcMain.handle('library:lookup-track-metadata', async (_event, values: Record<string, unknown>) => {
+  return lookupTrackMetadata(values)
 })
 ipcMain.handle('library:lookup-lyrics', async (_event, values: Record<string, unknown>) => {
   const title = typeof values.title === 'string' ? values.title.trim() : ''

@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('kmgccc', {
   syncTrackInfo: (track: unknown) => ipcRenderer.invoke('library:sync-track-info', track),
   lookupAlbumMetadata: (values: Record<string, unknown>) => ipcRenderer.invoke('library:lookup-album-metadata', values),
   lookupArtistMetadata: (values: Record<string, unknown>) => ipcRenderer.invoke('library:lookup-artist-metadata', values),
+  lookupTrackMetadata: (values: Record<string, unknown>) => ipcRenderer.invoke('library:lookup-track-metadata', values),
   lookupLyrics: (values: Record<string, unknown>) => ipcRenderer.invoke('library:lookup-lyrics', values),
   lookupCover: (values: Record<string, unknown>) => ipcRenderer.invoke('library:lookup-cover', values),
   clearLibrary: () => ipcRenderer.invoke('library:clear'),
