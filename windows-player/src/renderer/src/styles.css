@@ -4642,7 +4642,7 @@ input {
   pointer-events: none;
 }
 
-.fullscreen-lyrics-open .content-pane > :not(.mini-player):not(.mini-fullscreen-actions):not(.mini-timeline-layer):not(.mini-player-hover-zone) {
+.fullscreen-lyrics-open .content-pane > :not(.fullscreen-lyrics-page):not(.mini-player):not(.mini-fullscreen-actions):not(.mini-timeline-layer):not(.mini-player-hover-zone) {
   opacity: 0;
   pointer-events: none;
 }
@@ -4873,7 +4873,7 @@ input {
 .fullscreen-lyrics-page {
   position: absolute;
   inset: 0;
-  z-index: 32;
+  z-index: 54;
   pointer-events: auto;
   display: grid;
   grid-template-columns: minmax(390px, 0.56fr) minmax(360px, 0.44fr);
