@@ -513,6 +513,8 @@ type HomeCardMaterialMode = 'liquidGlass' | 'frostedGlass' | 'solid'
 type HomeSectionID = 'featured' | 'artists' | 'albums' | 'playlists' | 'listeningFootprint'
 type ManualAppearanceMode = 'light' | 'dark'
 type LyricsRenderQuality = 'performance' | 'balanced' | 'quality'
+type DetailSortKey = 'importedAt' | 'addedAt' | 'title' | 'artist' | 'duration' | 'playCount' | 'favorite' | 'albumOrder'
+type SortDirection = 'asc' | 'desc'
 type EntryRevealTarget = 'home' | 'nowPlaying' | 'fullscreen'
 type EntryRevealState = {
   target: EntryRevealTarget
@@ -541,6 +543,7 @@ type LibraryDialogState =
   | { kind: 'editAlbum'; album: HomeAlbumCard }
   | { kind: 'editArtist'; artist: HomeArtistCard }
   | { kind: 'editPlaylist'; playlist: HomePlaylistCard }
+  | { kind: 'batchEditTracks'; tracks: HomeTrack[] }
   | { kind: 'createPlaylist'; track?: HomeTrack }
   | { kind: 'deleteTrack'; track: HomeTrack }
   | { kind: 'deleteAlbum'; album: HomeAlbumCard }
@@ -572,6 +575,16 @@ function sanitizeArtworkBeat(value: unknown): ArtworkBeat | null {
   }
 }
 const playlistCoverBases = [playlistCover1, playlistCover2, playlistCover3, playlistCover4]
+const detailSortLabels: Record<DetailSortKey, string> = {
+  importedAt: '导入时间',
+  addedAt: '添加时间',
+  title: '标题',
+  artist: '艺人',
+  duration: '时长',
+  playCount: '播放次数',
+  favorite: '偏好程度',
+  albumOrder: '#'
+}
 
 const nowPlayingSkinOptions: Array<{ id: NowPlayingSkinID; name: string; detail: string }> = [
   { id: 'coverLed', name: '经典封面', detail: '方形封面与 LED/频谱' },
@@ -1873,6 +1886,31 @@ function sortAlbumTracks(tracks: HomeTrack[]): HomeTrack[] {
     .map((entry) => entry.track)
 }
 
+function sortedDetailTracks(tracks: HomeTrack[], sortKey: DetailSortKey, direction: SortDirection, snapshot: HomeSnapshot): HomeTrack[] {
+  const directionFactor = direction === 'asc' ? 1 : -1
+  const rankingByTrackId = new Map(snapshot.stats.ranking.map((item) => [item.trackId, item]))
+  return tracks
+    .map((track, index) => ({ track, index }))
+    .sort((left, right) => {
+      if (sortKey === 'albumOrder') return (left.index - right.index) * directionFactor
+      if (sortKey === 'title') return (left.track.title.localeCompare(right.track.title, 'zh-Hans-CN') || left.index - right.index) * directionFactor
+      if (sortKey === 'artist') return (left.track.artist.localeCompare(right.track.artist, 'zh-Hans-CN') || left.track.title.localeCompare(right.track.title, 'zh-Hans-CN') || left.index - right.index) * directionFactor
+      if (sortKey === 'duration') return ((left.track.duration || 0) - (right.track.duration || 0) || left.index - right.index) * directionFactor
+      if (sortKey === 'playCount') {
+        const leftCount = rankingByTrackId.get(left.track.id)?.playCount ?? 0
+        const rightCount = rankingByTrackId.get(right.track.id)?.playCount ?? 0
+        return (leftCount - rightCount || left.index - right.index) * directionFactor
+      }
+      if (sortKey === 'favorite') {
+        const leftScore = rankingByTrackId.get(left.track.id)?.score ?? 0
+        const rightScore = rankingByTrackId.get(right.track.id)?.score ?? 0
+        return (leftScore - rightScore || left.index - right.index) * directionFactor
+      }
+      return (left.index - right.index) * directionFactor
+    })
+    .map((entry) => entry.track)
+}
+
 function detailArtwork(route: DetailRoute, snapshot: HomeSnapshot, albums: Map<string, HomeAlbumCard>): string {
   if (route.name === 'albumDetail' && route.id !== 'all-albums') {
     return albumArtworkFor(albums.get(route.id))
@@ -2283,6 +2321,10 @@ function App(): React.ReactElement {
   const [telemetryEnabled, setTelemetryEnabled] = React.useState(() => storedBoolean('telemetry.anonymousUsageEnabled', false))
   const [libraryLocationInfo, setLibraryLocationInfo] = React.useState<LibraryLocationInfo | null>(null)
   const [settingsActionStatus, setSettingsActionStatus] = React.useState<SettingsActionStatus>(null)
+  const [detailSortKey, setDetailSortKey] = React.useState<DetailSortKey>('albumOrder')
+  const [detailSortDirection, setDetailSortDirection] = React.useState<SortDirection>('asc')
+  const [isMultiSelectMode, setIsMultiSelectMode] = React.useState(false)
+  const [selectedTrackIds, setSelectedTrackIds] = React.useState<Set<string>>(() => new Set())
   const [artworkFrameIndex, setArtworkFrameIndex] = React.useState(0)
   const [trackBeatById, setTrackBeatById] = React.useState<Record<string, ArtworkBeat>>({})
   const [approvedArtworkBeatById, setApprovedArtworkBeatById] = React.useState<Record<string, ArtworkBeat>>(() => storedApprovedArtworkBeats())
@@ -2322,6 +2364,9 @@ function App(): React.ReactElement {
     [currentId, homeSnapshot]
   )
   const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(currentTrack), [currentTrack])
+  React.useEffect(() => {
+    if (!isMultiSelectMode) setSelectedTrackIds(new Set())
+  }, [isMultiSelectMode])
   const playbackQueue = React.useMemo(() => {
     const queueTracks = playbackQueueIds
       .map((id) => homeSnapshot.tracks.find((track) => track.id === id))
@@ -2373,6 +2418,7 @@ function App(): React.ReactElement {
         : selectedFullscreenSkin === 'kmgccc.cassette'
           ? fullscreenCassetteVisualizerMode
           : 'off'
+  const toolbarSortKey = detailSortKey === 'albumOrder' && !(route.name === 'albumDetail' && route.id !== 'all-albums') ? 'importedAt' : detailSortKey
   const ensureAudioAnalyser = React.useCallback((): AnalyserNode | null => {
     const audio = audioRef.current
     if (!audio) return null
@@ -2465,6 +2511,28 @@ function App(): React.ReactElement {
       items
     })
   }, [])
+  const openSortMenu = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const rect = event.currentTarget.getBoundingClientRect()
+    const isAlbumDetail = route.name === 'albumDetail' && route.id !== 'all-albums'
+    const currentSortKey = detailSortKey === 'albumOrder' && !isAlbumDetail ? 'importedAt' : detailSortKey
+    const sortKeys: DetailSortKey[] = ['importedAt', 'addedAt', ...(isAlbumDetail ? ['albumOrder' as const] : []), 'title', 'artist', 'duration', 'playCount', 'favorite']
+    const items: ContextMenuItem[] = [
+      ...sortKeys.map((key) => ({
+        label: `${currentSortKey === key ? '✓ ' : ''}${detailSortLabels[key]}`,
+        onSelect: () => setDetailSortKey(key)
+      })),
+      { label: '-', onSelect: () => {} },
+      { label: `${detailSortDirection === 'asc' ? '✓ ' : ''}升序`, onSelect: () => setDetailSortDirection('asc') },
+      { label: `${detailSortDirection === 'desc' ? '✓ ' : ''}降序`, onSelect: () => setDetailSortDirection('desc') }
+    ]
+    setContextMenu({
+      x: Math.min(rect.left, window.innerWidth - 230),
+      y: Math.min(rect.bottom + 8, window.innerHeight - 260),
+      items
+    })
+  }, [detailSortDirection, detailSortKey, route])
 
   React.useEffect(() => {
     for (const source of artworkFrameAssets) {
@@ -3084,6 +3152,14 @@ function App(): React.ReactElement {
     setCurrentId(trackId)
     setIsPlaying(true)
   }, [homeSnapshot.tracks])
+  const playCurrentView = React.useCallback(() => {
+    if (route.name === 'home') {
+      const track = homeSnapshot.heroTrack ?? homeSnapshot.tracks[0]
+      if (track) playHomeTrack(track.id)
+      return
+    }
+    if (route.name !== 'nowPlaying') playRouteTracks(route)
+  }, [homeSnapshot.heroTrack, homeSnapshot.tracks, playHomeTrack, playRouteTracks, route])
   const refreshLibrarySnapshot = React.useCallback(async (preferredTrackId?: string) => {
     const snapshot = await window.kmgccc?.getHomeSnapshot()
     if (snapshot) applyHomeSnapshot(snapshot, preferredTrackId)
@@ -3109,6 +3185,34 @@ function App(): React.ReactElement {
   const addTrackToPlaylist = React.useCallback(async (playlistId: string, track: HomeTrack) => {
     const snapshot = await window.kmgccc?.addTrackToPlaylist(playlistId, track.id)
     if (snapshot) applyHomeSnapshot(snapshot, track.id)
+  }, [applyHomeSnapshot])
+  const batchAddTracksToPlaylist = React.useCallback(async (playlistId: string, trackIds: string[]) => {
+    let snapshot: HomeSnapshot | undefined | null
+    for (const trackId of trackIds) {
+      snapshot = await window.kmgccc?.addTrackToPlaylist(playlistId, trackId)
+    }
+    if (snapshot) applyHomeSnapshot(snapshot, trackIds[0])
+  }, [applyHomeSnapshot])
+  const batchRemoveTracksFromCurrentPlaylist = React.useCallback(async (trackIds: string[]) => {
+    if (route.name !== 'playlistDetail' || route.id === 'playlist-library') return
+    let snapshot: HomeSnapshot | undefined | null
+    for (const trackId of trackIds) {
+      snapshot = await window.kmgccc?.removeTrackFromPlaylist(route.id, trackId)
+    }
+    if (snapshot) {
+      applyHomeSnapshot(snapshot)
+      setSelectedTrackIds(new Set())
+    }
+  }, [applyHomeSnapshot, route])
+  const batchDeleteTracks = React.useCallback(async (trackIds: string[]) => {
+    let snapshot: HomeSnapshot | undefined | null
+    for (const trackId of trackIds) {
+      snapshot = await window.kmgccc?.deleteTrack(trackId)
+    }
+    if (snapshot) {
+      applyHomeSnapshot(snapshot)
+      setSelectedTrackIds(new Set())
+    }
   }, [applyHomeSnapshot])
   const createPlaylistWithTrack = React.useCallback((track: HomeTrack) => {
     setLibraryDialog({ kind: 'createPlaylist', track })
@@ -3142,6 +3246,18 @@ function App(): React.ReactElement {
         metadataConfidence: values.metadataConfidence ? Number(values.metadataConfidence) : dialog.track.metadataConfidence,
         lyricsTimeOffsetMs: values.lyricsTimeOffsetMs ? Number(values.lyricsTimeOffsetMs) : dialog.track.lyricsTimeOffsetMs
       } as LocalAudioImport)
+    } else if (dialog.kind === 'batchEditTracks') {
+      preferredTrackId = dialog.tracks[0]?.id
+      for (const track of dialog.tracks) {
+        snapshot = await window.kmgccc?.updateTrack({
+          ...track,
+          artist: values.artist?.trim() || track.artist,
+          album: values.album?.trim() || track.album,
+          genreTags: values.genreTags?.trim() ? parseCommaTags(values.genreTags) : track.genreTags,
+          language: values.language?.trim() || track.language,
+          labelOrCompany: values.labelOrCompany?.trim() || track.labelOrCompany
+        } as LocalAudioImport)
+      }
     } else if (dialog.kind === 'editAlbum') {
       snapshot = await window.kmgccc?.updateAlbum(dialog.album.id, {
         title: values.title?.trim() || dialog.album.title,
@@ -3193,6 +3309,7 @@ function App(): React.ReactElement {
     }
 
     if (snapshot) applyHomeSnapshot(snapshot, preferredTrackId)
+    if (dialog.kind === 'batchEditTracks') setSelectedTrackIds(new Set())
     setLibraryDialog(null)
   }, [applyHomeSnapshot, libraryDialog])
   const toggleLyricsSidebar = React.useCallback(() => {
@@ -3561,13 +3678,36 @@ function App(): React.ReactElement {
 
         <main className="content-pane">
           <Toolbar
+            route={route}
             onNavigateHome={navigateHome}
             onImportAudioFile={importAudioFile}
+            onPlayCurrentView={playCurrentView}
             onToggleLyricsSidebar={toggleLyricsSidebar}
             isLyricsSidebarOpen={isLyricsSidebarOpen}
+            sortLabel={detailSortLabels[toolbarSortKey]}
+            sortDirection={detailSortDirection}
+            isMultiSelectMode={isMultiSelectMode}
+            onOpenSortMenu={openSortMenu}
+            onToggleMultiSelect={() => setIsMultiSelectMode((value) => !value)}
           />
           {route.name === 'home' ? (
-            <HomePage snapshot={homeSnapshot} albums={albums} sectionOrder={homeSectionOrder} onNavigate={setRoute} onPlayTrack={playHomeTrack} />
+            <HomePage
+              snapshot={homeSnapshot}
+              albums={albums}
+              sectionOrder={homeSectionOrder}
+              onNavigate={setRoute}
+              onPlayTrack={playHomeTrack}
+              onPlayRoute={playRouteTracks}
+              onEditTrack={editTrack}
+              onDeleteTrack={deleteTrack}
+              onEditArtist={editArtist}
+              onDeleteArtist={deleteArtist}
+              onEditAlbum={editAlbum}
+              onDeleteAlbum={deleteAlbum}
+              onEditPlaylist={editPlaylist}
+              onDeletePlaylist={deletePlaylist}
+              onOpenContextMenu={openContextMenu}
+            />
           ) : route.name === 'nowPlaying' ? (
             <NowPlayingPage
               track={currentTrack}
@@ -3616,6 +3756,15 @@ function App(): React.ReactElement {
               onEditPlaylist={editPlaylist}
               onDeletePlaylist={deletePlaylist}
               onOpenContextMenu={openContextMenu}
+              sortKey={detailSortKey}
+              sortDirection={detailSortDirection}
+              isMultiSelectMode={isMultiSelectMode}
+              selectedTrackIds={selectedTrackIds}
+              onSelectedTrackIdsChange={setSelectedTrackIds}
+              onBatchAddTracksToPlaylist={batchAddTracksToPlaylist}
+              onBatchRemoveTracksFromPlaylist={batchRemoveTracksFromCurrentPlaylist}
+              onBatchDeleteTracks={batchDeleteTracks}
+              onBatchEditTracks={(tracks) => setLibraryDialog({ kind: 'batchEditTracks', tracks })}
             />
           )}
 
@@ -3978,6 +4127,15 @@ const LibraryDialog = React.memo(function LibraryDialog({
         lyricsTimeOffsetMs: state.track.lyricsTimeOffsetMs ? String(state.track.lyricsTimeOffsetMs) : '0'
       } as Record<string, string>
     }
+    if (state.kind === 'batchEditTracks') {
+      return {
+        artist: '',
+        album: '',
+        genreTags: '',
+        language: '',
+        labelOrCompany: ''
+      } as Record<string, string>
+    }
     if (state.kind === 'editAlbum') {
       return {
         title: state.album.title,
@@ -4164,11 +4322,13 @@ const LibraryDialog = React.memo(function LibraryDialog({
       : state.kind === 'editAlbum' ? '编辑专辑信息'
         : state.kind === 'editArtist' ? '编辑艺人信息'
           : state.kind === 'editPlaylist' ? '编辑播放列表'
-            : state.kind === 'createPlaylist' ? '新建播放列表'
-              : '确认删除'
+            : state.kind === 'batchEditTracks' ? '批量编辑歌曲信息'
+              : state.kind === 'createPlaylist' ? '新建播放列表'
+                : '确认删除'
   const icon = state.kind === 'editTrack' ? <Music2 size={22} />
     : state.kind === 'editAlbum' ? <Disc3 size={24} />
       : state.kind === 'editArtist' ? <UserRound size={24} />
+        : state.kind === 'batchEditTracks' ? <Music2 size={22} />
         : <ListMusic size={22} />
   const detail =
     state.kind === 'deleteTrack' ? `从资料库删除“${state.track.title}”？`
@@ -4249,6 +4409,15 @@ const LibraryDialog = React.memo(function LibraryDialog({
               ['获取时间', values.metadataFetchedAt ?? ''],
               ['置信度', values.metadataConfidence ?? '']
             ]} />
+          </div>
+        ) : state.kind === 'batchEditTracks' ? (
+          <div className="library-dialog-form metadata-sheet-body">
+            <p className="library-dialog-message">已选择 {state.tracks.length} 首歌曲。只会批量写入下面非空字段，留空的字段保持原值。</p>
+            <LibraryDialogField label="艺人" value={values.artist ?? ''} onChange={(value) => update('artist', value)} />
+            <LibraryDialogField label="专辑" value={values.album ?? ''} onChange={(value) => update('album', value)} />
+            <LibraryDialogField label="流派 / 标签" placeholder="用逗号分隔" value={values.genreTags ?? ''} onChange={(value) => update('genreTags', value)} />
+            <LibraryDialogField label="语言" value={values.language ?? ''} onChange={(value) => update('language', value)} />
+            <LibraryDialogField label="厂牌 / 公司" value={values.labelOrCompany ?? ''} onChange={(value) => update('labelOrCompany', value)} />
           </div>
         ) : (
           <div className="library-dialog-form">
@@ -4803,44 +4972,70 @@ const ImportSyncCard = React.memo(function ImportSyncCard({
 })
 
 const Toolbar = React.memo(function Toolbar({
+  route,
   onNavigateHome,
   onImportAudioFile,
+  onPlayCurrentView,
   onToggleLyricsSidebar,
-  isLyricsSidebarOpen
+  isLyricsSidebarOpen,
+  sortLabel,
+  sortDirection,
+  isMultiSelectMode,
+  onOpenSortMenu,
+  onToggleMultiSelect
 }: {
+  route: AppRoute
   onNavigateHome: () => void
   onImportAudioFile: () => void
+  onPlayCurrentView: () => void
   onToggleLyricsSidebar: () => void
   isLyricsSidebarOpen: boolean
+  sortLabel: string
+  sortDirection: SortDirection
+  isMultiSelectMode: boolean
+  onOpenSortMenu: (event: React.MouseEvent<HTMLElement>) => void
+  onToggleMultiSelect: () => void
 }): React.ReactElement {
+  const isHome = route.name === 'home'
   return (
     <header className="toolbar chrome-drag">
       <div className="toolbar-left no-drag">
-        <div className="toolbar-pill glass-panel" style={{ '--filter-url': 'url(#lg-toolbar-pill)' } as React.CSSProperties}>
-          <button type="button" aria-label="返回主页" onClick={onNavigateHome}>
-            <ChevronLeft size={23} />
-          </button>
-          <span className="toolbar-divider" />
-          <button type="button" aria-label="前进">
-            <ChevronRight size={23} />
-          </button>
-        </div>
+        {isHome ? (
+          <div className="toolbar-pill glass-panel" style={{ '--filter-url': 'url(#lg-toolbar-pill)' } as React.CSSProperties}>
+            <button type="button" aria-label="返回主页" onClick={onNavigateHome}>
+              <ChevronLeft size={23} />
+            </button>
+            <span className="toolbar-divider" />
+            <button type="button" aria-label="前进">
+              <ChevronRight size={23} />
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              className="toolbar-circle toolbar-liquid-pad glass-panel"
+              type="button"
+              aria-label={`排序：${sortLabel}，${sortDirection === 'asc' ? '升序' : '降序'}`}
+              onClick={onOpenSortMenu}
+              style={{ '--filter-url': 'url(#lg-circle)' } as React.CSSProperties}
+            >
+              <ArrowDownUp size={21} />
+            </button>
+            <button
+              className={`toolbar-circle toolbar-liquid-pad glass-panel ${isMultiSelectMode ? 'active' : ''}`}
+              type="button"
+              aria-label="多选"
+              aria-pressed={isMultiSelectMode}
+              onClick={onToggleMultiSelect}
+              style={{ '--filter-url': 'url(#lg-circle)' } as React.CSSProperties}
+            >
+              <CheckCircle2 size={21} />
+            </button>
+          </>
+        )}
 
-        <button
-          className="toolbar-circle toolbar-liquid-pad glass-panel"
-          type="button"
-          aria-label="排序"
-          style={{ '--filter-url': 'url(#lg-circle)' } as React.CSSProperties}
-        >
-          <ArrowDownUp size={21} />
-        </button>
-
-        <div className="toolbar-pill toolbar-triple glass-panel" style={{ '--filter-url': 'url(#lg-toolbar-pill)' } as React.CSSProperties}>
-          <button type="button" aria-label="选择">
-            <CheckCircle2 size={20} />
-          </button>
-          <span className="toolbar-divider" />
-          <button type="button" aria-label="播放">
+        <div className="toolbar-pill toolbar-play-add glass-panel" style={{ '--filter-url': 'url(#lg-toolbar-pill)' } as React.CSSProperties}>
+          <button type="button" aria-label="播放" onClick={onPlayCurrentView}>
             <Play size={20} fill="currentColor" />
           </button>
           <span className="toolbar-divider" />
@@ -4876,19 +5071,39 @@ const HomePage = React.memo(function HomePage({
   albums,
   sectionOrder,
   onNavigate,
-  onPlayTrack
+  onPlayTrack,
+  onPlayRoute,
+  onEditTrack,
+  onDeleteTrack,
+  onEditArtist,
+  onDeleteArtist,
+  onEditAlbum,
+  onDeleteAlbum,
+  onEditPlaylist,
+  onDeletePlaylist,
+  onOpenContextMenu
 }: {
   snapshot: HomeSnapshot
   albums: Map<string, HomeAlbumCard>
   sectionOrder: HomeSectionID[]
   onNavigate: (route: AppRoute) => void
   onPlayTrack: (trackId: string) => void
+  onPlayRoute: (route: DetailRoute, preferredTrackId?: string) => void
+  onEditTrack: (track: HomeTrack) => void
+  onDeleteTrack: (track: HomeTrack) => void
+  onEditArtist: (artist: HomeArtistCard) => void
+  onDeleteArtist: (artist: HomeArtistCard) => void
+  onEditAlbum: (album: HomeAlbumCard) => void
+  onDeleteAlbum: (album: HomeAlbumCard) => void
+  onEditPlaylist: (playlist: HomePlaylistCard) => void
+  onDeletePlaylist: (playlist: HomePlaylistCard) => void
+  onOpenContextMenu: (event: React.MouseEvent, items: ContextMenuItem[]) => void
 }): React.ReactElement {
   const homeScroll = useElasticScroll<HTMLElement>()
   const heroTrack = snapshot.heroTrack ?? snapshot.tracks[0] ?? null
   const renderSection = (section: HomeSectionID): React.ReactNode => {
     if (section === 'featured') {
-      return heroTrack ? <HomeHero key={section} track={heroTrack} albums={albums} onPlay={() => onPlayTrack(heroTrack.id)} /> : null
+      return heroTrack ? <HomeHero key={section} track={heroTrack} albums={albums} onPlay={() => onPlayTrack(heroTrack.id)} onEdit={onEditTrack} onDelete={onDeleteTrack} onOpenContextMenu={onOpenContextMenu} /> : null
     }
     if (section === 'artists') {
       return (
@@ -4900,6 +5115,12 @@ const HomePage = React.memo(function HomePage({
                 key={artist.id}
                 type="button"
                 onClick={() => onNavigate({ name: 'artistDetail', id: artist.id, title: artist.name })}
+                onContextMenu={(event) => onOpenContextMenu(event, [
+                  { label: '播放艺人', onSelect: () => onPlayRoute({ name: 'artistDetail', id: artist.id, title: artist.name }) },
+                  { label: '编辑艺人', onSelect: () => onEditArtist(artist) },
+                  { label: '-', onSelect: () => {} },
+                  { label: '删除艺人', danger: true, onSelect: () => onDeleteArtist(artist) }
+                ])}
               >
                 {artist.artworkUrl ? (
                   <ArtworkImage src={artist.artworkUrl} maxSize={220} alt="" loading="eager" />
@@ -4923,6 +5144,12 @@ const HomePage = React.memo(function HomePage({
                 key={album.id}
                 type="button"
                 onClick={() => onNavigate({ name: 'albumDetail', id: album.id, title: album.title })}
+                onContextMenu={(event) => onOpenContextMenu(event, [
+                  { label: '播放专辑', onSelect: () => onPlayRoute({ name: 'albumDetail', id: album.id, title: album.title }) },
+                  { label: '编辑专辑', onSelect: () => onEditAlbum(album) },
+                  { label: '-', onSelect: () => {} },
+                  { label: '删除专辑', danger: true, onSelect: () => onDeleteAlbum(album) }
+                ])}
               >
                 <ArtworkImage src={albumArtworkFor(album)} maxSize={260} alt="" loading="eager" />
                 <strong>{album.title}</strong>
@@ -4943,6 +5170,14 @@ const HomePage = React.memo(function HomePage({
                 key={playlist.id}
                 type="button"
                 onClick={() => onNavigate({ name: 'playlistDetail', id: playlist.id, title: playlist.name })}
+                onContextMenu={(event) => onOpenContextMenu(event, [
+                  { label: '播放', onSelect: () => onPlayRoute({ name: 'playlistDetail', id: playlist.id, title: playlist.name }) },
+                  ...(playlist.id === 'playlist-library' ? [] : [
+                    { label: '编辑播放列表', onSelect: () => onEditPlaylist(playlist) },
+                    { label: '-', onSelect: () => {} },
+                    { label: '删除播放列表', danger: true, onSelect: () => onDeletePlaylist(playlist) }
+                  ])
+                ])}
               >
                 <ArtworkImage className={`home-playlist-artwork ${isImportedPlaylist(playlist) ? 'generated' : 'logo'}`} src={playlistArtworkFor(playlist)} maxSize={96} style={playlistArtworkStyle(playlist)} alt="" loading="eager" />
                 <span>
@@ -4975,15 +5210,29 @@ const HomePage = React.memo(function HomePage({
 const HomeHero = React.memo(function HomeHero({
   track,
   albums,
-  onPlay
+  onPlay,
+  onEdit,
+  onDelete,
+  onOpenContextMenu
 }: {
   track: HomeTrack
   albums: Map<string, HomeAlbumCard>
   onPlay: () => void
+  onEdit: (track: HomeTrack) => void
+  onDelete: (track: HomeTrack) => void
+  onOpenContextMenu: (event: React.MouseEvent, items: ContextMenuItem[]) => void
 }): React.ReactElement {
   const artwork = trackArtwork(track, albums)
   return (
-    <header className="home-hero">
+    <header
+      className="home-hero"
+      onContextMenu={(event) => onOpenContextMenu(event, [
+        { label: '播放', onSelect: onPlay },
+        { label: '编辑歌曲信息', onSelect: () => onEdit(track) },
+        { label: '-', onSelect: () => {} },
+        { label: '删除歌曲', danger: true, onSelect: () => onDelete(track) }
+      ])}
+    >
       <ArtworkImage className="home-hero-bg" src={artwork} maxSize={420} alt="" />
       <div className="home-hero-cover">
         <ArtworkImage src={artwork} maxSize={320} alt="" />
@@ -8331,7 +8580,16 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
   onDeleteAlbum,
   onEditPlaylist,
   onDeletePlaylist,
-  onOpenContextMenu
+  onOpenContextMenu,
+  sortKey,
+  sortDirection,
+  isMultiSelectMode,
+  selectedTrackIds,
+  onSelectedTrackIdsChange,
+  onBatchAddTracksToPlaylist,
+  onBatchRemoveTracksFromPlaylist,
+  onBatchDeleteTracks,
+  onBatchEditTracks
 }: {
   route: DetailRoute
   snapshot: HomeSnapshot
@@ -8352,9 +8610,19 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
   onEditPlaylist: (playlist: HomePlaylistCard) => void
   onDeletePlaylist: (playlist: HomePlaylistCard) => void
   onOpenContextMenu: (event: React.MouseEvent, items: ContextMenuItem[]) => void
+  sortKey: DetailSortKey
+  sortDirection: SortDirection
+  isMultiSelectMode: boolean
+  selectedTrackIds: Set<string>
+  onSelectedTrackIdsChange: React.Dispatch<React.SetStateAction<Set<string>>>
+  onBatchAddTracksToPlaylist: (playlistId: string, trackIds: string[]) => void
+  onBatchRemoveTracksFromPlaylist: (trackIds: string[]) => void
+  onBatchDeleteTracks: (trackIds: string[]) => void
+  onBatchEditTracks: (tracks: HomeTrack[]) => void
 }): React.ReactElement {
   const pageScroll = useElasticScroll<HTMLElement>()
-  const tracks = React.useMemo(() => tracksForRoute(route, snapshot), [route, snapshot])
+  const baseTracks = React.useMemo(() => tracksForRoute(route, snapshot), [route, snapshot])
+  const tracks = React.useMemo(() => sortedDetailTracks(baseTracks, sortKey, sortDirection, snapshot), [baseTracks, snapshot, sortDirection, sortKey])
   const isArtistIndex = route.name === 'artistDetail' && route.id === 'all-artists'
   const isAlbumIndex = route.name === 'albumDetail' && route.id === 'all-albums'
   const artworkShape = route.name === 'artistDetail' && route.id !== 'all-artists' ? 'artist' : 'square'
@@ -8463,6 +8731,13 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
             onViewArtist={(track) => onNavigate({ name: 'artistDetail', id: track.artistId, title: track.artist })}
             onViewAlbum={(track) => onNavigate({ name: 'albumDetail', id: track.albumId, title: track.album })}
             onOpenContextMenu={onOpenContextMenu}
+            isMultiSelectMode={isMultiSelectMode}
+            selectedTrackIds={selectedTrackIds}
+            onSelectedTrackIdsChange={onSelectedTrackIdsChange}
+            onBatchAddTracksToPlaylist={onBatchAddTracksToPlaylist}
+            onBatchRemoveTracksFromPlaylist={onBatchRemoveTracksFromPlaylist}
+            onBatchDeleteTracks={onBatchDeleteTracks}
+            onBatchEditTracks={onBatchEditTracks}
           />
         ) : null}
       </div>
@@ -8550,7 +8825,14 @@ const TrackRows = React.memo(function TrackRows({
   onCreatePlaylistWithTrack,
   onViewArtist,
   onViewAlbum,
-  onOpenContextMenu
+  onOpenContextMenu,
+  isMultiSelectMode = false,
+  selectedTrackIds,
+  onSelectedTrackIdsChange,
+  onBatchAddTracksToPlaylist,
+  onBatchRemoveTracksFromPlaylist,
+  onBatchDeleteTracks,
+  onBatchEditTracks
 }: {
   tracks: Track[]
   albums: Map<string, HomeAlbumCard>
@@ -8566,31 +8848,80 @@ const TrackRows = React.memo(function TrackRows({
   onViewArtist: (track: Track) => void
   onViewAlbum: (track: Track) => void
   onOpenContextMenu: (event: React.MouseEvent, items: ContextMenuItem[]) => void
+  isMultiSelectMode?: boolean
+  selectedTrackIds?: Set<string>
+  onSelectedTrackIdsChange?: React.Dispatch<React.SetStateAction<Set<string>>>
+  onBatchAddTracksToPlaylist?: (playlistId: string, trackIds: string[]) => void
+  onBatchRemoveTracksFromPlaylist?: (trackIds: string[]) => void
+  onBatchDeleteTracks?: (trackIds: string[]) => void
+  onBatchEditTracks?: (tracks: Track[]) => void
 }): React.ReactElement {
+  const selectedIds = selectedTrackIds ?? new Set<string>()
+  const selectedTracks = tracks.filter((track) => selectedIds.has(track.id))
+  const toggleSelected = React.useCallback((trackId: string) => {
+    onSelectedTrackIdsChange?.((previous) => {
+      const next = new Set(previous)
+      if (next.has(trackId)) next.delete(trackId)
+      else next.add(trackId)
+      return next
+    })
+  }, [onSelectedTrackIdsChange])
+  const batchContextItems = React.useCallback((contextTrack: Track): ContextMenuItem[] => {
+    const activeTracks = selectedIds.has(contextTrack.id) ? selectedTracks : [contextTrack]
+    const activeIds = activeTracks.map((track) => track.id)
+    return [
+      { label: `已选择 ${activeTracks.length} 首歌曲`, onSelect: () => {} },
+      { label: '-', onSelect: () => {} },
+      { label: '批量编辑歌曲信息...', onSelect: () => onBatchEditTracks?.(activeTracks) },
+      { label: '-', onSelect: () => {} },
+      ...playlists.map((playlist) => ({
+        label: `添加到播放列表：${playlist.name}`,
+        onSelect: () => onBatchAddTracksToPlaylist?.(playlist.id, activeIds)
+      })),
+      ...(onRemoveFromPlaylist ? [{ label: '从当前播放列表移除', onSelect: () => onBatchRemoveTracksFromPlaylist?.(activeIds) }] : []),
+      { label: '-', onSelect: () => {} },
+      { label: '从资料库删除', danger: true, onSelect: () => onBatchDeleteTracks?.(activeIds) }
+    ]
+  }, [onBatchAddTracksToPlaylist, onBatchDeleteTracks, onBatchEditTracks, onBatchRemoveTracksFromPlaylist, onRemoveFromPlaylist, playlists, selectedIds, selectedTracks])
   return (
     <div className="track-list">
       {tracks.map((track) => (
         <button
-          className={`track-row ${track.id === currentId ? 'current' : ''}`}
+          className={`track-row ${track.id === currentId ? 'current' : ''} ${isMultiSelectMode && selectedIds.has(track.id) ? 'selected' : ''}`}
           key={track.id}
           type="button"
-          onClick={() => onSelect(track.id)}
-          onContextMenu={(event) => onOpenContextMenu(event, [
-            { label: '播放', onSelect: () => onPlay(track) },
-            { label: '-', onSelect: () => {} },
-            ...playlists.map((playlist) => ({
-              label: `添加到：${playlist.name}`,
-              onSelect: () => onAddToPlaylist(playlist.id, track)
-            })),
-            { label: '新建播放列表并添加', onSelect: () => onCreatePlaylistWithTrack(track) },
-            ...(onRemoveFromPlaylist ? [{ label: '从当前播放列表移除', onSelect: () => onRemoveFromPlaylist(track) }] : []),
-            { label: '-', onSelect: () => {} },
-            { label: '编辑歌曲信息', onSelect: () => onEdit(track) },
-            { label: '查看艺人', onSelect: () => onViewArtist(track) },
-            { label: '查看专辑', onSelect: () => onViewAlbum(track) },
-            { label: '-', onSelect: () => {} },
-            { label: '从资料库删除', danger: true, onSelect: () => onDelete(track) }
-          ])}
+          onClick={() => {
+            if (isMultiSelectMode) {
+              toggleSelected(track.id)
+              return
+            }
+            onSelect(track.id)
+          }}
+          onContextMenu={(event) => {
+            if (isMultiSelectMode) {
+              if (!selectedIds.has(track.id)) {
+                onSelectedTrackIdsChange?.(() => new Set([track.id]))
+              }
+              onOpenContextMenu(event, batchContextItems(track))
+              return
+            }
+            onOpenContextMenu(event, [
+              { label: '播放', onSelect: () => onPlay(track) },
+              { label: '-', onSelect: () => {} },
+              ...playlists.map((playlist) => ({
+                label: `添加到：${playlist.name}`,
+                onSelect: () => onAddToPlaylist(playlist.id, track)
+              })),
+              { label: '新建播放列表并添加', onSelect: () => onCreatePlaylistWithTrack(track) },
+              ...(onRemoveFromPlaylist ? [{ label: '从当前播放列表移除', onSelect: () => onRemoveFromPlaylist(track) }] : []),
+              { label: '-', onSelect: () => {} },
+              { label: '编辑歌曲信息', onSelect: () => onEdit(track) },
+              { label: '查看艺人', onSelect: () => onViewArtist(track) },
+              { label: '查看专辑', onSelect: () => onViewAlbum(track) },
+              { label: '-', onSelect: () => {} },
+              { label: '从资料库删除', danger: true, onSelect: () => onDelete(track) }
+            ])
+          }}
         >
           <ArtworkImage className="track-art" src={trackArtwork(track, albums)} maxSize={64} alt="" loading="lazy" />
           <span className="track-title">{track.title}</span>

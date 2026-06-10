@@ -3716,8 +3716,11 @@ input {
 .toolbar-pill {
   height: 40px;
   border-radius: 20px;
-  --glass-alpha: 0.58;
-  --glass-shadow: rgba(16, 36, 52, 0.0375);
+  --glass-alpha: 0.50;
+  --glass-border: rgba(255, 255, 255, 0.30);
+  --glass-shadow: rgba(16, 36, 52, 0.018);
+  --glass-inner-shadow: rgba(0, 0, 0, 0.014);
+  --glass-inner-highlight: rgba(255, 255, 255, 0.045);
 }
 
 .toolbar-pill button,
@@ -3734,6 +3737,15 @@ input {
   width: 42px;
 }
 
+.toolbar-play-add button {
+  width: 44px;
+}
+
+.toolbar-circle.active {
+  color: rgba(11, 56, 76, 0.92);
+  background: color-mix(in srgb, var(--cover-accent) 42%, rgba(255, 255, 255, 0.22));
+}
+
 .toolbar-divider {
   width: 1px;
   height: 22px;
@@ -3744,18 +3756,23 @@ input {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  --glass-alpha: 0.58;
-  --glass-shadow: rgba(16, 36, 52, 0.0375);
+  --glass-alpha: 0.50;
+  --glass-border: rgba(255, 255, 255, 0.30);
+  --glass-shadow: rgba(16, 36, 52, 0.018);
+  --glass-inner-shadow: rgba(0, 0, 0, 0.014);
+  --glass-inner-highlight: rgba(255, 255, 255, 0.045);
 }
 
 .toolbar-liquid-pad {
-  --glass-alpha: 0.66;
-  --glass-border: rgba(255, 255, 255, 0.62);
-  --glass-shadow: rgba(16, 36, 52, 0.045);
-  background-color: rgba(255, 255, 255, 0.66);
+  --glass-alpha: 0.50;
+  --glass-border: rgba(255, 255, 255, 0.30);
+  --glass-shadow: rgba(16, 36, 52, 0.018);
+  --glass-inner-shadow: rgba(0, 0, 0, 0.014);
+  --glass-inner-highlight: rgba(255, 255, 255, 0.045);
+  background-color: rgba(255, 255, 255, 0.50);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.34) inset,
-    0 1px 8px rgba(15, 42, 58, 0.045);
+    0 0 0 1px rgba(255, 255, 255, 0.12) inset,
+    0 1px 5px rgba(15, 42, 58, 0.018);
 }
 
 .search-field {
@@ -5335,6 +5352,15 @@ input {
 
 .track-row.current {
   background: color-mix(in srgb, var(--cover-accent) 32%, rgba(255, 255, 255, 0.38));
+}
+
+.track-row.selected {
+  background: color-mix(in srgb, var(--cover-accent) 46%, rgba(255, 255, 255, 0.46));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cover-accent-text) 18%, transparent) inset;
+}
+
+.track-row.selected .track-art {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cover-accent-text) 42%, rgba(255, 255, 255, 0.25));
 }
 
 .track-art {
