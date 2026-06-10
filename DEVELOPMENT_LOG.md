@@ -156,3 +156,4 @@
 - 封面节奏律动关闭时清理当前歌 BPM：点击封面关闭律动会删除当前歌曲的临时测速缓存、界面 BPM 状态、长按/手动认可 BPM 以及 localStorage 中的当前歌记录；再次点击开启时必须重新实时计算，不再沿用关闭前的 BPM。`npm run typecheck` 与 `npm run build` 已通过。
 - 歌词翻译可读性提高：全屏 AMLL 与窗口/侧栏 AMLL 的翻译行 opacity 提高，未高亮翻译不再被二次压暗；普通歌词 fallback 的翻译行 opacity 也提升到 0.66，避免翻译过暗。`npm run typecheck` 与 `npm run build` 已通过。
 - 窗口播放歌词设置接线审查与修复：逐项检查窗口播放设置链路，确认皮肤、艺术背景、皮肤专属选项、LED 数量/亮度/频率/速度、歌词渲染质量、减弱高亮、主歌词字号/字重/字体、翻译字重/字体、整体提前量均有实际使用；修复翻译大小只影响预览的问题，让 AMLL 翻译子行读取 `--lyrics-translation-font-size`；修复窗口播放“提前量/紧邻切行阈值”只保存不生效的问题，将其接入 AMLL 行时间生成和 fallback active 行判定。`npm run typecheck` 与 `npm run build` 已通过。
+- 浅色背景歌词可读性修正：白天/浅背景下 AMLL 歌词颜色生成增加更深的亮度上限，侧栏未高亮歌词改用更深灰并提高不透明度，避免粉色/浅色背景上歌词过浅；窗口播放页进入 BK 背景后也会延迟采样一次当前背景色，不再只依赖刷漆完成回调。`npm run typecheck` 与 `npm run build` 已通过。

@@ -1149,13 +1149,13 @@ function amllLyricToneSet(seed: RgbColor): {
   const isLightBackground = relativeLuminance(seed) >= 0.56
   const tunedSaturation = clampNumber(hsl.s * 1.06 + 0.10, 0.30, 0.78)
   const activeLightness = isLightBackground
-    ? clampNumber(hsl.l * 0.48, 0.32, 0.54)
+    ? clampNumber(hsl.l * 0.34, 0.18, 0.38)
     : clampNumber(hsl.l * 0.44 + 0.34, 0.42, 0.66)
   const active = hslToRgb({ h: hsl.h, s: tunedSaturation, l: activeLightness })
   const subActive = hslToRgb({
     h: hsl.h,
     s: clampNumber(tunedSaturation * 0.82, 0.22, 0.62),
-    l: isLightBackground ? clampNumber(activeLightness + 0.06, 0.38, 0.60) : clampNumber(activeLightness + 0.08, 0.46, 0.72)
+    l: isLightBackground ? clampNumber(activeLightness + 0.06, 0.24, 0.44) : clampNumber(activeLightness + 0.08, 0.46, 0.72)
   })
   const wash = hslToRgb({
     h: hsl.h,
@@ -1164,9 +1164,9 @@ function amllLyricToneSet(seed: RgbColor): {
   })
   return {
     active,
-    inactive: isLightBackground ? { r: 184, g: 184, b: 184 } : { r: 164, g: 164, b: 164 },
+    inactive: isLightBackground ? { r: 92, g: 92, b: 92 } : { r: 164, g: 164, b: 164 },
     subActive,
-    subInactive: isLightBackground ? { r: 198, g: 198, b: 198 } : { r: 178, g: 178, b: 178 },
+    subInactive: isLightBackground ? { r: 112, g: 112, b: 112 } : { r: 178, g: 178, b: 178 },
     wash
   }
 }
@@ -1204,12 +1204,12 @@ function fullscreenLyricColorStyleFromTheme(themeStyle: React.CSSProperties, ton
     '--amll-fullscreen-sub-inactive-color-b': rgbaString(secondary.subInactive, 0.64),
     '--amll-fullscreen-bg-color-b': rgbaString(secondary.wash, 0.18),
     '--amll-fullscreen-glow-color-b': rgbaString(secondary.wash, 0),
-    '--amll-side-active-color': rgbaString(blended.active, 0.94),
-    '--amll-side-inactive-color': rgbaString(blended.inactive, 0.58),
-    '--amll-side-active-color-a': rgbaString(primary.active, 0.94),
-    '--amll-side-inactive-color-a': rgbaString(primary.inactive, 0.58),
-    '--amll-side-active-color-b': rgbaString(secondary.active, 0.90),
-    '--amll-side-inactive-color-b': rgbaString(secondary.inactive, 0.50)
+    '--amll-side-active-color': rgbaString(blended.active, 0.98),
+    '--amll-side-inactive-color': rgbaString(blended.inactive, 0.78),
+    '--amll-side-active-color-a': rgbaString(primary.active, 0.98),
+    '--amll-side-inactive-color-a': rgbaString(primary.inactive, 0.78),
+    '--amll-side-active-color-b': rgbaString(secondary.active, 0.96),
+    '--amll-side-inactive-color-b': rgbaString(secondary.inactive, 0.72)
   } as React.CSSProperties
 }
 
@@ -6042,6 +6042,15 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
       }, 3200)
     }
   }, [onLyricToneSeedChange])
+
+  React.useEffect(() => {
+    if (!showBKBackground) return
+    const timer = window.setTimeout(() => {
+      void sampleNowPlayingBackgroundColor()
+    }, 520)
+    return () => window.clearTimeout(timer)
+  }, [sampleNowPlayingBackgroundColor, showBKBackground, track?.id])
+
   return (
     <section ref={pageRef} className={`now-playing-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} no-drag`}>
       {skinID === 'appleStyle' ? (
