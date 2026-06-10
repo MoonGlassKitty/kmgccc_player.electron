@@ -770,20 +770,30 @@ public final class AppSettings {
 
     // MARK: - External Playback Settings
 
-    /// Whether to show the playback source switcher (local / Apple Music) in the sidebar.
+    /// Whether to show the playback source switcher (local / external playback) in the sidebar.
     /// When false, shows the legacy app header (icon + app name) instead.
     @ObservationIgnored
     @AppStorage("showPlaybackSourceSwitcher") var showPlaybackSourceSwitcher: Bool = true
 
-    /// Whether the "System Now Playing" (其他) playback mode is available.
-    /// When enabled, the sidebar shows three modes: Local / Apple Music / Other.
-    /// When disabled, only Local and Apple Music are shown.
-    /// This is an opt-in because System Now Playing relies on macOS MediaRemote,
+    /// Whether to show the "other source / auto detect" external playback beta warning.
+    /// External playback relies on macOS MediaRemote,
     /// which may be unstable (spotty metadata, no reliable progress control,
     /// and limited pause/resume support). Users who only need local library
-    /// or Apple Music can safely disable it to declutter the UI.
+    /// can safely disable the extra modes to declutter the UI.
     @ObservationIgnored
     @AppStorage("enableSystemNowPlayingMode") var enableSystemNowPlayingMode: Bool = false
+
+    @ObservationIgnored
+    @AppStorage("externalPlaybackSourceMode") private var externalPlaybackSourceModeRaw: String = ExternalPlaybackSourceMode.thirdParty.rawValue
+
+    var externalPlaybackSourceMode: ExternalPlaybackSourceMode {
+        get {
+            ExternalPlaybackSourceMode(rawValue: externalPlaybackSourceModeRaw) ?? .thirdParty
+        }
+        set {
+            externalPlaybackSourceModeRaw = newValue.rawValue
+        }
+    }
 
     // MARK: - Fullscreen Presentation Coordinator
 

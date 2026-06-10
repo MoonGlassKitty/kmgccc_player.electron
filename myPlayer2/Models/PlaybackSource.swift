@@ -73,3 +73,26 @@ enum PlaybackSource: String, CaseIterable, Codable, Identifiable, Sendable {
         }
     }
 }
+
+enum ExternalPlaybackSourceMode: String, CaseIterable, Identifiable, Codable, Sendable {
+    case thirdParty
+    case other
+    case auto
+
+    var id: String { rawValue }
+
+    var localizedTitleKey: String {
+        switch self {
+        case .thirdParty:
+            return "playback.external_source.third_party"
+        case .other:
+            return "playback.external_source.other"
+        case .auto:
+            return "playback.external_source.auto"
+        }
+    }
+
+    var localizedTitle: String {
+        NSLocalizedString(localizedTitleKey, comment: "")
+    }
+}

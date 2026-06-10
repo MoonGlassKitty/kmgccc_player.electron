@@ -47,9 +47,15 @@ final class PlaybackCoordinator {
         self.systemNowPlayingProvider = systemNowPlayingProvider
         self.settings = settings ?? AppSettings.shared
         self.meterProvider = meterProvider
-        self.activeSource = PlaybackSource(
+        var restoredSource = PlaybackSource(
             rawValue: UserDefaults.standard.string(forKey: Keys.activeSource) ?? ""
         ) ?? .local
+        if restoredSource == .appleMusic {
+            restoredSource = .systemNowPlaying
+            self.settings.externalPlaybackSourceMode = .thirdParty
+            UserDefaults.standard.set(restoredSource.rawValue, forKey: Keys.activeSource)
+        }
+        self.activeSource = restoredSource
         if activeSource.isExternal {
             externalProvider(for: activeSource)?.start()
             ExternalPlaybackSpectrumSimulator.shared.start()

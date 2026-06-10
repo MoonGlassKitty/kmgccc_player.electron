@@ -241,7 +241,7 @@ final class SystemNowPlayingProvider: ExternalPlaybackProvider {
     private let streamQueue = DispatchQueue(label: "myPlayer2.systemNowPlaying.stream", qos: .utility)
     private let controlQueue = DispatchQueue(label: "myPlayer2.systemNowPlaying.control", qos: .utility)
     private let systemProgressDisplayDelay: TimeInterval = 0.5
-    private let blockedExternalOwnerPrefixes = [
+    private let browserExternalOwnerPrefixes = [
         "com.apple.safari",
         "com.google.chrome",
         "com.microsoft.edgemac",
@@ -328,6 +328,7 @@ final class SystemNowPlayingProvider: ExternalPlaybackProvider {
     private var expectedPostControlCore: String?
     private var expectedPostControlSeek: Double?
     private var preControlCore: String?
+    private var lastAppliedSourceMode: ExternalPlaybackSourceMode = AppSettings.shared.externalPlaybackSourceMode
     private var lastCommittedCore: String?
     private var recentRetiredCores: [String: Date] = [:]
     private var suppressedPreControlCores: [String: Date] = [:]
@@ -1056,6 +1057,7 @@ final class SystemNowPlayingProvider: ExternalPlaybackProvider {
     }
 
     private func shouldIgnoreExternalOwner(_ payload: Payload, source: PayloadSource) -> Bool {
+        syncExternalSourceModeIfNeeded()
         guard let owner = effectiveExternalBundleId(for: payload) else {
             if let lockedExternalOwner {
                 if isSameCoreAsStablePayload(payload) {
@@ -1067,7 +1069,7 @@ final class SystemNowPlayingProvider: ExternalPlaybackProvider {
             return false
         }
 
-        if isBlockedExternalOwner(owner) {
+        if !isAllowedExternalOwner(owner) {
             logIgnoredBlockedOwnerIfNeeded(owner: owner, source: source)
             return true
         }
@@ -1080,15 +1082,37 @@ final class SystemNowPlayingProvider: ExternalPlaybackProvider {
         return false
     }
 
-    private func isBlockedExternalOwner(_ owner: String) -> Bool {
+    private func isBrowserExternalOwner(_ owner: String) -> Bool {
         let lowercased = owner.lowercased()
-        return blockedExternalOwnerPrefixes.contains { lowercased.hasPrefix($0) }
+        return browserExternalOwnerPrefixes.contains { lowercased.hasPrefix($0) }
+    }
+
+    private func isAllowedExternalOwner(_ owner: String) -> Bool {
+        switch AppSettings.shared.externalPlaybackSourceMode {
+        case .thirdParty:
+            return !isBrowserExternalOwner(owner)
+        case .other:
+            return isBrowserExternalOwner(owner)
+        case .auto:
+            return true
+        }
+    }
+
+    private func syncExternalSourceModeIfNeeded() {
+        let mode = AppSettings.shared.externalPlaybackSourceMode
+        guard mode != lastAppliedSourceMode else { return }
+        let previous = lastAppliedSourceMode
+        lastAppliedSourceMode = mode
+        unlockExternalOwner(reason: "source_mode_changed \(previous.rawValue)->\(mode.rawValue)")
+        activeExternalOwnerBundle = nil
+        Log.info("[SystemNowPlaying] source mode changed \(previous.rawValue) -> \(mode.rawValue)", category: .playback)
     }
 
     private func lockExternalOwnerIfNeeded(from payload: Payload, reason: String) {
+        syncExternalSourceModeIfNeeded()
         guard lockedExternalOwner == nil,
               let owner = effectiveExternalBundleId(for: payload),
-              !isBlockedExternalOwner(owner) else { return }
+              isAllowedExternalOwner(owner) else { return }
         lockedExternalOwner = owner
         lockedExternalOwnerSince = Date()
         Log.info("[SystemNowPlaying] owner locked=\(owner) reason=\(reason)", category: .playback)

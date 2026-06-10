@@ -41,9 +41,9 @@ struct ExternalPlaybackSettingsView: View {
 
             SettingsSection {
                 VStack(alignment: .leading, spacing: 12) {
-                    SettingsSwitchRow(title: "启用\"其他\"播放模式（beta）", isOn: $enableSystemNowPlaying)
+                    SettingsSwitchRow(title: "启用\"其他源/自动检测\"提示（beta）", isOn: $enableSystemNowPlaying)
 
-                    Text("\"其他\" 模式通过 macOS MediaRemote 读取系统当前播放的第三方 App 的元数据，且处在测试阶段，可能出现部分控制不可用、不稳定、崩溃等问题。如果您只使用本地播放或 Apple Music，可以关闭此选项以保持界面简洁")
+                    Text("第三方音乐软件、其他源和自动检测都通过 macOS MediaRemote 读取系统当前播放的外部 App 元数据；其他源主要用于浏览器声音，自动检测会同时接收浏览器和第三方音乐软件。该能力仍处在测试阶段，可能出现部分控制不可用、不稳定、崩溃等问题。")
                         .settingsDescriptionStyle()
                 }
             }
@@ -79,10 +79,8 @@ struct ExternalPlaybackSettingsView: View {
         }
         .onChange(of: enableSystemNowPlaying) { _, newValue in
             settings.enableSystemNowPlayingMode = newValue
-            // If the user disables "其他" while currently using it,
-            // fall back to local playback to avoid a dangling state.
-            if !newValue, playbackCoordinator.activeSource == .systemNowPlaying {
-                playbackCoordinator.setActiveSource(.local)
+            if !newValue, settings.externalPlaybackSourceMode != .thirdParty {
+                settings.externalPlaybackSourceMode = .thirdParty
             }
         }
         .alert("清理外部播放缓存？", isPresented: $showClearCacheAlert) {

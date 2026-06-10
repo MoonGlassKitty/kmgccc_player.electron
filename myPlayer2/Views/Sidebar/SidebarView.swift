@@ -41,6 +41,7 @@ struct SidebarView: View {
     @State private var isHoveringAlbums = false
     @State private var settingsRotateTrigger = 0
     @State private var appearanceRotateTrigger = 0
+    @State private var selectedExternalPlaybackMode: ExternalPlaybackSourceMode = AppSettings.shared.externalPlaybackSourceMode
 
     var body: some View {
         VStack(spacing: 0) {
@@ -416,12 +417,8 @@ struct SidebarView: View {
         } message: { request in
             Text(request.message)
         }
-        .onChange(of: settings.enableSystemNowPlayingMode) { _, enabled in
-            if !enabled, playbackCoordinator.activeSource == .systemNowPlaying {
-                withAnimation(.snappy(duration: 0.18)) {
-                    playbackCoordinator.setActiveSource(.local)
-                }
-            }
+        .onAppear {
+            selectedExternalPlaybackMode = settings.externalPlaybackSourceMode
         }
         .animation(.snappy(duration: 0.2), value: importEnrichmentService.hasOutstandingWork)
     }
@@ -473,37 +470,65 @@ struct SidebarView: View {
 
     private var playbackSourceSwitcher: some View {
         let metrics = PlaybackSourceSwitcherMetrics.self
-        let availableSources: [PlaybackSource] = settings.enableSystemNowPlayingMode
-            ? PlaybackSource.allCases
-            : [.local, .appleMusic]
+        let externalMode = selectedExternalPlaybackMode
 
-        return SlidingSelector(
-            segments: availableSources,
-            selection: Binding(
-                get: { playbackCoordinator.activeSource },
-                set: { source in
-                    withAnimation(.snappy(duration: 0.18)) {
-                        playbackCoordinator.setActiveSource(source)
-                    }
-                }
-            ),
-            animation: .spring(response: 0.34, dampingFraction: 0.82, blendDuration: 0.08),
-            hSpacing: 0,
-            background: {
-                Color.clear
-            },
-            knob: {
-                Capsule(style: .continuous)
-                    .fill(themeStore.accentColor.opacity(currentColorScheme == .dark ? 0.36 : 0.18))
-                    .overlay(
-                        Capsule(style: .continuous)
-                            .strokeBorder(themeStore.accentColor.opacity(0.32), lineWidth: 1)
-                    )
-            },
-            content: { source, isSelected in
-                playbackSourceSegment(source, isSelected: isSelected)
+        return HStack(spacing: 2) {
+            playbackSourceButton(
+                title: NSLocalizedString(PlaybackSource.local.localizedTitleKey, comment: ""),
+                isSelected: playbackCoordinator.activeSource == .local,
+                minWidth: 54
+            ) {
+                playbackCoordinator.setActiveSource(.local)
             }
-        )
+
+            HStack(spacing: 0) {
+                playbackSourceButton(
+                    title: externalMode.localizedTitle,
+                    isSelected: false,
+                    foregroundOverride: playbackCoordinator.activeSource == .systemNowPlaying ? selectedPlaybackSourceTextColor : nil,
+                    minWidth: 106
+                ) {
+                    playbackCoordinator.setActiveSource(.systemNowPlaying)
+                }
+
+                Menu {
+                    ForEach(ExternalPlaybackSourceMode.allCases) { mode in
+                        Button {
+                            withAnimation(.snappy(duration: 0.18)) {
+                                settings.externalPlaybackSourceMode = mode
+                                selectedExternalPlaybackMode = mode
+                                playbackCoordinator.setActiveSource(.systemNowPlaying)
+                            }
+                        } label: {
+                            if mode == selectedExternalPlaybackMode {
+                                Label(mode.localizedTitle, systemImage: "checkmark")
+                            } else {
+                                Text(mode.localizedTitle)
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(playbackCoordinator.activeSource == .systemNowPlaying ? selectedPlaybackSourceTextColor : Color.secondary)
+                        .frame(width: 24, height: metrics.knobHeight)
+                        .contentShape(Rectangle())
+                }
+                .menuStyle(.borderlessButton)
+                .buttonStyle(.plain)
+                .help(LocalizedStringKey("playback.external_source.menu.help"))
+            }
+            .background {
+                if playbackCoordinator.activeSource == .systemNowPlaying {
+                    Capsule(style: .continuous)
+                        .fill(themeStore.accentColor.opacity(currentColorScheme == .dark ? 0.36 : 0.18))
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .strokeBorder(themeStore.accentColor.opacity(0.32), lineWidth: 1)
+                        )
+                }
+            }
+        }
         .frame(maxWidth: .infinity)
         .frame(height: metrics.knobHeight)
         .padding(metrics.knobInset)
@@ -520,29 +545,40 @@ struct SidebarView: View {
         .help(LocalizedStringKey("playback.source.help"))
     }
 
-    private func playbackSourceSegment(_ source: PlaybackSource, isSelected: Bool) -> some View {
-        let title = LocalizedStringKey(source.localizedTitleKey)
-        let foregroundColor = isSelected ? selectedPlaybackSourceTextColor : Color.secondary
-        let isTwoSegmentMode = !settings.enableSystemNowPlayingMode
-        let minWidth: CGFloat = {
-            switch source {
-            case .appleMusic:
-                return isTwoSegmentMode ? 80 : 88
-            case .local:
-                return isTwoSegmentMode ? 80 : 46
-            case .systemNowPlaying:
-                return 46
-            }
-        }()
+    private func playbackSourceButton(
+        title: String,
+        isSelected: Bool,
+        foregroundOverride: Color? = nil,
+        minWidth: CGFloat,
+        action: @escaping () -> Void
+    ) -> some View {
+        let foregroundColor = foregroundOverride ?? (isSelected ? selectedPlaybackSourceTextColor : Color.secondary)
 
-        return Text(title)
-            .font(.caption.weight(.semibold))
-            .lineLimit(1)
-            .minimumScaleFactor(0.86)
-            .foregroundStyle(foregroundColor)
-            .frame(minWidth: minWidth, maxWidth: .infinity)
-            .frame(height: PlaybackSourceSwitcherMetrics.knobHeight)
-            .contentShape(Rectangle())
+        return Button {
+            withAnimation(.snappy(duration: 0.18)) {
+                action()
+            }
+        } label: {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+                .foregroundStyle(foregroundColor)
+                .frame(minWidth: minWidth, maxWidth: .infinity)
+                .frame(height: PlaybackSourceSwitcherMetrics.knobHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background {
+            if isSelected {
+                Capsule(style: .continuous)
+                    .fill(themeStore.accentColor.opacity(currentColorScheme == .dark ? 0.36 : 0.18))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .strokeBorder(themeStore.accentColor.opacity(0.32), lineWidth: 1)
+                    )
+            }
+        }
     }
 
     private var selectedPlaybackSourceTextColor: Color {
