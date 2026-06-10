@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol, shell } from 'electron'
 import { execFile, execFileSync } from 'node:child_process'
 import { createDecipheriv, createHash } from 'node:crypto'
-import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -175,6 +175,7 @@ type ExternalPlaybackSnapshot = {
   artworkUrl?: string
   lyricsText?: string
   syncedLyrics?: string
+  beatSourceUrl?: string
   updatedAt: number
   error?: string
 }
@@ -183,6 +184,7 @@ type ExternalPlaybackMetadataCacheEntry = {
   artworkUrl?: string
   lyricsText?: string
   syncedLyrics?: string
+  beatSourceUrl?: string
   attemptedAt: number
 }
 
@@ -2876,6 +2878,138 @@ function estimatedMediaRemotePosition(payload: MediaRemotePayload): number {
   return Math.max(position, 0)
 }
 
+function netEaseOnlinePlayCacheDir(): string {
+  return join(homedir(), 'Library', 'Containers', 'com.netease.163music', 'Data', 'Caches', 'online_play_cache')
+}
+
+function netEaseSqliteStoragePath(): string {
+  return join(homedir(), 'Library', 'Containers', 'com.netease.163music', 'Data', 'Documents', 'storage', 'sqlite_storage.sqlite3')
+}
+
+function sqliteQuote(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
+function parseJsonMaybe<T>(value: string): T | null {
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return null
+  }
+}
+
+function netEaseTrackArtistsText(track: { artists?: Array<{ name?: string }>; artist?: Array<{ name?: string }>; ar?: Array<{ name?: string }> }): string {
+  const artists = track.artists ?? track.artist ?? track.ar ?? []
+  return artists.map((entry) => entry.name).filter(Boolean).join(', ')
+}
+
+function scoreNetEaseTrackJson(title: string, artist: string, album: string, duration: number, value: string): { songId: number; score: number } | null {
+  const track = parseJsonMaybe<{
+    id?: string | number
+    name?: string
+    duration?: number
+    album?: { name?: string; albumName?: string }
+    artists?: Array<{ name?: string }>
+    artist?: Array<{ name?: string }>
+    ar?: Array<{ name?: string }>
+  }>(value)
+  const songId = positiveInteger(track?.id)
+  if (!track || !songId) return null
+  let score = textSimilarityScore(title, track.name) * 7
+  score += textSimilarityScore(artist, netEaseTrackArtistsText(track)) * 5
+  score += textSimilarityScore(album, track.album?.name || track.album?.albumName) * 2
+  const trackDuration = typeof track.duration === 'number' ? track.duration / 1000 : 0
+  if (duration > 0 && trackDuration > 0) {
+    const delta = Math.abs(duration - trackDuration)
+    score += delta <= 3 ? 3 : delta <= 12 ? 1 : delta > 45 ? -4 : 0
+  }
+  return { songId, score }
+}
+
+function findNetEaseSongIdInLocalDb(title: string, artist: string, album: string, duration: number): number | null {
+  const dbPath = netEaseSqliteStoragePath()
+  if (!existsSync(dbPath) || !title) return null
+  const likeTerms = [title, artist, album].filter((term) => term && term !== '未知艺人' && term !== '外部播放').slice(0, 2)
+  const where = likeTerms.length
+    ? likeTerms.map((term) => `jsonStr LIKE ${sqliteQuote(`%${term}%`)}`).join(' AND ')
+    : `jsonStr LIKE ${sqliteQuote(`%${title}%`)}`
+  const queries = [
+    `SELECT id || char(9) || jsonStr FROM dbTrack WHERE ${where} LIMIT 80;`,
+    `SELECT tid || char(9) || track FROM web_track WHERE ${where.replace(/jsonStr/g, 'track')} LIMIT 80;`
+  ]
+  const candidates: Array<{ songId: number; score: number }> = []
+  for (const query of queries) {
+    try {
+      const output = execFileSync('/usr/bin/sqlite3', [dbPath, query], { encoding: 'utf8', timeout: 1500, maxBuffer: 1024 * 1024 * 4 })
+      for (const line of output.split('\n')) {
+        const tabIndex = line.indexOf('\t')
+        if (tabIndex <= 0) continue
+        const json = line.slice(tabIndex + 1)
+        const candidate = scoreNetEaseTrackJson(title, artist, album, duration, json)
+        if (candidate) candidates.push(candidate)
+      }
+    } catch {
+      continue
+    }
+  }
+  return candidates.sort((a, b) => b.score - a.score).find((candidate) => candidate.score >= 8)?.songId ?? null
+}
+
+function findNetEaseCacheFileForSongId(songId: number): string | null {
+  const cacheDir = netEaseOnlinePlayCacheDir()
+  if (!existsSync(cacheDir)) return null
+  const prefix = `${songId}-_-_`
+  try {
+    return readdirSync(cacheDir)
+      .filter((name) => name.startsWith(prefix) && name.endsWith('.uc!'))
+      .map((name) => join(cacheDir, name))
+      .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0] ?? null
+  } catch {
+    return null
+  }
+}
+
+function netEaseUcDecodedExtension(decodedHeader: Buffer): 'm4a' | 'mp3' {
+  if (decodedHeader.subarray(4, 8).toString('utf8') === 'ftyp') return 'm4a'
+  return 'mp3'
+}
+
+function decryptNetEaseUcCacheFile(sourcePath: string): string | null {
+  try {
+    const sourceStats = statSync(sourcePath)
+    const source = readFileSync(sourcePath)
+    if (!source.length) return null
+    const header = Buffer.from(source.subarray(0, Math.min(16, source.length)).map((byte) => byte ^ 0xa3))
+    const extension = netEaseUcDecodedExtension(header)
+    const outputDir = join(app.getPath('userData'), 'external-beat-cache')
+    mkdirSync(outputDir, { recursive: true })
+    const outputPath = join(outputDir, `${basename(sourcePath).replace(/[^a-zA-Z0-9._-]+/g, '-')}.${extension}`)
+    if (existsSync(outputPath)) {
+      const outputStats = statSync(outputPath)
+      if (outputStats.mtimeMs >= sourceStats.mtimeMs && outputStats.size === sourceStats.size) return outputPath
+    }
+    const decoded = Buffer.allocUnsafe(source.length)
+    for (let index = 0; index < source.length; index += 1) decoded[index] = source[index] ^ 0xa3
+    writeFileSync(outputPath, decoded)
+    return outputPath
+  } catch {
+    return null
+  }
+}
+
+function resolveNetEaseExternalBeatSourceUrl(payload: MediaRemotePayload): string | undefined {
+  const title = (payload.title ?? '').trim()
+  const artist = (payload.artist ?? '').trim() || '未知艺人'
+  const album = payload.album?.trim() || '外部播放'
+  const duration = finiteSeconds(payload.duration)
+  const songId = findNetEaseSongIdInLocalDb(title, artist, album, duration)
+  if (!songId) return undefined
+  const cacheFile = findNetEaseCacheFileForSongId(songId)
+  if (!cacheFile) return undefined
+  const audioPath = decryptNetEaseUcCacheFile(cacheFile)
+  return audioPath ? mediaUrlForPath(audioPath) : undefined
+}
+
 function mergeExternalMetadataCache(identity: string, values: Partial<Omit<ExternalPlaybackMetadataCacheEntry, 'attemptedAt'>>): void {
   const current = externalMetadataByIdentity.get(identity)
   externalMetadataByIdentity.set(identity, {
@@ -2886,7 +3020,12 @@ function mergeExternalMetadataCache(identity: string, values: Partial<Omit<Exter
 }
 
 function ensureExternalPlaybackMetadata(identity: string, payload: MediaRemotePayload): void {
-  const current = externalMetadataByIdentity.get(identity)
+  let current = externalMetadataByIdentity.get(identity)
+  if (!current?.beatSourceUrl) {
+    const beatSourceUrl = resolveNetEaseExternalBeatSourceUrl(payload)
+    if (beatSourceUrl) mergeExternalMetadataCache(identity, { beatSourceUrl })
+    current = externalMetadataByIdentity.get(identity)
+  }
   if (
     pendingExternalMetadataIdentities.has(identity) ||
     (current && (current.artworkUrl || current.lyricsText || current.syncedLyrics)) ||
@@ -2964,6 +3103,7 @@ function mediaRemoteSnapshotFromPayload(payload: MediaRemotePayload, mode: Exter
   const identity = externalPayloadIdentity(payload)
   const metadata = title ? externalMetadataByIdentity.get(identity) : undefined
   if (title) ensureExternalPlaybackMetadata(identity, payload)
+  const nextMetadata = title ? externalMetadataByIdentity.get(identity) : metadata
   return {
     available: true,
     sourceMode: mode,
@@ -2979,9 +3119,10 @@ function mediaRemoteSnapshotFromPayload(payload: MediaRemotePayload, mode: Exter
     canControlPlayback: true,
     canSkip: true,
     canSeek: duration > 0,
-    artworkUrl: metadata?.artworkUrl,
-    lyricsText: metadata?.lyricsText,
-    syncedLyrics: metadata?.syncedLyrics,
+    artworkUrl: nextMetadata?.artworkUrl,
+    lyricsText: nextMetadata?.lyricsText,
+    syncedLyrics: nextMetadata?.syncedLyrics,
+    beatSourceUrl: nextMetadata?.beatSourceUrl,
     updatedAt: Date.now()
   }
 }

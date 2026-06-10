@@ -177,3 +177,4 @@
 - 外部源低清缩略图链路取消：MediaRemote artworkData 不再进入外部播放 snapshot，也不再作为 renderer 封面兜底；外部源封面只使用现有封面搜索返回的高清结果，避免低清系统缩略图长期压住高清封面。`npm run typecheck` 与 `npm run build` 已通过。
 - 外部源高清补全链路修复：封面查找和歌词查找改为分开落库，封面查到后立刻进入外部 `displayTrack`，不再等待慢歌词源；空结果只短时间记忆并允许同一首歌后续重试。歌词自动源顺序把 LRCLIB 提前到 LDDC 前面，避免可命中的同步歌词被慢兜底源拖住。`npm run typecheck` 与 `npm run build` 已通过。
 - 外部源封面首屏加速：外部播放 snapshot 增加主进程元数据缓存，生成 snapshot 时后台补全高清封面/歌词并在后续轮询直接带回；封面先走 iTunes 快速高分辨率 URL 作为首屏结果，完整封面候选继续后台覆盖，歌词先走 LRCLIB 快路径再跑完整多源链路。`npm run typecheck` 与 `npm run build` 已通过。
+- 外部源封面节拍缓存音频接入：macOS 网易云外部播放无法直接拿原音源时，主进程会按当前 MediaRemote 曲目在网易云 sqlite 中匹配 songId，再到 `online_play_cache` 找对应 `.uc!` 缓存并按 `0xa3` 异或解密到 `external-beat-cache`；外部 snapshot 附带 `beatSourceUrl`，renderer 的封面 BPM 分析改用当前 `displayTrack`，因此第三方源也能复用现有封面节拍/手动确认逻辑。已用当前网易云缓存生成 m4a，并通过 `afinfo` 验证可解码；`npm run typecheck` 与 `npm run build` 已通过。

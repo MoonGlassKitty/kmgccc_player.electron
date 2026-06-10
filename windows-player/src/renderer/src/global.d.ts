@@ -158,6 +158,7 @@ declare global {
     artworkUrl?: string
     lyricsText?: string
     syncedLyrics?: string
+    beatSourceUrl?: string
     updatedAt: number
     error?: string
   }
