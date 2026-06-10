@@ -3029,23 +3029,29 @@ function App(): React.ReactElement {
       if (snapshot.available && key) {
         const previousClock = externalPlaybackClockRef.current
         const smtcTime = Number.isFinite(snapshot.currentTime) && snapshot.currentTime > 0 ? snapshot.currentTime : 0
+        const hasTimelinePosition = snapshot.canSeek || smtcTime > 0
         const effectiveDuration = duration > 0 ? duration : EXTERNAL_PLAYBACK_FALLBACK_DURATION_SECONDS
         if (previousClock.key !== key) {
-          externalPlaybackClockRef.current = { key, currentTime: clampNumber(smtcTime, 0, effectiveDuration), updatedAt: now }
+          externalPlaybackClockRef.current = { key, currentTime: hasTimelinePosition ? clampNumber(smtcTime, 0, effectiveDuration) : 0, updatedAt: now }
         } else if (snapshot.isPlaying) {
           const elapsedSeconds = Math.max(0, (now - previousClock.updatedAt) / 1000)
           const predictedTime = clampNumber(previousClock.currentTime + elapsedSeconds, 0, effectiveDuration)
           const driftSeconds = smtcTime - predictedTime
-          const shouldSnapToSmtc =
+          const shouldSnapToSmtc = hasTimelinePosition && (
             Math.abs(driftSeconds) > EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS ||
             (smtcTime < 1 && predictedTime > EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS)
+          )
           externalPlaybackClockRef.current = {
             key,
             currentTime: shouldSnapToSmtc ? clampNumber(smtcTime, 0, effectiveDuration) : predictedTime,
             updatedAt: now
           }
         } else {
-          externalPlaybackClockRef.current = { key, currentTime: clampNumber(smtcTime, 0, effectiveDuration), updatedAt: now }
+          externalPlaybackClockRef.current = {
+            key,
+            currentTime: hasTimelinePosition ? clampNumber(smtcTime, 0, effectiveDuration) : previousClock.currentTime,
+            updatedAt: now
+          }
         }
         currentTime = externalPlaybackClockRef.current.currentTime
         duration = effectiveDuration
@@ -3203,17 +3209,20 @@ function App(): React.ReactElement {
     if (!Number.isFinite(seconds)) return
     const nextTime = Math.max(0, seconds)
     if (playbackSource === 'external') {
-      void window.kmgccc?.sendExternalPlaybackCommand?.('seek', nextTime)
-      const key = externalTrackKey(externalPlaybackSnapshot)
-      if (key) {
-        externalPlaybackClockRef.current = {
-          key,
-          currentTime: nextTime,
-          updatedAt: Date.now()
+      const snapshot = externalPlaybackSnapshot
+      void window.kmgccc?.sendExternalPlaybackCommand?.('seek', nextTime).then((ok) => {
+        if (!ok) return
+        const key = externalTrackKey(snapshot)
+        if (key) {
+          externalPlaybackClockRef.current = {
+            key,
+            currentTime: nextTime,
+            updatedAt: Date.now()
+          }
         }
-      }
-      writeMiniProgressRatio(nextTime, externalPlaybackSnapshot?.duration ?? playbackDuration)
-      setPlaybackTime(nextTime)
+        writeMiniProgressRatio(nextTime, snapshot?.duration ?? playbackDuration)
+        setPlaybackTime(nextTime)
+      })
       return
     }
     const audio = audioRef.current
@@ -3228,7 +3237,7 @@ function App(): React.ReactElement {
     writeMiniProgressRatio(nextTime, duration)
     lastPlaybackTimeRef.current = nextTime
     setPlaybackTime(nextTime)
-  }, [currentTrack?.duration, currentTrack?.sourceUrl, externalPlaybackSnapshot?.duration, playbackDuration, playbackSource, writeMiniProgressRatio])
+  }, [currentTrack?.duration, currentTrack?.sourceUrl, externalPlaybackSnapshot, playbackDuration, playbackSource, writeMiniProgressRatio])
   const seekToLyricTime = React.useCallback((seconds: number) => {
     seekTo(Math.max(0, seconds - lyricPlaybackOffsetSeconds + 0.22))
   }, [lyricPlaybackOffsetSeconds, seekTo])

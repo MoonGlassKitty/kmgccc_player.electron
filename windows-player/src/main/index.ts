@@ -3368,7 +3368,7 @@ switch ($command) {
   'pause' { $result = AwaitOperation ($session.TryPauseAsync()) ([bool]) }
   'next' { $result = AwaitOperation ($session.TrySkipNextAsync()) ([bool]) }
   'previous' { $result = AwaitOperation ($session.TrySkipPreviousAsync()) ([bool]) }
-  'seek' { $result = AwaitOperation ($session.TryChangePlaybackPositionAsync([TimeSpan]::FromTicks(${positionTicks}))) ([bool]) }
+  'seek' { $result = AwaitOperation ($session.TryChangePlaybackPositionAsync([int64]${positionTicks})) ([bool]) }
   default { $result = $false }
 }
 [bool]$result | ConvertTo-Json -Compress
