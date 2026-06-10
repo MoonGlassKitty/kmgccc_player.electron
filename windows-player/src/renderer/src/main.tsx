@@ -3068,6 +3068,32 @@ function App(): React.ReactElement {
 
   React.useEffect(() => {
     if (playbackSource !== 'external') return
+    if (!externalPlaybackSnapshot?.available || !externalPlaybackSnapshot.isPlaying) return
+    if (!currentTrackHasTimedLyrics || (!isLyricsSidebarOpen && !isFullscreenLyricsOpen)) return
+    const key = externalPlaybackKey
+    if (!key) return
+    const duration = externalPlaybackSnapshot.duration > 0
+      ? externalPlaybackSnapshot.duration
+      : EXTERNAL_PLAYBACK_FALLBACK_DURATION_SECONDS
+    const tick = (): void => {
+      const previousClock = externalPlaybackClockRef.current
+      if (previousClock.key !== key) return
+      const now = Date.now()
+      const elapsedSeconds = Math.max(0, (now - previousClock.updatedAt) / 1000)
+      const currentTime = clampNumber(previousClock.currentTime + elapsedSeconds, 0, duration)
+      externalPlaybackClockRef.current = { key, currentTime, updatedAt: now }
+      setPlaybackTime(currentTime)
+      writeMiniProgressRatio(currentTime, duration)
+    }
+    const interval = window.setInterval(tick, 250)
+    tick()
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [currentTrackHasTimedLyrics, externalPlaybackKey, externalPlaybackSnapshot?.available, externalPlaybackSnapshot?.duration, externalPlaybackSnapshot?.isPlaying, isFullscreenLyricsOpen, isLyricsSidebarOpen, playbackSource, writeMiniProgressRatio])
+
+  React.useEffect(() => {
+    if (playbackSource !== 'external') return
     const snapshot = externalPlaybackSnapshot
     const key = externalPlaybackKey
     const title = snapshot?.title.trim() ?? ''
@@ -6021,10 +6047,11 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   const isLyricHoveringRef = React.useRef(false)
   const [isSeekingLyric, setIsSeekingLyric] = React.useState(false)
   const seekingTimerRef = React.useRef<number | null>(null)
+  const isExternalPlaybackTrack = track?.metadataSource === 'externalPlayback'
   const amllOptimizeOptions = React.useMemo(() => ({ resetLineTimestamps: false }), [])
   const amllBottomLine = React.useMemo(
     () => variant === 'fullscreen' ? <span className="fullscreen-amll-bottom">{track ? `${track.artist} · ${track.album}` : ''}</span> : undefined,
-    [track, variant]
+    [track?.album, track?.artist, variant]
   )
 
   React.useEffect(() => () => {
@@ -6083,7 +6110,7 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
           alignPosition={variant === 'fullscreen' ? 0.38 : 0.18}
           enableBlur={renderQuality !== 'performance' && !isLyricHovering}
           enableScale={renderQuality !== 'performance'}
-          enableSpring={renderQuality === 'quality'}
+          enableSpring={renderQuality === 'quality' && !isExternalPlaybackTrack}
           wordFadeWidth={0.5}
           optimizeOptions={amllOptimizeOptions}
           bottomLine={amllBottomLine}
@@ -6159,7 +6186,7 @@ const LyricsSidePanel = React.memo(function LyricsSidePanel({
   nearSwitchGapMs?: number
   colorStyle?: React.CSSProperties
 }): React.ReactElement {
-  const lines = React.useMemo(() => parseLyrics(track), [track])
+  const lines = React.useMemo(() => parseLyrics(track), [track?.lyricsText, track?.syncedLyrics])
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime, leadInMs), [leadInMs, lines, playbackTime])
   const artwork = trackArtwork(track, albums)
   const hasTimedLyrics = lines.some((line) => line.time !== null)
@@ -6251,7 +6278,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   lyricToneSeed: RgbColor | null
   onLyricToneSeedChange: (seed: RgbColor) => void
 }): React.ReactElement {
-  const lines = React.useMemo(() => parseLyrics(track), [track])
+  const lines = React.useMemo(() => parseLyrics(track), [track?.lyricsText, track?.syncedLyrics])
   const currentLineIndex = React.useMemo(() => activeLyricIndex(lines, playbackTime), [lines, playbackTime])
   const hasTimedLyrics = lines.some((line) => line.time !== null)
   const artwork = trackArtwork(track, albums)
