@@ -4060,6 +4060,8 @@ app.on('window-all-closed', () => {
   }
 })
 
+const windowDragSessions = new Map<number, { pointerX: number; pointerY: number; windowX: number; windowY: number }>()
+
 ipcMain.on('window:minimize', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize()
 })
@@ -4076,6 +4078,35 @@ ipcMain.on('window:toggle-maximize', (event) => {
 
 ipcMain.on('window:close', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.close()
+})
+
+ipcMain.on('window:drag-start', (event, point: { x: number; y: number }) => {
+  const owner = BrowserWindow.fromWebContents(event.sender)
+  if (!owner || owner.isDestroyed()) return
+  const [windowX, windowY] = owner.getPosition()
+  windowDragSessions.set(event.sender.id, {
+    pointerX: Number.isFinite(point?.x) ? point.x : 0,
+    pointerY: Number.isFinite(point?.y) ? point.y : 0,
+    windowX,
+    windowY
+  })
+})
+
+ipcMain.on('window:drag-move', (event, point: { x: number; y: number }) => {
+  const owner = BrowserWindow.fromWebContents(event.sender)
+  const session = windowDragSessions.get(event.sender.id)
+  if (!owner || owner.isDestroyed() || !session) return
+  const pointerX = Number.isFinite(point?.x) ? point.x : session.pointerX
+  const pointerY = Number.isFinite(point?.y) ? point.y : session.pointerY
+  owner.setPosition(
+    Math.round(session.windowX + pointerX - session.pointerX),
+    Math.round(session.windowY + pointerY - session.pointerY),
+    false
+  )
+})
+
+ipcMain.on('window:drag-end', (event) => {
+  windowDragSessions.delete(event.sender.id)
 })
 
 ipcMain.handle('library:get-home-snapshot', () => getHomeSnapshot())

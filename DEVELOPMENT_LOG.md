@@ -1,5 +1,9 @@
 # Development Log
 
+## 2026-06-11
+
+- 将 Windows 标题栏透明拖拽区改为 mac branch 同款手动拖动链路：renderer 捕获 `titlebar-drag-region` 的 pointer 事件，经 preload 发送 `window:drag-start` / `window:drag-move` / `window:drag-end`，主进程按屏幕坐标调用 `BrowserWindow.setPosition`。拖拽层自身改为 `no-drag`，避开全屏歌词页 `.no-drag` 覆盖导致 `-webkit-app-region: drag` 命中失效的问题。`npm run typecheck` 与 `npm run build` 已通过。
+
 ## 2026-06-08
 
 - BK 背景颜色改回封面主题色方向，使用 HSB 转 RGB 输出以避免 HSL 高亮度混白导致的灰白感。

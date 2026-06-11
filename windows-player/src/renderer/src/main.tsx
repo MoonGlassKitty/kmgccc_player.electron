@@ -4280,6 +4280,32 @@ function App(): React.ReactElement {
     }
   }, [])
 
+  const handleTitlebarDragStart = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || !window.kmgccc?.startWindowDrag) return
+    event.preventDefault()
+    event.stopPropagation()
+    const target = event.currentTarget
+    target.setPointerCapture(event.pointerId)
+    window.kmgccc.startWindowDrag({ x: event.screenX, y: event.screenY })
+
+    const handleMove = (moveEvent: PointerEvent): void => {
+      window.kmgccc?.moveWindowDrag({ x: moveEvent.screenX, y: moveEvent.screenY })
+    }
+    const handleEnd = (): void => {
+      if (target.hasPointerCapture(event.pointerId)) {
+        target.releasePointerCapture(event.pointerId)
+      }
+      window.kmgccc?.endWindowDrag()
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleEnd)
+      window.removeEventListener('pointercancel', handleEnd)
+    }
+
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleEnd)
+    window.addEventListener('pointercancel', handleEnd)
+  }, [])
+
   return (
     <div
       className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''} lyrics-bg-${lyricsBackgroundMode} ${followSystemAppearance ? 'appearance-system' : 'appearance-manual'} appearance-${effectiveAppearance}`}
@@ -4324,7 +4350,7 @@ function App(): React.ReactElement {
           onOpenContextMenu={openContextMenu}
         />
         <WindowControls />
-        <div className="titlebar-drag-region" aria-hidden="true" />
+        <div className="titlebar-drag-region no-drag" aria-hidden="true" onPointerDown={handleTitlebarDragStart} />
         {entryReveal ? <RouteEntryLoader phase={entryReveal.phase} /> : null}
 
         <main className="content-pane">
