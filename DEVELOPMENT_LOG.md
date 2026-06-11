@@ -2,6 +2,7 @@
 
 ## 2026-06-11
 
+- 全屏歌词页拖拽命中继续修正：移除 `.fullscreen-lyrics-page` 根节点 `no-drag`，改为只给封面、歌曲信息和歌词区域显式 `no-drag`；歌词打开时全局 `titlebar-drag-region` 扩展到窗口左侧，避免父级 no-drag 覆盖导致顶部仍无法拖动。`npm run typecheck` 与 `npm run build` 已通过。
 - 全屏歌词页内部新增顶部透明拖拽命中层 `.fullscreen-lyrics-drag-region`，保留原生 `-webkit-app-region: drag`，避开右上角窗口控制区和左侧栏，修复歌词页根节点 `no-drag` 覆盖后顶部无法拖动窗口的问题。`npm run typecheck` 与 `npm run build` 已通过。
 
 ## 2026-06-08

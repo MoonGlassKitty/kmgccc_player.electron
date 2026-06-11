@@ -6660,7 +6660,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   }, [onLyricToneSeedChange, track?.id])
 
   return (
-    <section ref={pageRef} className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} amll-color-phase-${amllColorPhase % 2} no-drag`} style={fullscreenPageStyle}>
+    <section ref={pageRef} className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} amll-color-phase-${amllColorPhase % 2}`} style={fullscreenPageStyle}>
       <div className="fullscreen-lyrics-drag-region" aria-hidden="true" />
       {useCoverGradientBlur ? (
         <>
