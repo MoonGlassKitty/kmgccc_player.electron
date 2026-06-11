@@ -650,6 +650,16 @@ type ManualAppearanceMode = 'light' | 'dark'
 type LyricsRenderQuality = 'performance' | 'balanced' | 'quality'
 type DetailSortKey = 'importedAt' | 'addedAt' | 'title' | 'artist' | 'duration' | 'playCount' | 'favorite' | 'albumOrder'
 type SortDirection = 'asc' | 'desc'
+type PlaybackSessionState = {
+  currentId?: string
+  queueIds?: string[]
+  playbackTime?: number
+  isLyricsSidebarOpen?: boolean
+  lyricsSidebarWidth?: number
+  isShuffleEnabled?: boolean
+  volume?: number
+  route?: AppRoute
+}
 type EntryRevealTarget = 'home' | 'nowPlaying' | 'fullscreen'
 type EntryRevealState = {
   target: EntryRevealTarget
@@ -691,6 +701,7 @@ const artworkFrameAssets = [artworkFrame1, artworkFrame2, artworkFrame3, artwork
 const ARTWORK_PULSE_VISUAL_ADVANCE_SECONDS = 0.1
 const APPROVED_ARTWORK_BEATS_STORAGE_KEY = 'skin.classicLED.approvedArtworkBeats'
 const ARTWORK_BPM_ACCEPTANCE_RANGE = 5
+const PLAYBACK_SESSION_STORAGE_KEY = 'playbackSession.v1'
 const ARTWORK_BPM_MIN = 25
 const ARTWORK_BPM_MAX = 90
 
@@ -1010,6 +1021,45 @@ function storedApprovedArtworkBeats(): Record<string, ArtworkBeat> {
         .map(([trackId, value]) => [trackId, sanitizeArtworkBeat(value)] as const)
         .filter((entry): entry is readonly [string, ArtworkBeat] => Boolean(entry[0] && entry[1]))
     )
+  } catch {
+    return {}
+  }
+}
+
+function sanitizeStoredRoute(value: unknown): AppRoute | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const route = value as Partial<AppRoute>
+  if (route.name === 'home' || route.name === 'nowPlaying' || route.name === 'allTracks') return { name: route.name }
+  if ((route.name === 'artistDetail' || route.name === 'albumDetail' || route.name === 'playlistDetail') && typeof route.id === 'string' && typeof route.title === 'string') {
+    return { name: route.name, id: route.id, title: route.title }
+  }
+  return undefined
+}
+
+function storedPlaybackSession(): PlaybackSessionState {
+  try {
+    const rawValue = window.localStorage.getItem(PLAYBACK_SESSION_STORAGE_KEY)
+    const parsed = rawValue ? JSON.parse(rawValue) : null
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const value = parsed as PlaybackSessionState
+    const session: PlaybackSessionState = {}
+    if (typeof value.currentId === 'string') session.currentId = value.currentId
+    if (Array.isArray(value.queueIds)) {
+      const queueIds = value.queueIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
+      if (queueIds.length) session.queueIds = Array.from(new Set(queueIds))
+    }
+    if (typeof value.playbackTime === 'number' && Number.isFinite(value.playbackTime)) {
+      session.playbackTime = Math.max(0, value.playbackTime)
+    }
+    if (typeof value.isLyricsSidebarOpen === 'boolean') session.isLyricsSidebarOpen = value.isLyricsSidebarOpen
+    if (typeof value.lyricsSidebarWidth === 'number' && Number.isFinite(value.lyricsSidebarWidth)) {
+      session.lyricsSidebarWidth = clampNumber(value.lyricsSidebarWidth, 380, 640)
+    }
+    if (typeof value.isShuffleEnabled === 'boolean') session.isShuffleEnabled = value.isShuffleEnabled
+    if (typeof value.volume === 'number' && Number.isFinite(value.volume)) session.volume = clampNumber(value.volume, 0, 1)
+    const route = sanitizeStoredRoute(value.route)
+    if (route) session.route = route
+    return session
   } catch {
     return {}
   }
@@ -2516,11 +2566,13 @@ const HomeAmbientShapesLayer = React.memo(function HomeAmbientShapesLayer({
 })
 
 function App(): React.ReactElement {
+  const [initialPlaybackSession] = React.useState<PlaybackSessionState>(() => storedPlaybackSession())
+  const initialPlaybackSessionRef = React.useRef<PlaybackSessionState>(initialPlaybackSession)
   const [homeSnapshot, setHomeSnapshot] = React.useState<HomeSnapshot>(fallbackHomeSnapshot)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
   const [sidebarWidth, setSidebarWidth] = React.useState(DEFAULT_SIDEBAR_WIDTH)
   const [viewportWidth, setViewportWidth] = React.useState(() => window.innerWidth)
-  const [route, setRoute] = React.useState<AppRoute>({ name: 'home' })
+  const [route, setRoute] = React.useState<AppRoute>(() => initialPlaybackSession.route ?? { name: 'home' })
   const [homeAmbientEpoch, setHomeAmbientEpoch] = React.useState(0)
   const [entryReveal, setEntryReveal] = React.useState<EntryRevealState>(null)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
@@ -2595,13 +2647,13 @@ function App(): React.ReactElement {
   const [approvedArtworkBeatById, setApprovedArtworkBeatById] = React.useState<Record<string, ArtworkBeat>>(() => storedApprovedArtworkBeats())
   const [manualBpmBoard, setManualBpmBoard] = React.useState<ManualBpmBoardState | null>(null)
   const [artworkBeatSaveFeedback, setArtworkBeatSaveFeedback] = React.useState<ArtworkBeatSaveFeedback>(null)
-  const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(false)
-  const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(460)
+  const [isLyricsSidebarOpen, setIsLyricsSidebarOpen] = React.useState(() => initialPlaybackSession.isLyricsSidebarOpen ?? false)
+  const [lyricsSidebarWidth, setLyricsSidebarWidth] = React.useState(() => initialPlaybackSession.lyricsSidebarWidth ?? 460)
   const [isFullscreenLyricsOpen, setIsFullscreenLyricsOpen] = React.useState(false)
   const [isFullscreenLyricsVisible, setIsFullscreenLyricsVisible] = React.useState(true)
   const [lyricToneSeed, setLyricToneSeed] = React.useState<RgbColor | null>(null)
-  const [currentId, setCurrentId] = React.useState(fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
-  const [playbackQueueIds, setPlaybackQueueIds] = React.useState<string[]>(() => fallbackHomeSnapshot.tracks.map((track) => track.id))
+  const [currentId, setCurrentId] = React.useState(initialPlaybackSession.currentId ?? fallbackHomeSnapshot.heroTrack?.id ?? fallbackHomeSnapshot.tracks[0]?.id ?? '')
+  const [playbackQueueIds, setPlaybackQueueIds] = React.useState<string[]>(() => initialPlaybackSession.queueIds?.length ? initialPlaybackSession.queueIds : fallbackHomeSnapshot.tracks.map((track) => track.id))
   const [isPlaying, setIsPlaying] = React.useState(false)
   const [playbackSource, setPlaybackSource] = React.useState<PlaybackSourceKind>('local')
   const [externalPlaybackMode, setExternalPlaybackMode] = React.useState<ExternalPlaybackSourceMode>('thirdParty')
@@ -2609,10 +2661,11 @@ function App(): React.ReactElement {
   const [externalLyricsByKey, setExternalLyricsByKey] = React.useState<Record<string, ExternalLyricsCacheEntry>>(() => storedExternalLyricsCache())
   const [externalArtworkByKey, setExternalArtworkByKey] = React.useState<Record<string, ExternalArtworkCacheEntry>>(() => storedExternalArtworkCache())
   const [systemPlatform, setSystemPlatform] = React.useState<NodeJS.Platform | null>(null)
-  const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(false)
-  const [volume, setVolume] = React.useState(0.72)
-  const [playbackTime, setPlaybackTime] = React.useState(0)
+  const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(() => initialPlaybackSession.isShuffleEnabled ?? false)
+  const [volume, setVolume] = React.useState(() => initialPlaybackSession.volume ?? 0.72)
+  const [playbackTime, setPlaybackTime] = React.useState(() => initialPlaybackSession.playbackTime ?? 0)
   const [playbackDuration, setPlaybackDuration] = React.useState(0)
+  const [hasResolvedInitialHomeSnapshot, setHasResolvedInitialHomeSnapshot] = React.useState(false)
   const [importSyncState, setImportSyncState] = React.useState<ImportSyncState | null>(null)
   const [contextMenu, setContextMenu] = React.useState<ContextMenuState | null>(null)
   const [libraryDialog, setLibraryDialog] = React.useState<LibraryDialogState | null>(null)
@@ -2634,6 +2687,9 @@ function App(): React.ReactElement {
   const previousTapeNowPlayingSkinRef = React.useRef<NowPlayingSkinID | null>(null)
   const previousTapeFullscreenSkinRef = React.useRef<FullscreenSkinID | null>(null)
   const loadedAudioTrackRef = React.useRef<string>('')
+  const pendingPlaybackSessionRef = React.useRef<PlaybackSessionState | null>(initialPlaybackSession)
+  const pendingSeekOnLoadRef = React.useRef<number | null>(initialPlaybackSession.playbackTime ?? null)
+  const pendingSeekTrackIdRef = React.useRef<string | null>(initialPlaybackSession.currentId ?? null)
   const previousRouteNameRef = React.useRef<AppRoute['name']>('home')
   const previousEntryTargetRef = React.useRef<EntryRevealTarget | 'other'>('home')
   const entryRevealTimersRef = React.useRef<number[]>([])
@@ -3280,6 +3336,28 @@ function App(): React.ReactElement {
 
   const applyHomeSnapshot = React.useCallback((snapshot: HomeSnapshot, preferredTrackId?: string) => {
     setHomeSnapshot(snapshot)
+    setHasResolvedInitialHomeSnapshot(true)
+    const pendingSession = preferredTrackId ? null : pendingPlaybackSessionRef.current
+    if (pendingSession) {
+      const snapshotTrackIds = new Set(snapshot.tracks.map((track) => track.id))
+      const restoredQueueIds = pendingSession.queueIds?.filter((id) => snapshotTrackIds.has(id)) ?? []
+      const restoredCurrentId = pendingSession.currentId && snapshotTrackIds.has(pendingSession.currentId) ? pendingSession.currentId : ''
+      setPlaybackQueueIds(restoredQueueIds.length ? restoredQueueIds : snapshot.tracks.map((track) => track.id))
+      setCurrentId(restoredCurrentId || snapshot.heroTrack?.id || snapshot.tracks[0]?.id || '')
+      if (restoredCurrentId) {
+        const restoredTime = Math.max(0, pendingSession.playbackTime ?? 0)
+        pendingSeekOnLoadRef.current = restoredTime
+        pendingSeekTrackIdRef.current = restoredCurrentId
+        lastPlaybackTimeRef.current = restoredTime
+        setPlaybackTime(restoredTime)
+      } else {
+        pendingSeekOnLoadRef.current = null
+        pendingSeekTrackIdRef.current = null
+      }
+      pendingPlaybackSessionRef.current = null
+      return
+    }
+    pendingPlaybackSessionRef.current = null
     setPlaybackQueueIds((ids) => {
       const nextIds = snapshotWithoutMissingQueueIds(snapshot, ids)
       return nextIds.length ? nextIds : snapshot.tracks.map((track) => track.id)
@@ -3315,6 +3393,47 @@ function App(): React.ReactElement {
     miniPlayer?.style.setProperty('--mini-player-progress-ratio', String(ratio))
     miniPlayer?.style.setProperty('--mini-player-progress-width', `${ratio * 100}%`)
   }, [])
+
+  const persistPlaybackSession = React.useCallback(() => {
+    if (!hasResolvedInitialHomeSnapshot && initialPlaybackSessionRef.current.currentId) return
+    const audio = audioRef.current
+    const audioIdentity = currentTrack?.sourceUrl ? `${currentId}:${currentTrack.sourceUrl}` : ''
+    const canReadAudioTime = playbackSource === 'local' && audio && loadedAudioTrackRef.current === audioIdentity && Number.isFinite(audio.currentTime)
+    persistJsonSetting(PLAYBACK_SESSION_STORAGE_KEY, {
+      currentId,
+      queueIds: playbackQueueIds,
+      playbackTime: Math.max(0, canReadAudioTime ? audio.currentTime : playbackTime),
+      isLyricsSidebarOpen,
+      lyricsSidebarWidth,
+      isShuffleEnabled,
+      volume,
+      route
+    } satisfies PlaybackSessionState)
+  }, [currentId, currentTrack?.sourceUrl, hasResolvedInitialHomeSnapshot, isLyricsSidebarOpen, isShuffleEnabled, lyricsSidebarWidth, playbackQueueIds, playbackSource, playbackTime, route, volume])
+
+  React.useEffect(() => {
+    persistPlaybackSession()
+  }, [persistPlaybackSession])
+
+  React.useEffect(() => {
+    if (!isPlaying) return
+    const interval = window.setInterval(persistPlaybackSession, 3000)
+    return () => window.clearInterval(interval)
+  }, [isPlaying, persistPlaybackSession])
+
+  React.useEffect(() => {
+    const persistNow = (): void => persistPlaybackSession()
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === 'hidden') persistPlaybackSession()
+    }
+    window.addEventListener('beforeunload', persistNow)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.removeEventListener('beforeunload', persistNow)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [persistPlaybackSession])
+
   React.useEffect(() => {
     if (playbackSource !== 'external') return
     let cancelled = false
@@ -4222,6 +4341,7 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
+    if (!hasResolvedInitialHomeSnapshot && initialPlaybackSessionRef.current.currentId) return
 
     if (playbackSource === 'external') {
       audio.pause()
@@ -4241,17 +4361,23 @@ function App(): React.ReactElement {
 
     const audioIdentity = `${currentTrack.id}:${currentTrack.sourceUrl}`
     if (loadedAudioTrackRef.current !== audioIdentity) {
+      const shouldRestoreSeek = pendingSeekOnLoadRef.current !== null && pendingSeekTrackIdRef.current === currentTrack.id
+      const restoredTime = Math.max(0, pendingSeekOnLoadRef.current ?? 0)
       audio.src = currentTrack.sourceUrl
       audio.load()
       loadedAudioTrackRef.current = audioIdentity
-      lastPlaybackTimeRef.current = 0
-      setPlaybackTime(0)
+      lastPlaybackTimeRef.current = shouldRestoreSeek ? restoredTime : 0
+      setPlaybackTime(shouldRestoreSeek ? restoredTime : 0)
+      if (!shouldRestoreSeek) {
+        pendingSeekOnLoadRef.current = null
+        pendingSeekTrackIdRef.current = null
+      }
     }
 
     if (isPlaying) {
       void audio.play().catch(() => setIsPlaying(false))
     }
-  }, [currentTrack, isPlaying, playbackSource])
+  }, [currentTrack, hasResolvedInitialHomeSnapshot, isPlaying, playbackSource])
 
   React.useEffect(() => {
     const audio = audioRef.current
@@ -4353,10 +4479,19 @@ function App(): React.ReactElement {
     if (!audio || !currentTrack || !Number.isFinite(audio.duration)) return
 
     setPlaybackDuration(audio.duration)
+    if (pendingSeekOnLoadRef.current !== null && pendingSeekTrackIdRef.current === currentTrack.id) {
+      const restoredTime = clampNumber(pendingSeekOnLoadRef.current, 0, Math.max(0, audio.duration - 0.75))
+      audio.currentTime = restoredTime
+      lastPlaybackTimeRef.current = restoredTime
+      setPlaybackTime(restoredTime)
+      writeMiniProgressRatio(restoredTime, audio.duration)
+      pendingSeekOnLoadRef.current = null
+      pendingSeekTrackIdRef.current = null
+    }
     if (currentTrack.duration <= 0) {
       setHomeSnapshot((snapshot) => snapshotWithTrackDuration(snapshot, currentTrack.id, audio.duration))
     }
-  }, [currentTrack, playbackSource])
+  }, [currentTrack, playbackSource, writeMiniProgressRatio])
 
   const updateAudioTime = React.useCallback(() => {
     if (playbackSource === 'external') return
