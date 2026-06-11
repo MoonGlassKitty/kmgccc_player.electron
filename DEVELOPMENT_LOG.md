@@ -221,3 +221,4 @@
 - 第三方源原生窗口周期冻结根因修正：`attachExternalPlaybackMetadata` 每轮先调用 `enrichExternalPlaybackSnapshot`，后者通过 `execFileSync(powershell.exe)` 同步读取 CloudMusic 窗口标题，导致 700ms 查询加约 200ms 主进程阻塞，拖动/缩放窗口时表现为接近 1 秒一卡。高频 snapshot 路径现直接使用常驻 GSMTC bridge 返回的元数据；同步窗口标题读取仅保留在 bridge/GSMTC 都失效的低频兜底路径。
 - 第三方封面节拍停滞修正：外部 snapshot 为避免整页重渲染不再持续写 `playbackTime` state，但封面节拍仍读取该 state 的 ref，未打开歌词时进度会停住。封面 rAF 和手动测速起点改为直接从 `externalPlaybackClockRef` 加本地 elapsed 计算连续时间；snapshot 校准同步更新 ref，不依赖歌词时钟也能持续打拍。
 - 封面节拍 BPM 下限调整：自动分析、缓存清洗和手动测速统一允许最低 25 BPM；手动敲拍的有效间隔同步放宽到 2400ms，避免 25 BPM 被输入过滤提前丢弃。
+- BK 点缀元素运动相位连续性修正：背景画面切换会重建点缀节点，旧实现每次都复用固定负延迟，导致漂移和旋转周期性跳回同一初始位置；现按全局时间折算漂移双向周期和旋转周期的负延迟，节点重建后继续当前运动相位。
