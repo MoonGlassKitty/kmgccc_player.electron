@@ -4299,6 +4299,7 @@ input {
 
 .home-album-card {
   --album-card-text-safe-space: clamp(20px, 8%, 32px);
+  grid-template-rows: auto calc(2 * 15px * 1.12) 14px;
 }
 
 .home-person-card img,
@@ -4337,6 +4338,7 @@ input {
   display: -webkit-box;
   padding-right: var(--album-card-text-safe-space);
   line-height: 1.12;
+  min-height: calc(2 * 15px * 1.12);
   white-space: normal;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -4353,6 +4355,7 @@ input {
 }
 
 .home-album-card span {
+  align-self: end;
   padding-right: var(--album-card-text-safe-space);
 }
 
