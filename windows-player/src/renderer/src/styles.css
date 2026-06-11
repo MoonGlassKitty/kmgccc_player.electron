@@ -2363,7 +2363,7 @@ input {
   right: 138px;
   left: var(--sidebar-width);
   z-index: 10000;
-  height: calc(var(--win-titlebar-height) + 16px);
+  height: var(--win-titlebar-height);
   pointer-events: auto;
   cursor: default;
   -webkit-app-region: drag;
@@ -3761,6 +3761,7 @@ input {
   height: 76px;
   padding: 12px calc(var(--lyrics-width) + 28px) 12px calc(var(--sidebar-width) + 28px);
   contain: layout paint;
+  -webkit-app-region: no-drag;
   transition: padding 340ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
