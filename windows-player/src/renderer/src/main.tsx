@@ -759,10 +759,42 @@ function storedBoolean(key: string, fallback: boolean): boolean {
 
 function storedNumber(key: string, fallback: number): number {
   try {
-    const value = Number(window.localStorage.getItem(key))
+    const storedValue = window.localStorage.getItem(key)
+    if (storedValue === null) return fallback
+    const value = Number(storedValue)
     return Number.isFinite(value) ? value : fallback
   } catch {
     return fallback
+  }
+}
+
+const LYRICS_MIDPOINT_DEFAULTS_MIGRATION_KEY = 'lyricsMidpointDefaults.v1'
+const lyricsMidpointDefaults = [
+  { key: 'lyricsFontSize', legacyMinimum: 16, midpoint: 32 },
+  { key: 'lyricsTranslationFontSize', legacyMinimum: 12, midpoint: 24 },
+  { key: 'lyricsFontWeightLight', legacyMinimum: 100, midpoint: 400 },
+  { key: 'lyricsFontWeightDark', legacyMinimum: 100, midpoint: 400 },
+  { key: 'lyricsTranslationFontWeightLight', legacyMinimum: 100, midpoint: 400 },
+  { key: 'lyricsTranslationFontWeightDark', legacyMinimum: 100, midpoint: 400 },
+  { key: 'lyricsLeadInMs', legacyMinimum: 0, midpoint: 600 },
+  { key: 'lyricsNearSwitchGapMs', legacyMinimum: 0, midpoint: 250 },
+  { key: 'fullscreen.lyricsFontSize', legacyMinimum: 16, midpoint: 36 },
+  { key: 'fullscreen.lyricsTranslationFontSize', legacyMinimum: 12, midpoint: 26 },
+  { key: 'lookaheadMs', legacyMinimum: 0, midpoint: 100 }
+] as const
+
+function migrateLyricsDefaultsToMidpoints(): void {
+  try {
+    if (window.localStorage.getItem(LYRICS_MIDPOINT_DEFAULTS_MIGRATION_KEY) === 'true') return
+    for (const setting of lyricsMidpointDefaults) {
+      const storedValue = window.localStorage.getItem(setting.key)
+      if (storedValue === null || Number(storedValue) === setting.legacyMinimum) {
+        window.localStorage.setItem(setting.key, String(setting.midpoint))
+      }
+    }
+    window.localStorage.setItem(LYRICS_MIDPOINT_DEFAULTS_MIGRATION_KEY, 'true')
+  } catch {
+    // Defaults still apply through state fallbacks when localStorage is unavailable.
   }
 }
 
@@ -2296,17 +2328,17 @@ function App(): React.ReactElement {
   const [isCassetteKmgLookEnabled, setIsCassetteKmgLookEnabled] = React.useState(() => storedBoolean('skin.kmgcccCassette.showKmgLook', false))
   const [lyricsRenderQuality, setLyricsRenderQuality] = React.useState<LyricsRenderQuality>(() => storedString('amllLyricsRenderQuality', 'balanced', ['performance', 'balanced', 'quality']))
   const [isDiscreteWordHighlightEnabled, setIsDiscreteWordHighlightEnabled] = React.useState(() => storedBoolean('amllDiscreteWordHighlightEnabled', false))
-  const [lyricsFontSize, setLyricsFontSize] = React.useState(() => clampNumber(storedNumber('lyricsFontSize', 26), 16, 48))
-  const [lyricsTranslationFontSize, setLyricsTranslationFontSize] = React.useState(() => clampNumber(storedNumber('lyricsTranslationFontSize', 16), 12, 36))
-  const [lyricsFontWeightLight, setLyricsFontWeightLight] = React.useState(() => clampNumber(storedNumber('lyricsFontWeightLight', 600), 100, 700))
-  const [lyricsFontWeightDark, setLyricsFontWeightDark] = React.useState(() => clampNumber(storedNumber('lyricsFontWeightDark', 100), 100, 700))
+  const [lyricsFontSize, setLyricsFontSize] = React.useState(() => clampNumber(storedNumber('lyricsFontSize', 32), 16, 48))
+  const [lyricsTranslationFontSize, setLyricsTranslationFontSize] = React.useState(() => clampNumber(storedNumber('lyricsTranslationFontSize', 24), 12, 36))
+  const [lyricsFontWeightLight, setLyricsFontWeightLight] = React.useState(() => clampNumber(storedNumber('lyricsFontWeightLight', 400), 100, 700))
+  const [lyricsFontWeightDark, setLyricsFontWeightDark] = React.useState(() => clampNumber(storedNumber('lyricsFontWeightDark', 400), 100, 700))
   const [lyricsTranslationFontWeightLight, setLyricsTranslationFontWeightLight] = React.useState(() => clampNumber(storedNumber('lyricsTranslationFontWeightLight', 400), 100, 700))
-  const [lyricsTranslationFontWeightDark, setLyricsTranslationFontWeightDark] = React.useState(() => clampNumber(storedNumber('lyricsTranslationFontWeightDark', 100), 100, 700))
+  const [lyricsTranslationFontWeightDark, setLyricsTranslationFontWeightDark] = React.useState(() => clampNumber(storedNumber('lyricsTranslationFontWeightDark', 400), 100, 700))
   const [lyricsFontNameZh, setLyricsFontNameZh] = React.useState(() => storedString('lyricsFontNameZh', 'PingFang SC', lyricsFontFamilyOptions))
   const [lyricsFontNameEn, setLyricsFontNameEn] = React.useState(() => storedString('lyricsFontNameEn', 'SF Pro Text', lyricsFontFamilyOptions))
   const [lyricsTranslationFontName, setLyricsTranslationFontName] = React.useState(() => storedString('lyricsTranslationFontName', 'PingFang SC', lyricsFontFamilyOptions))
   const [lyricsLeadInMs, setLyricsLeadInMs] = React.useState(() => clampNumber(storedNumber('lyricsLeadInMs', 600), 0, 1200))
-  const [lyricsNearSwitchGapMs, setLyricsNearSwitchGapMs] = React.useState(() => clampNumber(storedNumber('lyricsNearSwitchGapMs', 160), 0, 500))
+  const [lyricsNearSwitchGapMs, setLyricsNearSwitchGapMs] = React.useState(() => clampNumber(storedNumber('lyricsNearSwitchGapMs', 250), 0, 500))
   const [lyricsGlobalAdvanceMs, setLyricsGlobalAdvanceMs] = React.useState(() => clampNumber(storedNumber('lyricsGlobalAdvanceMs', 0), -1000, 1000))
   const [ledCount, setLedCount] = React.useState(() => storedNumber('ledCount', 11))
   const [ledBrightnessLevels, setLedBrightnessLevels] = React.useState(() => storedNumber('ledBrightnessLevels', 5))
@@ -2323,10 +2355,10 @@ function App(): React.ReactElement {
   const [coverGradientBlurRadius, setCoverGradientBlurRadius] = React.useState(() => clampNumber(storedNumber('skin.coverGradientBlur.maxBlurRadius', 1600), 100, 2500))
   const [fullscreenLyricsRenderQuality, setFullscreenLyricsRenderQuality] = React.useState<LyricsRenderQuality>(() => storedString('fullscreen.amllLyricsRenderQuality', 'balanced', ['performance', 'balanced', 'quality']))
   const [fullscreenDiscreteWordHighlightEnabled, setFullscreenDiscreteWordHighlightEnabled] = React.useState(() => storedBoolean('fullscreen.amllDiscreteWordHighlightEnabled', false))
-  const [fullscreenLyricsFontSize, setFullscreenLyricsFontSize] = React.useState(() => clampNumber(storedNumber('fullscreen.lyricsFontSize', 30), 16, 56))
-  const [fullscreenLyricsTranslationFontSize, setFullscreenLyricsTranslationFontSize] = React.useState(() => clampNumber(storedNumber('fullscreen.lyricsTranslationFontSize', 18), 12, 40))
+  const [fullscreenLyricsFontSize, setFullscreenLyricsFontSize] = React.useState(() => clampNumber(storedNumber('fullscreen.lyricsFontSize', 36), 16, 56))
+  const [fullscreenLyricsTranslationFontSize, setFullscreenLyricsTranslationFontSize] = React.useState(() => clampNumber(storedNumber('fullscreen.lyricsTranslationFontSize', 26), 12, 40))
   const [fullscreenLyricsGlobalAdvanceMs, setFullscreenLyricsGlobalAdvanceMs] = React.useState(() => clampNumber(storedNumber('fullscreen.lyricsGlobalAdvanceMs', 0), -1000, 1000))
-  const [lookaheadMs, setLookaheadMs] = React.useState(() => clampNumber(storedNumber('lookaheadMs', 200), 0, 200))
+  const [lookaheadMs, setLookaheadMs] = React.useState(() => clampNumber(storedNumber('lookaheadMs', 100), 0, 200))
   const [deferImportEnrichment, setDeferImportEnrichment] = React.useState(() => storedBoolean('deferImportEnrichment', false))
   const [telemetryEnabled, setTelemetryEnabled] = React.useState(() => storedBoolean('telemetry.anonymousUsageEnabled', false))
   const [libraryLocationInfo, setLibraryLocationInfo] = React.useState<LibraryLocationInfo | null>(null)
@@ -9557,6 +9589,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
     </>
   )
 })
+
+migrateLyricsDefaultsToMidpoints()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
