@@ -1,5 +1,9 @@
 # Development Log
 
+## 2026-06-11
+
+- 播放页窗口拖拽改为页面内窄拖拽带：窗口播放页和全屏歌词页移除根节点 `no-drag`，各自插入 `.playback-page-drag-region`，仅封面、文案和歌词等交互块显式 `no-drag`，并保持背景层 `pointer-events:none`；不再扩展全局 `titlebar-drag-region`，避免大面积 app-region 叠加导致拖动卡顿。`npm run typecheck` 与 `npm run build` 已通过。
+
 ## 2026-06-08
 
 - BK 背景颜色改回封面主题色方向，使用 HSB 转 RGB 输出以避免 HSL 高亮度混白导致的灰白感。
