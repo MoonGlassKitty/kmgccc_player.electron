@@ -2,6 +2,7 @@
 
 ## 2026-06-11
 
+- Windows 第三方歌词首屏延迟优化：外部播放 snapshot 已携带 `lyricsText/syncedLyrics` 时，renderer 立即写入外部歌词缓存并跳过二次在线查词 loading，减少 CloudMusic/第三方源已有歌词但界面延迟显示的问题。
 - 歌词空态文案统一为“纯音乐，你的故事在这里。”，用于未找到歌词或无歌词歌曲在侧栏/全屏歌词页的展示。
 - 修复 Classic LED 封面节奏律动闪烁：对齐 mac 端单张 masked image 即时换 mask 的行为，取消 Windows 端多 frame layer 之间的 90ms opacity 过渡，避免每拍切换艺术化封面边缘时出现短暂透明间隙。`npm run typecheck` 与 `npm run build` 已通过。
 - 对齐 mac 端 `HomeInsightsSection` 的音乐足迹卡片意图，保留 Windows 端听歌日历/听歌排行的 split 玻璃切割，但移除 split 伪元素自身的 inset 描边和投影，避免切口内侧被渲染成一条竖线。`npm run typecheck` 与 `npm run build` 已通过。

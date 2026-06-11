@@ -3327,6 +3327,30 @@ function App(): React.ReactElement {
     if (!key || !title || title === '外部播放' || !window.kmgccc?.lookupLyrics) return
     const existingLyrics = externalLyricsByKey[key]
     const metadataSongId = snapshot?.neteaseSongId
+    const snapshotSyncedLyrics = snapshot?.syncedLyrics?.trim() || ''
+    const snapshotLyricsText = snapshot?.lyricsText?.trim() || ''
+    if (snapshotSyncedLyrics || snapshotLyricsText) {
+      const nextLyricsText = snapshotLyricsText || snapshotSyncedLyrics
+      const nextSyncedLyrics = snapshotSyncedLyrics || snapshotLyricsText
+      if (
+        existingLyrics?.status !== 'ready' ||
+        existingLyrics.lyricsText !== nextLyricsText ||
+        existingLyrics.syncedLyrics !== nextSyncedLyrics ||
+        existingLyrics.metadataSongId !== metadataSongId
+      ) {
+        setExternalLyricsByKey((entries) => ({
+          ...entries,
+          [key]: {
+            status: 'ready',
+            lyricsText: nextLyricsText,
+            syncedLyrics: nextSyncedLyrics,
+            metadataSongId,
+            updatedAt: Date.now()
+          }
+        }))
+      }
+      return
+    }
     const now = Date.now()
     const isRetryableStatus = existingLyrics?.status === 'empty' || existingLyrics?.status === 'failed' || existingLyrics?.status === 'loading'
     const isStaleLyricsLookup = Boolean(existingLyrics?.updatedAt && now - existingLyrics.updatedAt > EXTERNAL_LYRICS_RETRY_DELAY_MS)
