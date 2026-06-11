@@ -6913,6 +6913,7 @@ const BKArtSurface = React.memo(function BKArtSurface({
   onDotComplete?: () => void
 }): React.ReactElement {
   const shapes = React.useMemo(() => makeBKShapePlan(surface.shapeSeed), [surface.shapeSeed])
+  const animationTimeSeconds = Date.now() / 1000
   const phaseA = bkBackgroundAssets[(surface.phaseOffset + surface.seed) % bkBackgroundAssets.length]
   const phaseB = bkBackgroundAssets[(surface.phaseOffset + surface.seed + 1) % bkBackgroundAssets.length]
   const frozenPhaseClass = surface.frozenImagePhase ? `frozen-image-phase phase-${surface.frozenImagePhase}-visible` : ''
@@ -6937,31 +6938,36 @@ const BKArtSurface = React.memo(function BKArtSurface({
             <BKDotSurface seed={surface.seed} direction={bkDotDirection(surface.style)} isRunning={isRunning} onComplete={onDotComplete} />
           </div>
           <div className="bk-shape-root">
-            {shapes.map((shape) => (
-              <span
-                key={shape.id}
-                className={`bk-shape ${shape.edgePinned ? 'edge-pinned' : ''}`}
-                style={
-                  {
-                    '--shape-x': `${shape.x}%`,
-                    '--shape-y': `${shape.y}%`,
-                    '--shape-size': `${shape.size}px`,
-                    '--shape-rotation': `${shape.rotation}deg`,
-                    '--shape-drift-x': `${shape.driftX}px`,
-                    '--shape-drift-y': `${shape.driftY}px`,
-                    '--shape-drift-duration': `${shape.driftDuration}s`,
-                    '--shape-spin-duration': `${shape.spinDuration}s`,
-                    '--shape-spin-delay': `${shape.spinDelay}s`,
-                    '--shape-spin-turn': shape.spinClockwise ? '360deg' : '-360deg',
-                    '--shape-delay': `${shape.delay}s`,
-                    '--shape-tint': shape.tint,
-                    '--shape-mask-url': `url(${bkShapeAssets[shape.assetIndex]})`
-                  } as React.CSSProperties
-                }
-              >
-                <span className="bk-shape-mark" />
-              </span>
-            ))}
+            {shapes.map((shape) => {
+              const driftCycleSeconds = shape.driftDuration * 2
+              const driftDelay = shape.delay - (animationTimeSeconds % driftCycleSeconds)
+              const spinDelay = shape.spinDelay - (animationTimeSeconds % shape.spinDuration)
+              return (
+                <span
+                  key={shape.id}
+                  className={`bk-shape ${shape.edgePinned ? 'edge-pinned' : ''}`}
+                  style={
+                    {
+                      '--shape-x': `${shape.x}%`,
+                      '--shape-y': `${shape.y}%`,
+                      '--shape-size': `${shape.size}px`,
+                      '--shape-rotation': `${shape.rotation}deg`,
+                      '--shape-drift-x': `${shape.driftX}px`,
+                      '--shape-drift-y': `${shape.driftY}px`,
+                      '--shape-drift-duration': `${shape.driftDuration}s`,
+                      '--shape-spin-duration': `${shape.spinDuration}s`,
+                      '--shape-spin-delay': `${spinDelay}s`,
+                      '--shape-spin-turn': shape.spinClockwise ? '360deg' : '-360deg',
+                      '--shape-delay': `${driftDelay}s`,
+                      '--shape-tint': shape.tint,
+                      '--shape-mask-url': `url(${bkShapeAssets[shape.assetIndex]})`
+                    } as React.CSSProperties
+                  }
+                >
+                  <span className="bk-shape-mark" />
+                </span>
+              )
+            })}
           </div>
         </>
       ) : null}
