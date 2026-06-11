@@ -2369,10 +2369,6 @@ input {
   -webkit-app-region: drag;
 }
 
-.fullscreen-lyrics-open .titlebar-drag-region {
-  left: 0;
-}
-
 .import-sync-backdrop {
   position: absolute;
   inset: 0;
@@ -4865,14 +4861,6 @@ input {
   height: calc(var(--win-titlebar-height) + 16px);
   pointer-events: auto;
   -webkit-app-region: drag;
-}
-
-.fullscreen-lyrics-page :is(
-  .fullscreen-lyrics-artwork-stage,
-  .fullscreen-lyrics-copy,
-  .fullscreen-lyrics-lines
-) {
-  -webkit-app-region: no-drag;
 }
 
 .fullscreen-lyrics-page > .bk-art-background,
