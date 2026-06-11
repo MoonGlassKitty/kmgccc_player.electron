@@ -4941,6 +4941,20 @@ input {
   pointer-events: none;
 }
 
+.appearance-dark .fullscreen-lyrics-mesh {
+  filter: blur(26px) saturate(176%) brightness(0.92) contrast(1.02);
+  opacity: 0.40;
+}
+
+.appearance-dark .fullscreen-lyrics-bg {
+  opacity: 0.13;
+  filter: blur(56px) saturate(190%) brightness(0.80) contrast(1.04);
+}
+
+.appearance-dark .fullscreen-lyrics-stretch-bg {
+  filter: saturate(138%) brightness(0.88) contrast(1.03);
+}
+
 .fullscreen-lyrics-artwork-stage {
   position: relative;
   z-index: 3;
@@ -6241,18 +6255,25 @@ input {
 
 .appearance-dark .lyrics-side-panel {
   --glass-border: rgba(255, 255, 255, 0.22);
-  background: rgba(12, 16, 20, 0.20);
+  background:
+    radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--cover-accent) 18%, transparent), transparent 42%),
+    rgba(12, 16, 20, 0.20);
   color: rgba(238, 244, 248, 0.88);
 }
 
 .appearance-dark .lyrics-side-panel::before {
-  background: rgba(12, 16, 20, 0.10);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--cover-accent) 7%, rgba(12, 16, 20, 0.10)), rgba(12, 16, 20, 0.10));
+  backdrop-filter: blur(5px) saturate(154%);
+  -webkit-backdrop-filter: blur(5px) saturate(154%);
 }
 
 .appearance-dark .lyrics-side-panel::after {
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.035) 18%, rgba(255, 255, 255, 0.012) 58%, transparent 100%),
+    linear-gradient(90deg, color-mix(in srgb, var(--cover-accent) 10%, rgba(255, 255, 255, 0.07)), rgba(255, 255, 255, 0.035) 18%, rgba(255, 255, 255, 0.012) 58%, transparent 100%),
     rgba(12, 16, 20, 0.10);
+  backdrop-filter: blur(8px) saturate(168%) var(--filter-url);
+  -webkit-backdrop-filter: blur(8px) saturate(168%) var(--filter-url);
 }
 
 .appearance-dark .sidebar-source {
@@ -6307,7 +6328,7 @@ input {
     radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--bk-bg-tone-1) 58%, rgba(50, 56, 60, 0.42)), transparent 38%),
     radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--bk-bg-tone-2) 54%, rgba(42, 48, 52, 0.38)), transparent 46%),
     linear-gradient(135deg, color-mix(in srgb, var(--bk-bg-tone-1) 52%, #30363a), color-mix(in srgb, var(--bk-bg-tone-2) 46%, #1f2529));
-  filter: saturate(0.64) brightness(0.82) contrast(0.96);
+  filter: saturate(1.02) brightness(0.82) contrast(1.01);
 }
 
 .appearance-dark .bk-art-surface {
@@ -6319,7 +6340,7 @@ input {
 }
 
 .appearance-dark .bk-image-phase {
-  filter: contrast(0.96) saturate(0.70) brightness(0.78);
+  filter: contrast(1.01) saturate(1.02) brightness(0.78);
   opacity: 0.62;
 }
 
@@ -6336,12 +6357,12 @@ input {
 .appearance-dark .bk-dot-gradient {
   background: linear-gradient(135deg, color-mix(in srgb, var(--bk-bg-tone-1) 54%, #32383b), color-mix(in srgb, var(--bk-bg-tone-2) 46%, #252b2f));
   opacity: 0.10;
-  filter: saturate(0.74);
+  filter: saturate(1.02);
 }
 
 .appearance-dark .bk-dot-grid {
   opacity: 0.70;
-  filter: blur(0.1px) saturate(0.76) contrast(0.98) brightness(0.9);
+  filter: blur(0.1px) saturate(1.00) contrast(1) brightness(0.9);
 }
 
 .appearance-dark .bk-dot-grid.small {
@@ -6349,7 +6370,7 @@ input {
 }
 
 .appearance-dark .bk-art-background.mode-fullscreenDotOnly {
-  filter: saturate(1.08) brightness(0.84) contrast(0.96);
+  filter: saturate(1.24) brightness(0.84) contrast(1);
   background:
     radial-gradient(circle at 18% 24%, color-mix(in srgb, var(--bk-bg-tone-1) 64%, rgba(54, 58, 62, 0.40)), transparent 42%),
     radial-gradient(circle at 74% 64%, color-mix(in srgb, var(--bk-bg-tone-2) 58%, rgba(42, 46, 50, 0.36)), transparent 48%),
@@ -6361,7 +6382,7 @@ input {
 }
 
 .appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-image-phase {
-  filter: contrast(0.98) saturate(1.08) brightness(0.80);
+  filter: contrast(1.01) saturate(1.22) brightness(0.80);
   opacity: 0.70;
 }
 
@@ -6371,12 +6392,12 @@ input {
 
 .appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-dot-gradient {
   opacity: 0.18;
-  filter: saturate(1.06);
+  filter: saturate(1.20);
 }
 
 .appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-dot-grid {
   opacity: 0.76;
-  filter: blur(0.1px) saturate(1.04) contrast(1) brightness(0.92);
+  filter: blur(0.1px) saturate(1.18) contrast(1) brightness(0.92);
 }
 
 .appearance-dark .bk-art-background.mode-fullscreenDotOnly .bk-dot-grid.small {
@@ -6387,7 +6408,7 @@ input {
   opacity: 0.58;
   filter:
     drop-shadow(0 18px 30px rgba(0, 0, 0, 0.20))
-    saturate(0.62)
+    saturate(0.98)
     brightness(0.78);
   mix-blend-mode: normal;
 }
