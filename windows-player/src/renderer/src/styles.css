@@ -27,9 +27,9 @@
   --layer-app-pad: -2;
   --layer-decor: -1;
   --layer-home: 0;
-  --layer-sidebars: 1;
+  --layer-sidebars: 4;
   --layer-floating-glass: 2;
-  --layer-pointer: 3;
+  --layer-pointer: 5;
 }
 
 * {
