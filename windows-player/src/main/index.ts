@@ -381,8 +381,11 @@ type MetadataCandidate = {
 }
 
 const externalSnapshotMetadataByKey = new Map<string, Promise<TrackMetadataLookupResult | null>>()
+const externalSnapshotMetadataResultByKey = new Map<string, TrackMetadataLookupResult | null>()
 const externalAudioSourceBySongId = new Map<number, Promise<string | null>>()
+const externalAudioSourceResultBySongId = new Map<number, string | null>()
 const externalLyricsBySongId = new Map<number, Promise<LyricsLookupResult | null>>()
+const externalLyricsResultBySongId = new Map<number, LyricsLookupResult | null>()
 
 type TrackMetadataLookupResult = {
   title?: string
@@ -1628,23 +1631,34 @@ function cloudMusicAudioSourceUrl(songId: number): Promise<string | null> {
   if (!lookup) {
     lookup = resolveCloudMusicAudioSourceUrl(songId)
       .then((result) => {
+        externalAudioSourceResultBySongId.set(songId, result)
         if (!result) {
           setTimeout(() => {
-            if (externalAudioSourceBySongId.get(songId) === lookup) externalAudioSourceBySongId.delete(songId)
+            if (externalAudioSourceBySongId.get(songId) === lookup) {
+              externalAudioSourceBySongId.delete(songId)
+              externalAudioSourceResultBySongId.delete(songId)
+            }
           }, 30000)
         }
         return result
       })
       .catch(() => {
+        externalAudioSourceResultBySongId.set(songId, null)
         setTimeout(() => {
-          if (externalAudioSourceBySongId.get(songId) === lookup) externalAudioSourceBySongId.delete(songId)
+          if (externalAudioSourceBySongId.get(songId) === lookup) {
+            externalAudioSourceBySongId.delete(songId)
+            externalAudioSourceResultBySongId.delete(songId)
+          }
         }, 30000)
         return null
       })
     externalAudioSourceBySongId.set(songId, lookup)
     if (externalAudioSourceBySongId.size > 24) {
       const oldest = externalAudioSourceBySongId.keys().next().value
-      if (oldest) externalAudioSourceBySongId.delete(oldest)
+      if (oldest) {
+        externalAudioSourceBySongId.delete(oldest)
+        externalAudioSourceResultBySongId.delete(oldest)
+      }
     }
   }
   return lookup
@@ -1655,11 +1669,22 @@ function externalLyricsForNetEaseSong(track: LocalAudioImport): Promise<LyricsLo
   if (!songId) return Promise.resolve(null)
   let lookup = externalLyricsBySongId.get(songId)
   if (!lookup) {
-    lookup = fetchNetEaseLyrics(track).catch(() => null)
+    lookup = fetchNetEaseLyrics(track)
+      .then((result) => {
+        externalLyricsResultBySongId.set(songId, result)
+        return result
+      })
+      .catch(() => {
+        externalLyricsResultBySongId.set(songId, null)
+        return null
+      })
     externalLyricsBySongId.set(songId, lookup)
     if (externalLyricsBySongId.size > 80) {
       const oldest = externalLyricsBySongId.keys().next().value
-      if (oldest) externalLyricsBySongId.delete(oldest)
+      if (oldest) {
+        externalLyricsBySongId.delete(oldest)
+        externalLyricsResultBySongId.delete(oldest)
+      }
     }
   }
   return lookup
@@ -3438,21 +3463,42 @@ async function attachExternalPlaybackMetadata(snapshot: ExternalPlaybackSnapshot
       artist: enriched.artist.trim(),
       album: enriched.album?.trim() || '',
       duration: enriched.duration > 0 ? enriched.duration : 0
-    }).catch(() => null)
+    })
+      .then((result) => {
+        externalSnapshotMetadataResultByKey.set(key, result)
+        return result
+      })
+      .catch(() => {
+        externalSnapshotMetadataResultByKey.set(key, null)
+        return null
+      })
     externalSnapshotMetadataByKey.set(key, lookup)
     if (externalSnapshotMetadataByKey.size > 80) {
       const oldest = externalSnapshotMetadataByKey.keys().next().value
-      if (oldest) externalSnapshotMetadataByKey.delete(oldest)
+      if (oldest) {
+        externalSnapshotMetadataByKey.delete(oldest)
+        externalSnapshotMetadataResultByKey.delete(oldest)
+      }
     }
   }
 
-  const metadata = await lookup
+  const hasMetadataResult = externalSnapshotMetadataResultByKey.has(key)
+  const metadata = hasMetadataResult ? externalSnapshotMetadataResultByKey.get(key) ?? null : undefined
+  if (metadata === undefined) {
+    if (enriched.neteaseSongId) void cloudMusicAudioSourceUrl(enriched.neteaseSongId)
+    const cachedAudioSourceUrl = enriched.neteaseSongId ? externalAudioSourceResultBySongId.get(enriched.neteaseSongId) : null
+    return cachedAudioSourceUrl ? { ...enriched, audioSourceUrl: cachedAudioSourceUrl } : enriched
+  }
   if (!metadata) {
     setTimeout(() => {
-      if (externalSnapshotMetadataByKey.get(key) === lookup) externalSnapshotMetadataByKey.delete(key)
+      if (externalSnapshotMetadataByKey.get(key) === lookup) {
+        externalSnapshotMetadataByKey.delete(key)
+        externalSnapshotMetadataResultByKey.delete(key)
+      }
     }, 5000)
     if (enriched.neteaseSongId) {
-      const audioSourceUrl = await cloudMusicAudioSourceUrl(enriched.neteaseSongId)
+      void cloudMusicAudioSourceUrl(enriched.neteaseSongId)
+      const audioSourceUrl = externalAudioSourceResultBySongId.get(enriched.neteaseSongId)
       if (audioSourceUrl) return { ...enriched, audioSourceUrl }
     }
     return enriched
@@ -3471,10 +3517,12 @@ async function attachExternalPlaybackMetadata(snapshot: ExternalPlaybackSnapshot
     sourcePath: '',
     sourceUrl: ''
   }
-  const [audioSourceUrl, lyrics] = await Promise.all([
-    neteaseSongId ? cloudMusicAudioSourceUrl(neteaseSongId) : Promise.resolve(null),
-    neteaseSongId ? externalLyricsForNetEaseSong(metadataTrack) : Promise.resolve(null)
-  ])
+  if (neteaseSongId) {
+    void cloudMusicAudioSourceUrl(neteaseSongId)
+    void externalLyricsForNetEaseSong(metadataTrack)
+  }
+  const audioSourceUrl = neteaseSongId ? externalAudioSourceResultBySongId.get(neteaseSongId) : null
+  const lyrics = neteaseSongId ? externalLyricsResultBySongId.get(neteaseSongId) : null
   return {
     ...enriched,
     title: enriched.title.trim() || metadata.title || enriched.title,
