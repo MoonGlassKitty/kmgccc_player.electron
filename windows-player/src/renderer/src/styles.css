@@ -510,7 +510,7 @@ svg {
   inset: 0;
   opacity: 0;
   will-change: opacity;
-  transition: opacity 90ms linear;
+  transition: none;
   backface-visibility: hidden;
 }
 

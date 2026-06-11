@@ -2,6 +2,7 @@
 
 ## 2026-06-11
 
+- 修复 Classic LED 封面节奏律动闪烁：对齐 mac 端单张 masked image 即时换 mask 的行为，取消 Windows 端多 frame layer 之间的 90ms opacity 过渡，避免每拍切换艺术化封面边缘时出现短暂透明间隙。`npm run typecheck` 与 `npm run build` 已通过。
 - 对齐 mac 端 `HomeInsightsSection` 的音乐足迹卡片意图，保留 Windows 端听歌日历/听歌排行的 split 玻璃切割，但移除 split 伪元素自身的 inset 描边和投影，避免切口内侧被渲染成一条竖线。`npm run typecheck` 与 `npm run build` 已通过。
 - 将 Windows 标题栏透明拖拽区改为 mac branch 同款手动拖动链路：renderer 捕获 `titlebar-drag-region` 的 pointer 事件，经 preload 发送 `window:drag-start` / `window:drag-move` / `window:drag-end`，主进程按屏幕坐标调用 `BrowserWindow.setPosition`。拖拽层自身改为 `no-drag`，避开全屏歌词页 `.no-drag` 覆盖导致 `-webkit-app-region: drag` 命中失效的问题。`npm run typecheck` 与 `npm run build` 已通过。
 
