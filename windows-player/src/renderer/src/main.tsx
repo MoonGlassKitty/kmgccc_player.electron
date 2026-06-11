@@ -7219,21 +7219,6 @@ const BKArtBackground = React.memo(function BKArtBackground({
   }, [themeStyle, trackSeed])
 
   React.useEffect(() => {
-    if (!isPlaying) return
-    if (isFullscreenDotOnly) return
-    if (isDotExiting) return
-    if (isBKDotStyle(currentSurface.style)) return
-    const delay = 15000
-    const timer = window.setTimeout(() => {
-      transitionSeedRef.current += 1
-      setPreviousSurface(freezeBKSurfaceForTransition(currentSurface))
-      setCurrentSurface(makeBKSurfaceState(trackSeed, transitionSeedRef.current, nextBKSurfaceStyle(currentSurface.style, transitionSeedRef.current, trackSeed), themeStyleRef.current))
-      setIsRevealing(true)
-    }, delay)
-    return () => window.clearTimeout(timer)
-  }, [currentSurface, isDotExiting, isFullscreenDotOnly, isPlaying, trackSeed])
-
-  React.useEffect(() => {
     if (!isDotExiting) return
     if (isFullscreenDotOnly) return
     const timer = window.setTimeout(() => {
