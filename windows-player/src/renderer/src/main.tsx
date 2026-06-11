@@ -172,6 +172,10 @@ type ExternalPlaybackClock = {
 
 const EXTERNAL_PLAYBACK_FALLBACK_DURATION_SECONDS = 12 * 60
 const EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS = 1.5
+const EXTERNAL_PLAYBACK_POLL_DELAY_MS = 700
+const EXTERNAL_VOLUME_POLL_DELAY_MS = 15000
+const TAPE_DEVICE_DISCONNECTED_POLL_DELAY_MS = 10000
+const TAPE_DEVICE_CONNECTED_POLL_DELAY_MS = 4000
 const EXTERNAL_LYRICS_RETRY_DELAY_MS = 1000
 const EXTERNAL_LYRICS_CACHE_STORAGE_KEY = 'externalPlayback.lyricsCache.v2'
 const EXTERNAL_ARTWORK_CACHE_STORAGE_KEY = 'externalPlayback.artworkCache.v1'
@@ -184,6 +188,32 @@ function externalTrackKey(snapshot: ExternalPlaybackSnapshot | null): string {
     snapshot.title.trim(),
     snapshot.artist.trim()
   ].join('|')
+}
+
+function externalPlaybackSnapshotContentEqual(
+  previous: ExternalPlaybackSnapshot | null,
+  next: ExternalPlaybackSnapshot
+): boolean {
+  if (!previous) return false
+  return previous.available === next.available &&
+    previous.sourceMode === next.sourceMode &&
+    previous.connectionState === next.connectionState &&
+    previous.sourceAppUserModelId === next.sourceAppUserModelId &&
+    previous.title === next.title &&
+    previous.artist === next.artist &&
+    previous.album === next.album &&
+    previous.duration === next.duration &&
+    previous.isPlaying === next.isPlaying &&
+    previous.playbackRate === next.playbackRate &&
+    previous.canControlPlayback === next.canControlPlayback &&
+    previous.canSkip === next.canSkip &&
+    previous.canSeek === next.canSeek &&
+    previous.artworkUrl === next.artworkUrl &&
+    previous.audioSourceUrl === next.audioSourceUrl &&
+    previous.neteaseSongId === next.neteaseSongId &&
+    previous.lyricsText === next.lyricsText &&
+    previous.syncedLyrics === next.syncedLyrics &&
+    previous.error === next.error
 }
 
 function normalizedLyricsMatchText(value: string | undefined): string {
@@ -661,11 +691,13 @@ const artworkFrameAssets = [artworkFrame1, artworkFrame2, artworkFrame3, artwork
 const ARTWORK_PULSE_VISUAL_ADVANCE_SECONDS = 0.1
 const APPROVED_ARTWORK_BEATS_STORAGE_KEY = 'skin.classicLED.approvedArtworkBeats'
 const ARTWORK_BPM_ACCEPTANCE_RANGE = 5
+const ARTWORK_BPM_MIN = 25
+const ARTWORK_BPM_MAX = 90
 
 function normalizeArtworkPulseBpm(rawTempo: number): number {
   let bpm = rawTempo
-  while (bpm > 90) bpm /= 2
-  return clampNumber(Math.round(bpm), 45, 90)
+  while (bpm > ARTWORK_BPM_MAX) bpm /= 2
+  return clampNumber(Math.round(bpm), ARTWORK_BPM_MIN, ARTWORK_BPM_MAX)
 }
 
 function sanitizeArtworkBeat(value: unknown): ArtworkBeat | null {
@@ -674,7 +706,7 @@ function sanitizeArtworkBeat(value: unknown): ArtworkBeat | null {
   if (typeof beat.bpm !== 'number' || typeof beat.offset !== 'number') return null
   if (!Number.isFinite(beat.bpm) || !Number.isFinite(beat.offset)) return null
   return {
-    bpm: clampNumber(Math.round(beat.bpm), 45, 90),
+    bpm: clampNumber(Math.round(beat.bpm), ARTWORK_BPM_MIN, ARTWORK_BPM_MAX),
     offset: Math.max(0, beat.offset),
     approved: beat.approved === true
   }
@@ -2586,7 +2618,7 @@ function App(): React.ReactElement {
       }
       timeoutId = window.setTimeout(() => {
         void checkTapeDevice()
-      }, 1000)
+      }, snapshot.connected ? TAPE_DEVICE_CONNECTED_POLL_DELAY_MS : TAPE_DEVICE_DISCONNECTED_POLL_DELAY_MS)
     }
     void checkTapeDevice()
     return () => {
@@ -2737,7 +2769,7 @@ function App(): React.ReactElement {
     let stableBeat: ArtworkBeat | null = null
     let stableCount = 0
     for (const duration of durations) {
-      const result = await guess(audioBuffer, 0, duration, { minTempo: 45, maxTempo: 260 })
+      const result = await guess(audioBuffer, 0, duration, { minTempo: ARTWORK_BPM_MIN, maxTempo: 260 })
       const beat = {
         bpm: normalizeArtworkPulseBpm(result.bpm),
         offset: clampNumber(result.offset || 0, 0, Math.max(0, audioBuffer.duration))
@@ -2908,8 +2940,9 @@ function App(): React.ReactElement {
     }
     const beatSeconds = 60 / beat.bpm
     const tick = (): void => {
+      const externalClock = externalPlaybackClockRef.current
       const baseTime = playbackSource === 'external'
-        ? playbackTimeRef.current
+        ? externalClock.currentTime + (isPlaying ? Math.max(0, (Date.now() - externalClock.updatedAt) / 1000) : 0)
         : audioRef.current?.currentTime ?? playbackTimeRef.current
       const time = baseTime + ARTWORK_PULSE_VISUAL_ADVANCE_SECONDS
       const beatIndex = Math.floor(Math.max(0, time - beat.offset) / beatSeconds)
@@ -3220,74 +3253,83 @@ function App(): React.ReactElement {
   React.useEffect(() => {
     if (playbackSource !== 'external') return
     let cancelled = false
+    let pollTimer: number | null = null
     const poll = async (): Promise<void> => {
       if (!window.kmgccc?.getExternalPlaybackSnapshot) return
-      const snapshot = await window.kmgccc.getExternalPlaybackSnapshot(externalPlaybackMode)
-      if (cancelled) return
-      const key = externalTrackKey(snapshot)
-      const now = Date.now()
-      let currentTime = snapshot.currentTime
-      let duration = snapshot.duration
-      if (snapshot.available && key) {
-        const previousClock = externalPlaybackClockRef.current
-        const smtcTime = Number.isFinite(snapshot.currentTime) && snapshot.currentTime > 0 ? snapshot.currentTime : 0
-        const hasTimelinePosition = snapshot.canSeek || smtcTime > 0
-        const effectiveDuration = duration > 0 ? duration : EXTERNAL_PLAYBACK_FALLBACK_DURATION_SECONDS
-        if (previousClock.key !== key) {
-          externalPlaybackClockRef.current = { key, currentTime: hasTimelinePosition ? clampNumber(smtcTime, 0, effectiveDuration) : 0, updatedAt: now }
-        } else if (snapshot.isPlaying) {
-          const elapsedSeconds = Math.max(0, (now - previousClock.updatedAt) / 1000)
-          const predictedTime = clampNumber(previousClock.currentTime + elapsedSeconds, 0, effectiveDuration)
-          const driftSeconds = smtcTime - predictedTime
-          const shouldSnapToSmtc = hasTimelinePosition && (
-            Math.abs(driftSeconds) > EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS ||
-            (smtcTime < 1 && predictedTime > EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS)
-          )
-          externalPlaybackClockRef.current = {
-            key,
-            currentTime: shouldSnapToSmtc ? clampNumber(smtcTime, 0, effectiveDuration) : predictedTime,
-            updatedAt: now
+      try {
+        const snapshot = await window.kmgccc.getExternalPlaybackSnapshot(externalPlaybackMode)
+        if (cancelled) return
+        const key = externalTrackKey(snapshot)
+        const now = Date.now()
+        let currentTime = snapshot.currentTime
+        let duration = snapshot.duration
+        if (snapshot.available && key) {
+          const previousClock = externalPlaybackClockRef.current
+          const smtcTime = Number.isFinite(snapshot.currentTime) && snapshot.currentTime > 0 ? snapshot.currentTime : 0
+          const hasTimelinePosition = snapshot.canSeek || smtcTime > 0
+          const effectiveDuration = duration > 0 ? duration : EXTERNAL_PLAYBACK_FALLBACK_DURATION_SECONDS
+          if (previousClock.key !== key) {
+            externalPlaybackClockRef.current = { key, currentTime: hasTimelinePosition ? clampNumber(smtcTime, 0, effectiveDuration) : 0, updatedAt: now }
+          } else if (snapshot.isPlaying) {
+            const elapsedSeconds = Math.max(0, (now - previousClock.updatedAt) / 1000)
+            const predictedTime = clampNumber(previousClock.currentTime + elapsedSeconds, 0, effectiveDuration)
+            const driftSeconds = smtcTime - predictedTime
+            const shouldSnapToSmtc = hasTimelinePosition && (
+              Math.abs(driftSeconds) > EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS ||
+              (smtcTime < 1 && predictedTime > EXTERNAL_PLAYBACK_CLOCK_SNAP_SECONDS)
+            )
+            externalPlaybackClockRef.current = {
+              key,
+              currentTime: shouldSnapToSmtc ? clampNumber(smtcTime, 0, effectiveDuration) : predictedTime,
+              updatedAt: now
+            }
+          } else {
+            externalPlaybackClockRef.current = {
+              key,
+              currentTime: hasTimelinePosition ? clampNumber(smtcTime, 0, effectiveDuration) : previousClock.currentTime,
+              updatedAt: now
+            }
           }
+          currentTime = externalPlaybackClockRef.current.currentTime
+          duration = effectiveDuration
         } else {
-          externalPlaybackClockRef.current = {
-            key,
-            currentTime: hasTimelinePosition ? clampNumber(smtcTime, 0, effectiveDuration) : previousClock.currentTime,
-            updatedAt: now
-          }
+          externalPlaybackClockRef.current = { key: '', currentTime: 0, updatedAt: now }
         }
-        currentTime = externalPlaybackClockRef.current.currentTime
-        duration = effectiveDuration
-      } else {
-        externalPlaybackClockRef.current = { key: '', currentTime: 0, updatedAt: now }
+        const normalizedSnapshot = { ...snapshot, currentTime, duration }
+        playbackTimeRef.current = normalizedSnapshot.currentTime
+        setExternalPlaybackSnapshot((previous) => externalPlaybackSnapshotContentEqual(previous, normalizedSnapshot) ? previous : normalizedSnapshot)
+        setIsPlaying((previous) => previous === normalizedSnapshot.isPlaying ? previous : normalizedSnapshot.isPlaying)
+        setPlaybackDuration((previous) => previous === normalizedSnapshot.duration ? previous : normalizedSnapshot.duration)
+        writeMiniProgressRatio(normalizedSnapshot.currentTime, normalizedSnapshot.duration)
+      } finally {
+        if (!cancelled) pollTimer = window.setTimeout(() => { void poll() }, EXTERNAL_PLAYBACK_POLL_DELAY_MS)
       }
-      const normalizedSnapshot = { ...snapshot, currentTime, duration }
-      setExternalPlaybackSnapshot(normalizedSnapshot)
-      setIsPlaying(normalizedSnapshot.isPlaying)
-      setPlaybackTime(normalizedSnapshot.currentTime)
-      setPlaybackDuration(normalizedSnapshot.duration)
-      writeMiniProgressRatio(normalizedSnapshot.currentTime, normalizedSnapshot.duration)
     }
     void poll()
-    const interval = window.setInterval(() => { void poll() }, 700)
     return () => {
       cancelled = true
-      window.clearInterval(interval)
+      if (pollTimer !== null) window.clearTimeout(pollTimer)
     }
   }, [externalPlaybackMode, playbackSource, writeMiniProgressRatio])
 
   React.useEffect(() => {
     if (playbackSource !== 'external') return
     let cancelled = false
+    let pollTimer: number | null = null
     const poll = async (): Promise<void> => {
-      const snapshot = await window.kmgccc?.getExternalPlaybackVolume?.()
-      if (cancelled || !snapshot?.available) return
-      setVolume(clampNumber(snapshot.muted ? 0 : snapshot.volume, 0, 1))
+      try {
+        const snapshot = await window.kmgccc?.getExternalPlaybackVolume?.()
+        if (cancelled || !snapshot?.available) return
+        const nextVolume = clampNumber(snapshot.muted ? 0 : snapshot.volume, 0, 1)
+        setVolume((previous) => previous === nextVolume ? previous : nextVolume)
+      } finally {
+        if (!cancelled) pollTimer = window.setTimeout(() => { void poll() }, EXTERNAL_VOLUME_POLL_DELAY_MS)
+      }
     }
     void poll()
-    const interval = window.setInterval(() => { void poll() }, 2500)
     return () => {
       cancelled = true
-      window.clearInterval(interval)
+      if (pollTimer !== null) window.clearTimeout(pollTimer)
     }
   }, [playbackSource, externalPlaybackMode])
 
@@ -4001,8 +4043,9 @@ function App(): React.ReactElement {
   }, [displayTrack?.id, isArtworkBpmPulseEnabled])
   const openManualBpmBoard = React.useCallback(() => {
     if (!displayTrack?.id) return
+    const externalClock = externalPlaybackClockRef.current
     const openedPlaybackTime = playbackSource === 'external'
-      ? playbackTimeRef.current
+      ? externalClock.currentTime + (isPlaying ? Math.max(0, (Date.now() - externalClock.updatedAt) / 1000) : 0)
       : audioRef.current?.currentTime ?? playbackTime
     setManualBpmBoard({
       trackId: displayTrack.id,
@@ -4011,7 +4054,7 @@ function App(): React.ReactElement {
       openedAtMs: window.performance.now(),
       openedPlaybackTime
     })
-  }, [displayTrack, playbackSource, playbackTime])
+  }, [displayTrack, isPlaying, playbackSource, playbackTime])
   const approveCurrentArtworkBeat = React.useCallback(() => {
     const trackId = displayTrack?.id
     if (!trackId) return
@@ -4312,32 +4355,6 @@ function App(): React.ReactElement {
     }
   }, [])
 
-  const handleTitlebarDragStart = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || !window.kmgccc?.startWindowDrag) return
-    event.preventDefault()
-    event.stopPropagation()
-    const target = event.currentTarget
-    target.setPointerCapture(event.pointerId)
-    window.kmgccc.startWindowDrag({ x: event.screenX, y: event.screenY })
-
-    const handleMove = (moveEvent: PointerEvent): void => {
-      window.kmgccc?.moveWindowDrag({ x: moveEvent.screenX, y: moveEvent.screenY })
-    }
-    const handleEnd = (): void => {
-      if (target.hasPointerCapture(event.pointerId)) {
-        target.releasePointerCapture(event.pointerId)
-      }
-      window.kmgccc?.endWindowDrag()
-      window.removeEventListener('pointermove', handleMove)
-      window.removeEventListener('pointerup', handleEnd)
-      window.removeEventListener('pointercancel', handleEnd)
-    }
-
-    window.addEventListener('pointermove', handleMove)
-    window.addEventListener('pointerup', handleEnd)
-    window.addEventListener('pointercancel', handleEnd)
-  }, [])
-
   return (
     <div
       className={`desktop-root ${isFullscreenLyricsOpen ? 'fullscreen-lyrics-open' : ''} lyrics-bg-${lyricsBackgroundMode} ${followSystemAppearance ? 'appearance-system' : 'appearance-manual'} appearance-${effectiveAppearance}`}
@@ -4382,7 +4399,6 @@ function App(): React.ReactElement {
           onOpenContextMenu={openContextMenu}
         />
         <WindowControls />
-        <div className="titlebar-drag-region no-drag" aria-hidden="true" onPointerDown={handleTitlebarDragStart} />
         {entryReveal ? <RouteEntryLoader phase={entryReveal.phase} /> : null}
 
         <main className="content-pane">
@@ -4543,6 +4559,7 @@ function App(): React.ReactElement {
           ) : null}
           {importSyncState ? <ImportSyncCard state={importSyncState} onCancel={() => setImportSyncState(null)} /> : null}
         </main>
+        <div className="titlebar-drag-region chrome-drag" aria-hidden="true" />
         {isLyricsSidebarOpen ? (
           <LyricsSidePanel
             track={displayTrack ?? currentTrack}
@@ -4737,7 +4754,13 @@ const ManualBpmBoard = React.memo(function ManualBpmBoard({
 }): React.ReactElement {
   const [tapTimes, setTapTimes] = React.useState<number[]>([])
   const boardRef = React.useRef<HTMLButtonElement | null>(null)
-  const intervals = React.useMemo(() => tapTimes.slice(1).map((time, index) => time - tapTimes[index]).filter((value) => value > 160 && value < 2200), [tapTimes])
+  const intervals = React.useMemo(
+    () => tapTimes
+      .slice(1)
+      .map((time, index) => time - tapTimes[index])
+      .filter((value) => value > 160 && value <= 60000 / ARTWORK_BPM_MIN),
+    [tapTimes]
+  )
   const bpm = React.useMemo(() => {
     if (!intervals.length) return null
     const sorted = [...intervals].sort((a, b) => a - b)
@@ -6409,7 +6432,6 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
   const isLyricHoveringRef = React.useRef(false)
   const [isSeekingLyric, setIsSeekingLyric] = React.useState(false)
   const seekingTimerRef = React.useRef<number | null>(null)
-  const isExternalPlaybackTrack = track?.metadataSource === 'externalPlayback'
   const amllOptimizeOptions = React.useMemo(() => ({ resetLineTimestamps: false }), [])
   const amllBottomLine = React.useMemo(
     () => variant === 'fullscreen' ? <span className="fullscreen-amll-bottom">{track ? `${track.artist} · ${track.album}` : ''}</span> : undefined,
@@ -6472,7 +6494,7 @@ const AMLLLyricsSurface = React.memo(function AMLLLyricsSurface({
           alignPosition={variant === 'fullscreen' ? 0.38 : 0.18}
           enableBlur={renderQuality !== 'performance' && !isLyricHovering}
           enableScale={renderQuality !== 'performance'}
-          enableSpring={renderQuality === 'quality' && !isExternalPlaybackTrack}
+          enableSpring={renderQuality === 'quality'}
           wordFadeWidth={0.5}
           optimizeOptions={amllOptimizeOptions}
           bottomLine={amllBottomLine}

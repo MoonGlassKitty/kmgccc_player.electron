@@ -210,3 +210,14 @@
 - Home 专辑卡片长标题排版修正：专辑封面右侧预留稳定白色安全边，标题/艺人文字同步避让该边界；专辑标题从单行省略改为最多两行显示，长标题按右侧留白路径截断，减少贴边和被圆角区域挤压的问题。`npm run typecheck` 已通过。
 - 专辑/艺人/歌单详情头部细节修正：详情页编辑按钮改为圆形铅笔图标按钮，避免“编辑专辑”文字在按钮里换行；专辑详情在元信息下方显示同步/编辑得到的简介，没有简介时显示专辑概览占位，并把播放按钮组从固定下推改为跟随简介自然排版。`npm run typecheck` 已通过。
 - 全屏左下角控制补齐：参考 Swift `FullscreenPlayerView` 的 leading controls，左下角从缩小/外观两个按钮改为缩小、字幕、外观三个按钮；字幕按钮切换全屏歌词列显隐，动画由外层布局/CSS 完成，不依赖 AMLL 内部隐藏。`npm run typecheck` 已通过。
+- Windows 顶部拖拽判定区域修正：顶部透明 `titlebar-drag-region` 从手写 pointer/setPosition 链路切换为与 Home toolbar 相同的 Electron 原生 `-webkit-app-region: drag` 命中；窗口控制按钮继续保持 `no-drag`，使按住窗口不再改变面积，并让最大化窗口从顶部拖动时由 Windows 原生恢复到正常尺寸。
+- 窗口播放与全屏歌词拖拽恢复：保留两个播放页根节点的 `no-drag`，避免 Electron 对大型歌词/动画子树重算 app-region 时产生瞬时卡顿；仅将现有顶部原生拖拽窄条移动到内容层之后，使其作为轻量顶层兄弟区域命中，不改变封面、歌词和控制按钮交互。
+- 第三方播放源周期卡顿修正：外部 snapshot 的 700ms 轮询和应用音量的 2.5s 轮询由固定 interval 改为上一轮完成后再调度，避免 PowerShell/WinRT 查询重叠堆积；纯时间轴/更新时间变化不再替换 `externalPlaybackSnapshot` React state，仅更新外部时钟和底栏进度 DOM，减少播放页约每秒一次的整树重渲染。
+- 第三方源后台任务降载：应用音量同步改为 15 秒，本地单调时钟继续平滑推进进度；实体磁带检测从固定 1 秒 PowerShell 巡检恢复为未连接 10 秒、已连接 4 秒，避免无关系统查询持续抢占窗口合成。媒体 snapshot 在常驻 bridge 接入后保持 700ms 查询，兼顾快速切歌同步。
+- 第三方媒体查询常驻化：确认当前 `@nodert-win11/windows.media.control` 未生成原生 binding，Electron 必然走 PowerShell fallback；主进程新增单实例常驻 PowerShell bridge，WinRT/GSMTC 初始化一次后通过 stdin/stdout JSON 请求复用，snapshot 轮询不再反复冷启动 PowerShell。bridge 异常时保留一次性查询兜底，应用退出时主动清理子进程。
+- 第三方 GSMTC 会话扫描降载：常驻 bridge 缓存已选媒体 session，每 700ms snapshot 优先复用 Windows 当前会话或缓存会话；仅在会话失效、播放应用切换时才枚举并评分全部 GSMTC sessions，避免每轮对所有会话执行 `TryGetMediaPropertiesAsync`。
+- 第三方歌词动画平滑恢复：帧间隔实测确认窗口播放和全屏歌词没有周期性长帧，视觉顿挫来自第三方 track 被单独禁用 AMLL `enableSpring`；在外部单调时钟与校准稳定后，第三方歌词恢复与本地源相同的 quality 模式 spring 插值，避免 250ms 时间点离散跳动。
+- 第三方源窗口拖动/缩放周期卡顿修正：定位到 CloudMusic 音频缓存或 metadata 未命中时会立即删除空 Promise，导致每 700ms snapshot 都在 Electron 主进程重新执行 `readdirSync/readFileSync` 文件扫描；metadata 空结果改为 5 秒后重试，音频缓存空结果改为 30 秒后重试，轮询期间复用已完成 Promise，避免主进程周期阻塞原生窗口消息。
+- 第三方源原生窗口周期冻结根因修正：`attachExternalPlaybackMetadata` 每轮先调用 `enrichExternalPlaybackSnapshot`，后者通过 `execFileSync(powershell.exe)` 同步读取 CloudMusic 窗口标题，导致 700ms 查询加约 200ms 主进程阻塞，拖动/缩放窗口时表现为接近 1 秒一卡。高频 snapshot 路径现直接使用常驻 GSMTC bridge 返回的元数据；同步窗口标题读取仅保留在 bridge/GSMTC 都失效的低频兜底路径。
+- 第三方封面节拍停滞修正：外部 snapshot 为避免整页重渲染不再持续写 `playbackTime` state，但封面节拍仍读取该 state 的 ref，未打开歌词时进度会停住。封面 rAF 和手动测速起点改为直接从 `externalPlaybackClockRef` 加本地 elapsed 计算连续时间；snapshot 校准同步更新 ref，不依赖歌词时钟也能持续打拍。
+- 封面节拍 BPM 下限调整：自动分析、缓存清洗和手动测速统一允许最低 25 BPM；手动敲拍的有效间隔同步放宽到 2400ms，避免 25 BPM 被输入过滤提前丢弃。

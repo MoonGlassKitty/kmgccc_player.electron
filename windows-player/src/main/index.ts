@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, net, protocol, shell } from 'electron'
-import { execFile, execFileSync } from 'node:child_process'
+import { execFile, execFileSync, spawn } from 'node:child_process'
 import { createDecipheriv, createHash } from 'node:crypto'
 import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -1574,11 +1574,17 @@ function cloudMusicAudioSourceUrl(songId: number): Promise<string | null> {
   if (!lookup) {
     lookup = resolveCloudMusicAudioSourceUrl(songId)
       .then((result) => {
-        if (!result) externalAudioSourceBySongId.delete(songId)
+        if (!result) {
+          setTimeout(() => {
+            if (externalAudioSourceBySongId.get(songId) === lookup) externalAudioSourceBySongId.delete(songId)
+          }, 30000)
+        }
         return result
       })
       .catch(() => {
-        externalAudioSourceBySongId.delete(songId)
+        setTimeout(() => {
+          if (externalAudioSourceBySongId.get(songId) === lookup) externalAudioSourceBySongId.delete(songId)
+        }, 30000)
         return null
       })
     externalAudioSourceBySongId.set(songId, lookup)
@@ -3366,7 +3372,7 @@ function externalSnapshotMetadataKey(snapshot: ExternalPlaybackSnapshot): string
 }
 
 async function attachExternalPlaybackMetadata(snapshot: ExternalPlaybackSnapshot): Promise<ExternalPlaybackSnapshot> {
-  const enriched = enrichExternalPlaybackSnapshot(snapshot)
+  const enriched = snapshot
   const title = enriched.title.trim()
   if (!title || enriched.connectionState !== 'runningHasData') return enriched
 
@@ -3388,7 +3394,9 @@ async function attachExternalPlaybackMetadata(snapshot: ExternalPlaybackSnapshot
 
   const metadata = await lookup
   if (!metadata) {
-    externalSnapshotMetadataByKey.delete(key)
+    setTimeout(() => {
+      if (externalSnapshotMetadataByKey.get(key) === lookup) externalSnapshotMetadataByKey.delete(key)
+    }, 5000)
     if (enriched.neteaseSongId) {
       const audioSourceUrl = await cloudMusicAudioSourceUrl(enriched.neteaseSongId)
       if (audioSourceUrl) return { ...enriched, audioSourceUrl }
@@ -3726,7 +3734,202 @@ function VolumeSnapshot($processName, $sessions) {
 }
 `
 
+let externalMediaBridgeProcess: ReturnType<typeof spawn> | null = null
+let externalMediaBridgeBuffer = ''
+let externalMediaBridgeRequestId = 0
+const externalMediaBridgePending = new Map<number, {
+  resolve: (snapshot: ExternalPlaybackSnapshot | null) => void
+  timer: NodeJS.Timeout
+}>()
+
+function stopExternalMediaBridge(): void {
+  const process = externalMediaBridgeProcess
+  externalMediaBridgeProcess = null
+  externalMediaBridgeBuffer = ''
+  for (const pending of externalMediaBridgePending.values()) {
+    clearTimeout(pending.timer)
+    pending.resolve(null)
+  }
+  externalMediaBridgePending.clear()
+  if (process && !process.killed) process.kill()
+}
+
+function externalMediaBridgeScript(): string {
+  return `${powershellMediaSessionPrelude}
+$selectedSessions = @{}
+function SessionForMode($mode) {
+  $current = $manager.GetCurrentSession()
+  if ($null -ne $current -and (MatchesMode $current $mode)) {
+    $script:selectedSessions[$mode] = $current
+    return $current
+  }
+  $cached = $script:selectedSessions[$mode]
+  if ($null -ne $cached) {
+    try {
+      $null = $cached.GetPlaybackInfo()
+      if (MatchesMode $cached $mode) { return $cached }
+    } catch {}
+    $script:selectedSessions.Remove($mode)
+  }
+  $selected = SelectSession $manager $mode
+  if ($null -ne $selected) {
+    $script:selectedSessions[$mode] = $selected
+  }
+  return $selected
+}
+function SnapshotForMode($mode) {
+  $session = SessionForMode $mode
+  if ($null -eq $session) {
+    $fallbackTitle = [string](Get-Process -Name cloudmusic -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle } | Select-Object -First 1 -ExpandProperty MainWindowTitle)
+    if ($mode -ne 'other' -and -not [string]::IsNullOrWhiteSpace($fallbackTitle)) {
+      $separatorIndex = $fallbackTitle.LastIndexOf(' - ')
+      if ($separatorIndex -gt 0 -and $separatorIndex -lt ($fallbackTitle.Length - 3)) {
+        return [pscustomobject]@{
+          available = $true
+          sourceMode = $mode
+          connectionState = 'runningHasData'
+          sourceAppUserModelId = 'cloudmusic.exe'
+          title = $fallbackTitle.Substring(0, $separatorIndex).Trim()
+          artist = $fallbackTitle.Substring($separatorIndex + 3).Trim()
+          duration = 0
+          currentTime = 0
+          isPlaying = $true
+          playbackRate = 1
+          canControlPlayback = $false
+          canSkip = $false
+          canSeek = $false
+          updatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+        }
+      }
+    }
+    return [pscustomobject]@{
+      available = $true
+      sourceMode = $mode
+      connectionState = 'disconnected'
+      title = ''
+      artist = ''
+      duration = 0
+      currentTime = 0
+      isPlaying = $false
+      playbackRate = 0
+      canControlPlayback = $false
+      canSkip = $false
+      canSeek = $false
+      updatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    }
+  }
+  $properties = AwaitOperation ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+  $timeline = $session.GetTimelineProperties()
+  $playback = $session.GetPlaybackInfo()
+  $controls = $playback.Controls
+  $duration = [Math]::Max(0, (TimeSpanSeconds $timeline.EndTime) - (TimeSpanSeconds $timeline.StartTime))
+  $position = [Math]::Max(0, (TimeSpanSeconds $timeline.Position) - (TimeSpanSeconds $timeline.StartTime))
+  if ($duration -gt 0) { $position = [Math]::Min($position, $duration) }
+  $status = $playback.PlaybackStatus.ToString()
+  $artist = if ([string]::IsNullOrWhiteSpace($properties.Artist)) { [string]$properties.AlbumArtist } else { [string]$properties.Artist }
+  $rate = if ($null -eq $playback.PlaybackRate) { 0 } else { [double]$playback.PlaybackRate }
+  $connectionState = if ([string]::IsNullOrWhiteSpace($properties.Title)) { 'connectedNoMetadata' } else { 'runningHasData' }
+  return [pscustomobject]@{
+    available = $true
+    sourceMode = $mode
+    connectionState = $connectionState
+    sourceAppUserModelId = $session.SourceAppUserModelId
+    title = [string]$properties.Title
+    artist = $artist
+    album = [string]$properties.AlbumTitle
+    duration = $duration
+    currentTime = $position
+    isPlaying = ($status -eq 'Playing')
+    playbackRate = $rate
+    canControlPlayback = [bool]($controls.IsPlayEnabled -or $controls.IsPauseEnabled -or $controls.IsPlayPauseToggleEnabled)
+    canSkip = [bool]($controls.IsNextEnabled -or $controls.IsPreviousEnabled)
+    canSeek = [bool]$controls.IsPlaybackPositionEnabled
+    updatedAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+  }
+}
+while (($requestLine = [Console]::In.ReadLine()) -ne $null) {
+  try {
+    $request = $requestLine | ConvertFrom-Json
+    $payload = SnapshotForMode ([string]$request.mode)
+    $response = [pscustomobject]@{ id = [int]$request.id; payload = $payload }
+  } catch {
+    $response = [pscustomobject]@{ id = [int]$request.id; payload = $null }
+  }
+  [Console]::Out.WriteLine(($response | ConvertTo-Json -Compress -Depth 5))
+  [Console]::Out.Flush()
+}
+`
+}
+
+function ensureExternalMediaBridge(): ReturnType<typeof spawn> | null {
+  if (process.platform !== 'win32') return null
+  if (externalMediaBridgeProcess && !externalMediaBridgeProcess.killed) return externalMediaBridgeProcess
+  try {
+    const bridgePath = join(app.getPath('userData'), 'external-media-bridge.ps1')
+    writeFileSync(bridgePath, externalMediaBridgeScript(), 'utf8')
+    const bridge = spawn(
+      'powershell.exe',
+      ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', bridgePath],
+      { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] }
+    )
+    externalMediaBridgeProcess = bridge
+    bridge.stdout.setEncoding('utf8')
+    bridge.stdout.on('data', (chunk: string) => {
+      externalMediaBridgeBuffer += chunk
+      let newlineIndex = externalMediaBridgeBuffer.indexOf('\n')
+      while (newlineIndex >= 0) {
+        const line = externalMediaBridgeBuffer.slice(0, newlineIndex).trim()
+        externalMediaBridgeBuffer = externalMediaBridgeBuffer.slice(newlineIndex + 1)
+        if (line) {
+          try {
+            const response = JSON.parse(line) as { id?: number; payload?: ExternalPlaybackSnapshot | null }
+            const pending = typeof response.id === 'number' ? externalMediaBridgePending.get(response.id) : undefined
+            if (pending) {
+              clearTimeout(pending.timer)
+              externalMediaBridgePending.delete(response.id!)
+              pending.resolve(response.payload ?? null)
+            }
+          } catch {
+            // Ignore non-protocol output from PowerShell.
+          }
+        }
+        newlineIndex = externalMediaBridgeBuffer.indexOf('\n')
+      }
+    })
+    bridge.once('exit', stopExternalMediaBridge)
+    bridge.once('error', stopExternalMediaBridge)
+    return bridge
+  } catch {
+    stopExternalMediaBridge()
+    return null
+  }
+}
+
+function getExternalPlaybackSnapshotFromBridge(mode: ExternalPlaybackSourceMode): Promise<ExternalPlaybackSnapshot | null> {
+  const bridge = ensureExternalMediaBridge()
+  const stdin = bridge?.stdin
+  if (!stdin?.writable) return Promise.resolve(null)
+  const id = ++externalMediaBridgeRequestId
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      externalMediaBridgePending.delete(id)
+      resolve(null)
+    }, 5000)
+    externalMediaBridgePending.set(id, { resolve, timer })
+    stdin.write(`${JSON.stringify({ id, mode })}\n`, (error) => {
+      if (!error) return
+      const pending = externalMediaBridgePending.get(id)
+      if (!pending) return
+      clearTimeout(pending.timer)
+      externalMediaBridgePending.delete(id)
+      pending.resolve(null)
+    })
+  })
+}
+
 async function getPowerShellExternalPlaybackSnapshot(mode: ExternalPlaybackSourceMode): Promise<ExternalPlaybackSnapshot | null> {
+  const bridgeSnapshot = await getExternalPlaybackSnapshotFromBridge(mode)
+  if (bridgeSnapshot) return bridgeSnapshot
   const escapedMode = JSON.stringify(mode)
   const script = `${powershellMediaSessionPrelude}
 $mode = ${escapedMode}
@@ -4059,6 +4262,8 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
+app.on('before-quit', stopExternalMediaBridge)
 
 const windowDragSessions = new Map<number, { pointerX: number; pointerY: number; windowX: number; windowY: number }>()
 

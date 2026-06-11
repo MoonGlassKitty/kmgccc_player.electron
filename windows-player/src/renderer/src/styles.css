@@ -2366,7 +2366,7 @@ input {
   height: calc(var(--win-titlebar-height) + 16px);
   pointer-events: auto;
   cursor: default;
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
 }
 
 .import-sync-backdrop {
