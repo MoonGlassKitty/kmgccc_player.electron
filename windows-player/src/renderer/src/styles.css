@@ -27,9 +27,9 @@
   --layer-app-pad: -2;
   --layer-decor: -1;
   --layer-home: 0;
-  --layer-sidebars: 1;
+  --layer-sidebars: 4;
   --layer-floating-glass: 2;
-  --layer-pointer: 3;
+  --layer-pointer: 5;
 }
 
 * {
@@ -3224,6 +3224,14 @@ input {
   flex-direction: column;
   min-height: 0;
   padding-top: 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.sidebar-main::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-row,
