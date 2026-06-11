@@ -4468,9 +4468,7 @@ input {
   -webkit-backdrop-filter: blur(18px) saturate(170%);
   backdrop-filter: var(--filter-url);
   -webkit-backdrop-filter: var(--filter-url);
-  box-shadow:
-    0 18px 46px var(--glass-shadow),
-    0 0 0 1px rgba(255, 255, 255, 0.22) inset;
+  box-shadow: none;
   pointer-events: none;
 }
 
@@ -4482,9 +4480,7 @@ input {
   backdrop-filter: blur(22px) saturate(1.08);
   -webkit-backdrop-filter: blur(22px) saturate(1.08);
   background-color: rgba(255, 255, 255, 0.34);
-  box-shadow:
-    0 14px 32px rgba(20, 33, 40, 0.10),
-    0 0 0 1px rgba(255, 255, 255, 0.34) inset;
+  box-shadow: none;
 }
 
 .home-stats-block .home-rank-panel:hover,
@@ -6401,9 +6397,7 @@ input {
 .appearance-dark .home-stats-block .home-calendar-panel::before,
 .appearance-dark .home-stats-block .home-calendar-panel::after {
   background-color: rgba(16, 22, 28, var(--glass-alpha));
-  box-shadow:
-    0 18px 46px rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  box-shadow: none;
 }
 
 .appearance-dark .app-shell.home-material-frostedGlass .home-stats-block .home-rank-panel::before,
@@ -6411,9 +6405,7 @@ input {
 .appearance-dark .app-shell.home-material-frostedGlass .home-stats-block .home-calendar-panel::before,
 .appearance-dark .app-shell.home-material-frostedGlass .home-stats-block .home-calendar-panel::after {
   background-color: rgba(16, 22, 28, 0.22);
-  box-shadow:
-    0 14px 32px rgba(0, 0, 0, 0.14),
-    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  box-shadow: none;
 }
 
 .appearance-dark .settings-window {
