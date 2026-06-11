@@ -4852,17 +4852,6 @@ input {
     color-mix(in srgb, var(--bk-bg-tone-1) 62%, #f7fbff);
 }
 
-.fullscreen-lyrics-drag-region {
-  position: absolute;
-  top: 0;
-  right: 138px;
-  left: var(--sidebar-width);
-  z-index: 10000;
-  height: calc(var(--win-titlebar-height) + 16px);
-  pointer-events: auto;
-  -webkit-app-region: drag;
-}
-
 .fullscreen-lyrics-page > .bk-art-background,
 .fullscreen-lyrics-page > .apple-now-playing-background,
 .fullscreen-lyrics-page > .now-playing-unified-mesh {

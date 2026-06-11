@@ -1,9 +1,5 @@
 # Development Log
 
-## 2026-06-11
-
-- 全屏歌词页内部新增顶部透明拖拽命中层 `.fullscreen-lyrics-drag-region`，保留原生 `-webkit-app-region: drag`，避开右上角窗口控制区和左侧栏，修复歌词页根节点 `no-drag` 覆盖后顶部无法拖动窗口的问题。`npm run typecheck` 与 `npm run build` 已通过。
-
 ## 2026-06-08
 
 - BK 背景颜色改回封面主题色方向，使用 HSB 转 RGB 输出以避免 HSL 高亮度混白导致的灰白感。

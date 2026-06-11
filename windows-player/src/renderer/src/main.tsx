@@ -6661,7 +6661,6 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
 
   return (
     <section ref={pageRef} className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} amll-color-phase-${amllColorPhase % 2} no-drag`} style={fullscreenPageStyle}>
-      <div className="fullscreen-lyrics-drag-region" aria-hidden="true" />
       {useCoverGradientBlur ? (
         <>
           {pixelStretchBackground ? <img className="fullscreen-lyrics-stretch-bg" src={pixelStretchBackground} alt="" decoding="async" /> : null}
