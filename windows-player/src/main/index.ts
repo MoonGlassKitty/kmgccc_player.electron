@@ -2585,6 +2585,7 @@ type TapeDevicePresenceSnapshot = {
 }
 
 const tapeDeviceNamePattern = /kmgccc(?:[_\s-]?tape)?|oldwu|mv[-\s]?silicon|digital\s+audio|vid[_\s-]?8888|pid[_\s-]?1717|8888.*1717|1717.*8888/i
+const tapeDeviceAddressPattern = /a6[:\s-]?66[:\s-]?82[:\s-]?90[:\s-]?21[:\s-]?3f/i
 
 function matchingTapeDeviceNames(rawValue: string): string[] {
   const names = rawValue
@@ -2602,7 +2603,9 @@ async function getTapeDevicePresence(): Promise<TapeDevicePresenceSnapshot> {
     runCommandText('ioreg', ['-r', '-c', 'IOAudioDevice', '-l', '-w0'], 3000)
   ])
   const names = Array.from(new Set(rawValues.flatMap(matchingTapeDeviceNames)))
-  const connected = names.length > 0 || rawValues.some((rawValue) => tapeDeviceNamePattern.test(rawValue))
+  const connected =
+    names.length > 0 ||
+    rawValues.some((rawValue) => tapeDeviceNamePattern.test(rawValue) || tapeDeviceAddressPattern.test(rawValue))
   return {
     connected,
     names: names.length ? names : connected ? ['Oldwu-Studio Digital Audio'] : [],
