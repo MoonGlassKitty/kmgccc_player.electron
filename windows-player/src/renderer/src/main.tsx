@@ -2694,24 +2694,6 @@ function App(): React.ReactElement {
           ? fullscreenCassetteVisualizerMode
           : 'off'
   const toolbarSortKey = detailSortKey === 'albumOrder' && !(route.name === 'albumDetail' && route.id !== 'all-albums') ? 'importedAt' : detailSortKey
-  const nowPlayingPopoutSnapshot = React.useMemo<NowPlayingPopoutSnapshot | null>(() => {
-    const track = displayTrack ?? currentTrack
-    if (!track) return null
-    return {
-      title: track.title,
-      artist: track.artist,
-      album: track.album,
-      artworkUrl: trackArtwork(track, albums),
-      isPlaying,
-      currentTime: playbackTime,
-      duration: playbackDuration || track.duration
-    }
-  }, [albums, currentTrack, displayTrack, isPlaying, playbackDuration, playbackTime])
-
-  React.useEffect(() => {
-    window.kmgccc?.updateNowPlayingPopout?.(nowPlayingPopoutSnapshot)
-  }, [nowPlayingPopoutSnapshot])
-
   const ensureAudioAnalyser = React.useCallback((): AnalyserNode | null => {
     const audio = audioRef.current
     if (!audio) return null
@@ -3622,8 +3604,8 @@ function App(): React.ReactElement {
     setRoute({ name: 'home' })
   }, [])
   const openNowPlaying = React.useCallback(() => {
-    void window.kmgccc?.openNowPlayingPopout?.(nowPlayingPopoutSnapshot)
-  }, [nowPlayingPopoutSnapshot])
+    setRoute({ name: 'nowPlaying' })
+  }, [])
   const openSettings = React.useCallback(() => {
     setSettingsCategory('nowPlaying')
     setIsSettingsOpen(true)
@@ -9934,61 +9916,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
   )
 })
 
-function NowPlayingPopoutApp(): React.ReactElement {
-  const [snapshot, setSnapshot] = React.useState<NowPlayingPopoutSnapshot | null>(null)
-
-  React.useEffect(() => {
-    let mounted = true
-    void window.kmgccc?.getNowPlayingPopoutSnapshot?.().then((nextSnapshot) => {
-      if (mounted) setSnapshot(nextSnapshot)
-    })
-    const unsubscribe = window.kmgccc?.onNowPlayingPopoutSnapshot?.((nextSnapshot) => {
-      setSnapshot(nextSnapshot)
-    })
-    return () => {
-      mounted = false
-      unsubscribe?.()
-    }
-  }, [])
-
-  const progress = snapshot && snapshot.duration > 0
-    ? clampNumber(snapshot.currentTime / snapshot.duration, 0, 1)
-    : 0
-
-  return (
-    <div className="popout-root">
-      <div className="popout-titlebar">
-        <button type="button" aria-label="关闭" onClick={() => window.kmgccc?.close()}>
-          <X size={15} />
-        </button>
-      </div>
-      <main className="popout-now-playing">
-        {snapshot?.artworkUrl ? (
-          <img className="popout-artwork" src={snapshot.artworkUrl} alt="" decoding="async" />
-        ) : (
-          <div className="popout-artwork placeholder"><Music2 size={54} /></div>
-        )}
-        <section className="popout-copy">
-          <span>{snapshot?.isPlaying ? '正在播放' : '已暂停'}</span>
-          <strong>{snapshot?.title ?? '未选择歌曲'}</strong>
-          <small>{snapshot ? `${snapshot.artist} · ${snapshot.album ?? ''}` : '从主窗口选择音乐后显示'}</small>
-        </section>
-        <div className="popout-progress" aria-hidden="true">
-          <span style={{ transform: `scaleX(${progress})` }} />
-        </div>
-        <div className="popout-times">
-          <time>{formatDuration(snapshot?.currentTime ?? 0)}</time>
-          <time>{formatDuration(snapshot?.duration ?? 0)}</time>
-        </div>
-      </main>
-    </div>
-  )
-}
-
-const isNowPlayingPopoutView = new URLSearchParams(window.location.search).get('view') === 'now-playing-popout'
-
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {isNowPlayingPopoutView ? <NowPlayingPopoutApp /> : <App />}
+    <App />
   </React.StrictMode>
 )

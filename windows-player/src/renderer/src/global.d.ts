@@ -205,25 +205,11 @@ declare global {
     }
   }
 
-  type NowPlayingPopoutSnapshot = {
-    title: string
-    artist: string
-    album?: string
-    artworkUrl?: string
-    isPlaying: boolean
-    currentTime: number
-    duration: number
-  }
-
   interface Window {
     kmgccc?: {
       minimize: () => void
       toggleMaximize: () => void
       close: () => void
-      openNowPlayingPopout: (snapshot: NowPlayingPopoutSnapshot | null) => Promise<boolean>
-      updateNowPlayingPopout: (snapshot: NowPlayingPopoutSnapshot | null) => void
-      getNowPlayingPopoutSnapshot: () => Promise<NowPlayingPopoutSnapshot | null>
-      onNowPlayingPopoutSnapshot: (callback: (snapshot: NowPlayingPopoutSnapshot | null) => void) => () => void
       getHomeSnapshot: () => Promise<HomeSnapshot>
       importAudioFile: () => Promise<LocalAudioImport | null>
       importAudioFiles: () => Promise<{ tracks: LocalAudioImport[] } | null>

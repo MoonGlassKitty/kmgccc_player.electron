@@ -48,16 +48,6 @@ type WindowColorSample = {
   b: number
 }
 
-type NowPlayingPopoutSnapshot = {
-  title: string
-  artist: string
-  album?: string
-  artworkUrl?: string
-  isPlaying: boolean
-  currentTime: number
-  duration: number
-}
-
 type LocalAudioImport = {
   id: string
   title: string
@@ -3169,8 +3159,6 @@ async function sampleWindowColor(owner: BrowserWindow, rect: WindowColorSampleRe
 let externalPlaybackSourceMode: ExternalPlaybackSourceMode = 'auto'
 let mediaControlModule: WinRtMediaControlModule | null | undefined
 let mediaSessionManagerPromise: Promise<WinRtSessionManager | null> | null = null
-let nowPlayingPopoutWindow: BrowserWindow | null = null
-let latestNowPlayingPopoutSnapshot: NowPlayingPopoutSnapshot | null = null
 
 const browserMediaOwners = [
   'chrome',
@@ -4055,51 +4043,6 @@ function createWindow(): void {
   }
 }
 
-function sendNowPlayingPopoutSnapshot(): void {
-  if (!nowPlayingPopoutWindow || nowPlayingPopoutWindow.isDestroyed()) return
-  nowPlayingPopoutWindow.webContents.send('now-playing-popout:snapshot', latestNowPlayingPopoutSnapshot)
-}
-
-function createNowPlayingPopoutWindow(owner?: BrowserWindow): BrowserWindow {
-  if (nowPlayingPopoutWindow && !nowPlayingPopoutWindow.isDestroyed()) {
-    return nowPlayingPopoutWindow
-  }
-
-  const window = new BrowserWindow({
-    width: 420,
-    height: 620,
-    minWidth: 360,
-    minHeight: 480,
-    frame: false,
-    transparent: false,
-    backgroundColor: '#101820',
-    show: false,
-    title: 'kmgccc_player 窗口播放',
-    parent: owner,
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      sandbox: false
-    }
-  })
-
-  nowPlayingPopoutWindow = window
-  window.once('ready-to-show', () => {
-    window.show()
-    sendNowPlayingPopoutSnapshot()
-  })
-  window.on('closed', () => {
-    if (nowPlayingPopoutWindow === window) nowPlayingPopoutWindow = null
-  })
-
-  if (isDev && process.env.ELECTRON_RENDERER_URL) {
-    void window.loadURL(`${process.env.ELECTRON_RENDERER_URL}?view=now-playing-popout`)
-  } else {
-    void window.loadFile(join(__dirname, '../renderer/index.html'), { query: { view: 'now-playing-popout' } })
-  }
-  return window
-}
-
 app.whenReady().then(() => {
   installLocalMediaProtocol()
   createWindow()
@@ -4134,24 +4077,6 @@ ipcMain.on('window:toggle-maximize', (event) => {
 ipcMain.on('window:close', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.close()
 })
-
-ipcMain.handle('now-playing-popout:open', (event, snapshot: NowPlayingPopoutSnapshot | null) => {
-  latestNowPlayingPopoutSnapshot = snapshot
-  const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined
-  const window = createNowPlayingPopoutWindow(owner)
-  if (window.isMinimized()) window.restore()
-  window.show()
-  window.focus()
-  sendNowPlayingPopoutSnapshot()
-  return true
-})
-
-ipcMain.on('now-playing-popout:update', (_event, snapshot: NowPlayingPopoutSnapshot | null) => {
-  latestNowPlayingPopoutSnapshot = snapshot
-  sendNowPlayingPopoutSnapshot()
-})
-
-ipcMain.handle('now-playing-popout:get-snapshot', () => latestNowPlayingPopoutSnapshot)
 
 ipcMain.handle('library:get-home-snapshot', () => getHomeSnapshot())
 ipcMain.handle('system:get-wallpaper-tint', () => getWallpaperTint())
