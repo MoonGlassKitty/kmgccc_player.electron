@@ -79,6 +79,17 @@ svg {
   isolation: isolate;
 }
 
+.playback-page-drag-region {
+  position: absolute;
+  top: 0;
+  right: 138px;
+  left: var(--sidebar-width);
+  z-index: 10000;
+  height: calc(var(--win-titlebar-height) + 16px);
+  pointer-events: auto;
+  -webkit-app-region: drag;
+}
+
 .now-playing-page :is(
   .now-playing-artwork-stage,
   .now-playing-track-copy

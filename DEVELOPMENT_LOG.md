@@ -2,7 +2,6 @@
 
 ## 2026-06-11
 
-- 播放页拖拽卡顿修正：移除窗口播放页和全屏歌词页内部高 z-index `.playback-page-drag-region`，改由外层固定 `titlebar-drag-region` 负责拖拽；保留播放页根节点不设 `no-drag`、交互块显式 `no-drag` 和背景层 `pointer-events:none`，减少播放页动画层参与 app-region 命中造成的拖动卡顿。`npm run typecheck` 与 `npm run build` 已通过。
 - 播放页窗口拖拽改为页面内窄拖拽带：窗口播放页和全屏歌词页移除根节点 `no-drag`，各自插入 `.playback-page-drag-region`，仅封面、文案和歌词等交互块显式 `no-drag`，并保持背景层 `pointer-events:none`；不再扩展全局 `titlebar-drag-region`，避免大面积 app-region 叠加导致拖动卡顿。`npm run typecheck` 与 `npm run build` 已通过。
 
 ## 2026-06-08
