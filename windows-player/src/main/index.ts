@@ -2584,14 +2584,28 @@ type TapeDevicePresenceSnapshot = {
   instanceIds: string[]
 }
 
-const tapeDeviceNamePattern = /oldwu-studio\s+digital\s+audio/i
+const tapeDeviceNamePattern = /oldwu|mv[-\s]?silicon|digital\s+audio|vid[_\s-]?8888|pid[_\s-]?1717|8888.*1717|1717.*8888/i
+
+function matchingTapeDeviceNames(rawValue: string): string[] {
+  const names = rawValue
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^"?(?:_name|name|manufacturer|coreaudio_device_manufacturer)"?\s*[:=]\s*/i, '').replace(/^"|"$/g, ''))
+    .filter((line) => line && tapeDeviceNamePattern.test(line))
+  return Array.from(new Set(names))
+}
 
 async function getTapeDevicePresence(): Promise<TapeDevicePresenceSnapshot> {
-  const rawValue = await runCommandText('system_profiler', ['SPAudioDataType', 'SPUSBDataType'], 5000)
-  const connected = tapeDeviceNamePattern.test(rawValue)
+  const rawValues = await Promise.all([
+    runCommandText('system_profiler', ['SPAudioDataType', 'SPUSBDataType'], 5000),
+    runCommandText('system_profiler', ['SPAudioDataType', 'SPUSBDataType', '-json'], 5000),
+    runCommandText('ioreg', ['-p', 'IOUSB', '-l', '-w0'], 3000),
+    runCommandText('ioreg', ['-r', '-c', 'IOAudioDevice', '-l', '-w0'], 3000)
+  ])
+  const names = Array.from(new Set(rawValues.flatMap(matchingTapeDeviceNames)))
+  const connected = names.length > 0 || rawValues.some((rawValue) => tapeDeviceNamePattern.test(rawValue))
   return {
     connected,
-    names: connected ? ['Oldwu-Studio Digital Audio'] : [],
+    names: names.length ? names : connected ? ['Oldwu-Studio Digital Audio'] : [],
     instanceIds: []
   }
 }

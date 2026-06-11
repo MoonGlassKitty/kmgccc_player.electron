@@ -183,7 +183,7 @@ const albumArtwork =
 
 const altArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e9/c4/38/e9c43893-e743-269a-6a47-c11120717177/artwork.jpg/600x600bb.jpg'
-const TAPE_DEVICE_DISCONNECTED_POLL_DELAY_MS = 10000
+const TAPE_DEVICE_DISCONNECTED_POLL_DELAY_MS = 2000
 const TAPE_DEVICE_CONNECTED_POLL_DELAY_MS = 4000
 
 const DEFAULT_SIDEBAR_WIDTH = 320
