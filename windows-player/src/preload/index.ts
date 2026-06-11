@@ -4,6 +4,14 @@ contextBridge.exposeInMainWorld('kmgccc', {
   minimize: () => ipcRenderer.send('window:minimize'),
   toggleMaximize: () => ipcRenderer.send('window:toggle-maximize'),
   close: () => ipcRenderer.send('window:close'),
+  openNowPlayingPopout: (snapshot: unknown) => ipcRenderer.invoke('now-playing-popout:open', snapshot),
+  updateNowPlayingPopout: (snapshot: unknown) => ipcRenderer.send('now-playing-popout:update', snapshot),
+  getNowPlayingPopoutSnapshot: () => ipcRenderer.invoke('now-playing-popout:get-snapshot'),
+  onNowPlayingPopoutSnapshot: (callback: (snapshot: unknown) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, snapshot: unknown): void => callback(snapshot)
+    ipcRenderer.on('now-playing-popout:snapshot', listener)
+    return () => ipcRenderer.removeListener('now-playing-popout:snapshot', listener)
+  },
   getHomeSnapshot: () => ipcRenderer.invoke('library:get-home-snapshot'),
   importAudioFile: () => ipcRenderer.invoke('library:import-audio-file'),
   importAudioFiles: () => ipcRenderer.invoke('library:import-audio-files'),

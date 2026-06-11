@@ -1,5 +1,9 @@
 # Development Log
 
+## 2026-06-11
+
+- 回退此前播放页拖拽与卡顿相关修正提交，恢复主窗口播放页基线；新增独立“窗口播放”外挂 BrowserWindow，主窗口点击 mini 播放条时打开轻量 popout renderer，通过 IPC 同步当前歌曲封面、标题、艺人、播放状态和进度。外挂窗口不挂载主 App 的 BK 背景、AMLL、LED 和音频分析逻辑，使用独立无边框窗口和轻量 CSS，避免主播放页拖拽时的周期性卡顿。`npm run typecheck` 与 `npm run build` 已通过。
+
 ## 2026-06-08
 
 - BK 背景颜色改回封面主题色方向，使用 HSB 转 RGB 输出以避免 HSL 高亮度混白导致的灰白感。
