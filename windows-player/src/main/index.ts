@@ -1507,6 +1507,18 @@ type CloudMusicPlaybackUrl = {
   time?: number
 }
 
+type NetEasePlaybackUrlPayload = {
+  data?: Array<{
+    id?: number
+    url?: string | null
+    br?: number
+    size?: number
+    type?: string
+    time?: number
+    code?: number
+  }>
+}
+
 function collectCloudMusicPlaybackUrls(value: unknown, songId: number, urls: CloudMusicPlaybackUrl[] = [], seen = new Set<unknown>()): CloudMusicPlaybackUrl[] {
   if (!value || typeof value !== 'object' || seen.has(value)) return urls
   seen.add(value)
@@ -1554,6 +1566,43 @@ async function downloadCloudMusicAudio(url: string, songId: number, formatHint?:
   }
 }
 
+async function fetchNetEasePlaybackUrls(songId: number): Promise<CloudMusicPlaybackUrl[]> {
+  const bitrates = [999000, 320000, 128000]
+  const candidates: CloudMusicPlaybackUrl[] = []
+  for (const bitrate of bitrates) {
+    try {
+      const url = new URL('https://music.163.com/api/song/enhance/player/url')
+      url.searchParams.set('ids', JSON.stringify([songId]))
+      url.searchParams.set('br', String(bitrate))
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(12000),
+        headers: {
+          'Referer': 'https://music.163.com/',
+          'User-Agent': 'Mozilla/5.0 kmgccc-player-electron/0.1.0'
+        }
+      })
+      if (!response.ok) continue
+      const payload = (await response.json()) as NetEasePlaybackUrlPayload
+      const item = payload.data?.find((entry) => positiveInteger(entry.id) === songId && typeof entry.url === 'string' && /^https?:\/\//i.test(entry.url))
+      if (!item?.url) continue
+      candidates.push({
+        url: item.url,
+        format: typeof item.type === 'string' ? item.type : undefined,
+        size: positiveInteger(item.size) ?? undefined,
+        time: positiveInteger(item.time) ?? undefined
+      })
+    } catch {
+      continue
+    }
+  }
+  const seen = new Set<string>()
+  return candidates.filter((candidate) => {
+    if (seen.has(candidate.url)) return false
+    seen.add(candidate.url)
+    return true
+  }).sort((first, second) => (second.size ?? 0) - (first.size ?? 0))
+}
+
 async function resolveCloudMusicAudioSourceUrl(songId: number): Promise<string | null> {
   const expectedSize = cloudMusicTrackExpectedAudioSize(songId)
   const cachedPath = cloudMusicCachedAudioPath(songId, expectedSize)
@@ -1564,6 +1613,11 @@ async function resolveCloudMusicAudioSourceUrl(songId: number): Promise<string |
     .sort((first, second) => (second.size ?? 0) - (first.size ?? 0))
   for (const candidate of playbackUrls) {
     const downloadedPath = await downloadCloudMusicAudio(candidate.url, songId, candidate.format, candidate.size ?? expectedSize)
+    if (downloadedPath) return mediaUrlForPath(downloadedPath)
+  }
+  const refreshedUrls = await fetchNetEasePlaybackUrls(songId)
+  for (const candidate of refreshedUrls) {
+    const downloadedPath = await downloadCloudMusicAudio(candidate.url, songId, candidate.format, candidate.size ?? 0)
     if (downloadedPath) return mediaUrlForPath(downloadedPath)
   }
   return null
