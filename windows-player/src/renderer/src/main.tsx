@@ -1336,6 +1336,39 @@ function fullscreenLyricColorStyleFromBKTheme(themeStyle: React.CSSProperties, t
   } as React.CSSProperties
 }
 
+function conservativeMonochromeFullscreenLyricStyle(backgroundSeed: RgbColor): React.CSSProperties {
+  const useDarkText = relativeLuminance(backgroundSeed) >= 0.54
+  const backgroundHsl = rgbToHsl(backgroundSeed)
+  const restrainedTint = hslToRgb({
+    h: backgroundHsl.h,
+    s: clampNumber(backgroundHsl.s, 0.08, 0.24),
+    l: useDarkText ? 0.34 : 0.68
+  })
+  const active = mixRgb(useDarkText ? { r: 28, g: 30, b: 34 } : { r: 250, g: 250, b: 252 }, restrainedTint, 0.14)
+  const inactive = mixRgb(useDarkText ? { r: 46, g: 48, b: 52 } : { r: 232, g: 234, b: 238 }, restrainedTint, 0.10)
+  const wash = mixRgb(useDarkText ? { r: 20, g: 22, b: 26 } : { r: 255, g: 255, b: 255 }, restrainedTint, 0.08)
+  return {
+    '--amll-fullscreen-active-color': rgbaString(active, 0.86),
+    '--amll-fullscreen-inactive-color': rgbaString(inactive, 0.48),
+    '--amll-fullscreen-sub-active-color': rgbaString(active, 0.72),
+    '--amll-fullscreen-sub-inactive-color': rgbaString(inactive, 0.40),
+    '--amll-fullscreen-bg-color': rgbaString(wash, 0.07),
+    '--amll-fullscreen-glow-color': rgbaString(wash, 0),
+    '--amll-fullscreen-active-color-a': rgbaString(active, 0.86),
+    '--amll-fullscreen-inactive-color-a': rgbaString(inactive, 0.48),
+    '--amll-fullscreen-sub-active-color-a': rgbaString(active, 0.72),
+    '--amll-fullscreen-sub-inactive-color-a': rgbaString(inactive, 0.40),
+    '--amll-fullscreen-bg-color-a': rgbaString(wash, 0.07),
+    '--amll-fullscreen-glow-color-a': rgbaString(wash, 0),
+    '--amll-fullscreen-active-color-b': rgbaString(active, 0.86),
+    '--amll-fullscreen-inactive-color-b': rgbaString(inactive, 0.48),
+    '--amll-fullscreen-sub-active-color-b': rgbaString(active, 0.72),
+    '--amll-fullscreen-sub-inactive-color-b': rgbaString(inactive, 0.40),
+    '--amll-fullscreen-bg-color-b': rgbaString(wash, 0.07),
+    '--amll-fullscreen-glow-color-b': rgbaString(wash, 0)
+  } as React.CSSProperties
+}
+
 function harmonizedShapeTints(colors: RgbColor[]): [string, string, string] {
   const firstHsl = rgbToHsl(colors[0])
   const secondHsl = rgbToHsl(colors[1] ?? colors[0])
@@ -6262,6 +6295,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   const artworkFrame = artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]
   const pageRef = React.useRef<HTMLElement | null>(null)
   const isSamplingBackgroundRef = React.useRef(false)
+  const backgroundSampleVersionRef = React.useRef(0)
   const hasSampledFullscreenBackgroundRef = React.useRef(false)
   const publishedFullscreenToneTrackRef = React.useRef<string | null>(null)
   const [pixelStretchBackground, setPixelStretchBackground] = React.useState<string | null>(null)
@@ -6270,12 +6304,19 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   const useCoverGradientBlur = skinID === 'fullscreen.coverGradientBlur'
   const nowPlayingSkinID: NowPlayingSkinID = skinID === 'fullscreen.coverGradientBlur' ? 'coverLed' : skinID
   const showBKBackground = artBackgroundEnabled && !useCoverGradientBlur && nowPlayingSkinID !== 'appleStyle'
+  const useConservativeMonochromeLyrics = useCoverGradientBlur || nowPlayingSkinID === 'appleStyle'
+  const conservativeBackgroundSeed = lyricToneSeed
+    ?? parseCssRgbColor(bkThemeStyle['--bk-bg-tone-1' as keyof React.CSSProperties])
+    ?? parseCssRgbColor(bkThemeStyle['--cover-accent' as keyof React.CSSProperties])
+    ?? { r: 32, g: 36, b: 42 }
   const fullscreenPageStyle = React.useMemo(
     () => ({
       ...bkThemeStyle,
-      ...fullscreenLyricColorStyleFromBKTheme(activeBKThemeStyle, 0, lyricToneSeed)
+      ...(useConservativeMonochromeLyrics
+        ? conservativeMonochromeFullscreenLyricStyle(conservativeBackgroundSeed)
+        : fullscreenLyricColorStyleFromBKTheme(activeBKThemeStyle, 0, lyricToneSeed))
     }) as React.CSSProperties,
-    [activeBKThemeStyle, bkThemeStyle, lyricToneSeed]
+    [activeBKThemeStyle, bkThemeStyle, conservativeBackgroundSeed, lyricToneSeed, useConservativeMonochromeLyrics]
   )
 
   React.useEffect(() => {
@@ -6293,9 +6334,11 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
   React.useEffect(() => {
     setAmllColorPhase(0)
     setActiveBKThemeStyle(bkThemeStyle)
+    backgroundSampleVersionRef.current += 1
+    isSamplingBackgroundRef.current = false
     hasSampledFullscreenBackgroundRef.current = false
     publishedFullscreenToneTrackRef.current = null
-  }, [bkThemeStyle, track?.id])
+  }, [bkThemeStyle, skinID, track?.id])
 
   const sampleFullscreenBackgroundColor = React.useCallback(async (): Promise<void> => {
     const page = pageRef.current
@@ -6304,6 +6347,7 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
     if (hasSampledFullscreenBackgroundRef.current) return
     hasSampledFullscreenBackgroundRef.current = true
     isSamplingBackgroundRef.current = true
+    const sampleVersion = backgroundSampleVersionRef.current
     const rect = page.getBoundingClientRect()
     try {
       const sample = await window.kmgccc.sampleWindowColor({
@@ -6312,21 +6356,20 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
         width: rect.width * 0.22,
         height: rect.height * 0.18
       })
-      if (sample) onLyricToneSeedChange(sample)
+      if (sample && sampleVersion === backgroundSampleVersionRef.current) onLyricToneSeedChange(sample)
     } finally {
       window.setTimeout(() => {
-        isSamplingBackgroundRef.current = false
+        if (sampleVersion === backgroundSampleVersionRef.current) isSamplingBackgroundRef.current = false
       }, 3200)
     }
   }, [onLyricToneSeedChange])
 
   React.useEffect(() => {
-    if (!showBKBackground) return
     const timer = window.setTimeout(() => {
       void sampleFullscreenBackgroundColor()
-    }, 520)
+    }, 620)
     return () => window.clearTimeout(timer)
-  }, [sampleFullscreenBackgroundColor, showBKBackground, track?.id])
+  }, [sampleFullscreenBackgroundColor, skinID, track?.id])
 
   const publishInitialFullscreenToneSeed = React.useCallback((seed: RgbColor): void => {
     const toneTrackKey = track?.id ?? 'kmgccc-empty-track'
@@ -6445,6 +6488,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
 }): React.ReactElement {
   const pageRef = React.useRef<HTMLElement | null>(null)
   const isSamplingBackgroundRef = React.useRef(false)
+  const backgroundSampleVersionRef = React.useRef(0)
   const artwork = trackArtwork(track, albums)
   const artworkFrame = artworkFrameAssets[artworkFrameIndex % artworkFrameAssets.length]
   const showBKBackground = artBackgroundEnabled && skinID !== 'appleStyle'
@@ -6453,6 +6497,7 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
     if (!page || !window.kmgccc?.sampleWindowColor) return
     if (isSamplingBackgroundRef.current) return
     isSamplingBackgroundRef.current = true
+    const sampleVersion = backgroundSampleVersionRef.current
     const rect = page.getBoundingClientRect()
     try {
       const sample = await window.kmgccc.sampleWindowColor({
@@ -6461,28 +6506,29 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
         width: rect.width * 0.24,
         height: rect.height * 0.18
       })
-      if (sample) onLyricToneSeedChange(sample)
+      if (sample && sampleVersion === backgroundSampleVersionRef.current) onLyricToneSeedChange(sample)
     } finally {
       window.setTimeout(() => {
-        isSamplingBackgroundRef.current = false
+        if (sampleVersion === backgroundSampleVersionRef.current) isSamplingBackgroundRef.current = false
       }, 3200)
     }
   }, [onLyricToneSeedChange])
 
   React.useEffect(() => {
-    if (!showBKBackground) return
+    backgroundSampleVersionRef.current += 1
+    isSamplingBackgroundRef.current = false
     const timer = window.setTimeout(() => {
       void sampleNowPlayingBackgroundColor()
-    }, 520)
+    }, 620)
     return () => window.clearTimeout(timer)
-  }, [sampleNowPlayingBackgroundColor, showBKBackground, track?.id])
+  }, [sampleNowPlayingBackgroundColor, skinID, track?.id])
 
   return (
     <section ref={pageRef} className={`now-playing-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} no-drag`}>
       {skinID === 'appleStyle' ? (
         <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
       ) : showBKBackground ? (
-        <BKArtBackground track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onToneSeedChange={onLyricToneSeedChange} onPaintRevealComplete={sampleNowPlayingBackgroundColor} />
+        <BKArtBackground key={skinID} track={track} isPlaying={isPlaying} themeStyle={bkThemeStyle} onToneSeedChange={onLyricToneSeedChange} onPaintRevealComplete={sampleNowPlayingBackgroundColor} />
       ) : (
         <UnifiedMeshBackground />
       )}
@@ -7088,7 +7134,8 @@ const BKArtSurface = React.memo(function BKArtSurface({
   onDotComplete?: () => void
 }): React.ReactElement {
   const shapes = React.useMemo(() => makeBKShapePlan(surface.shapeSeed), [surface.shapeSeed])
-  const animationTimeSeconds = Date.now() / 1000
+  const animationTimeSecondsRef = React.useRef(Date.now() / 1000)
+  const animationTimeSeconds = animationTimeSecondsRef.current
   const phaseA = bkBackgroundAssets[(surface.phaseOffset + surface.seed) % bkBackgroundAssets.length]
   const phaseB = bkBackgroundAssets[(surface.phaseOffset + surface.seed + 1) % bkBackgroundAssets.length]
   const frozenPhaseClass = surface.frozenImagePhase ? `frozen-image-phase phase-${surface.frozenImagePhase}-visible` : ''
