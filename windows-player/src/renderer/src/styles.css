@@ -71,7 +71,6 @@ svg {
   position: absolute;
   inset: 0;
   z-index: 1;
-  pointer-events: auto;
   overflow: hidden;
   border-radius: 0;
   color: rgba(255, 255, 255, 0.94);
@@ -79,29 +78,10 @@ svg {
   isolation: isolate;
 }
 
-.playback-page-drag-region {
-  position: absolute;
-  top: 0;
-  right: 138px;
-  left: var(--sidebar-width);
-  z-index: 10000;
-  height: calc(var(--win-titlebar-height) + 16px);
-  pointer-events: auto;
-  -webkit-app-region: drag;
-}
-
-.now-playing-page :is(
-  .now-playing-artwork-stage,
-  .now-playing-track-copy
-) {
-  -webkit-app-region: no-drag;
-}
-
 .now-playing-unified-mesh {
   position: absolute;
   inset: 0;
   z-index: 0;
-  pointer-events: none;
   background:
     radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--cover-accent) 68%, transparent), transparent 34%),
     radial-gradient(circle at 76% 20%, color-mix(in srgb, var(--cover-accent-text) 34%, transparent), transparent 30%),
@@ -4872,19 +4852,10 @@ input {
     color-mix(in srgb, var(--bk-bg-tone-1) 62%, #f7fbff);
 }
 
-.fullscreen-lyrics-page :is(
-  .fullscreen-lyrics-artwork-stage,
-  .fullscreen-lyrics-copy,
-  .fullscreen-lyrics-lines
-) {
-  -webkit-app-region: no-drag;
-}
-
 .fullscreen-lyrics-page > .bk-art-background,
 .fullscreen-lyrics-page > .apple-now-playing-background,
 .fullscreen-lyrics-page > .now-playing-unified-mesh {
   z-index: 0;
-  pointer-events: none;
 }
 
 .fullscreen-lyrics-mesh {
