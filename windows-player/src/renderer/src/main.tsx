@@ -6661,7 +6661,6 @@ const FullscreenLyricsPage = React.memo(function FullscreenLyricsPage({
 
   return (
     <section ref={pageRef} className={`fullscreen-lyrics-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'} amll-color-phase-${amllColorPhase % 2}`} style={fullscreenPageStyle}>
-      <div className="playback-page-drag-region fullscreen-lyrics-drag-region" aria-hidden="true" />
       {useCoverGradientBlur ? (
         <>
           {pixelStretchBackground ? <img className="fullscreen-lyrics-stretch-bg" src={pixelStretchBackground} alt="" decoding="async" /> : null}
@@ -6804,7 +6803,6 @@ const NowPlayingPage = React.memo(function NowPlayingPage({
 
   return (
     <section ref={pageRef} className={`now-playing-page skin-${skinID.replace('.', '-')} ${isPlaying ? 'is-playing' : 'is-paused'}`}>
-      <div className="playback-page-drag-region now-playing-drag-region" aria-hidden="true" />
       {skinID === 'appleStyle' ? (
         <AppleNowPlayingBackground track={track} isPlaying={isPlaying} dynamicEnabled={appleDynamicBackgroundEnabled} speed={appleMeshSpeed} />
       ) : showBKBackground ? (
