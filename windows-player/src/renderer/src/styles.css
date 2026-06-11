@@ -3224,6 +3224,32 @@ input {
   flex-direction: column;
   min-height: 0;
   padding-top: 10px;
+  padding-bottom: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(22, 44, 58, 0.18) transparent;
+}
+
+.sidebar-main::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar-main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-main::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(22, 44, 58, 0.16);
+  background-clip: padding-box;
+}
+
+.sidebar-main::-webkit-scrollbar-thumb:hover {
+  background: rgba(22, 44, 58, 0.24);
+  background-clip: padding-box;
 }
 
 .nav-row,

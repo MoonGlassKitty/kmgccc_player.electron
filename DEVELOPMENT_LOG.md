@@ -179,3 +179,4 @@
 - 外部源封面首屏加速：外部播放 snapshot 增加主进程元数据缓存，生成 snapshot 时后台补全高清封面/歌词并在后续轮询直接带回；封面先走 iTunes 快速高分辨率 URL 作为首屏结果，完整封面候选继续后台覆盖，歌词先走 LRCLIB 快路径再跑完整多源链路。`npm run typecheck` 与 `npm run build` 已通过。
 - 外部源封面节拍缓存音频接入：macOS 网易云外部播放无法直接拿原音源时，主进程会按当前 MediaRemote 曲目在网易云 sqlite 中匹配 songId，再到 `online_play_cache` 找对应 `.uc!` 缓存并按 `0xa3` 异或解密到 `external-beat-cache`；外部 snapshot 附带 `beatSourceUrl`，renderer 的封面 BPM 分析改用当前 `displayTrack`，因此第三方源也能复用现有封面节拍/手动确认逻辑。已用当前网易云缓存生成 m4a，并通过 `afinfo` 验证可解码；`npm run typecheck` 与 `npm run build` 已通过。
 - macOS 开屏转圈修正：入口转场遮罩不再在应用首次挂载时触发，`previousEntryTargetRef` 会按恢复出来的真实启动页面初始化，并显式跳过首次 effect；后续从其他页面回到 Home、窗口播放或全屏歌词仍保留原有转圈与弹出加载效果。`npm run typecheck` 与 `npm run build` 已通过。
+- 侧边导航栏滚动补齐：左侧导航主内容区改为独立纵向滚动容器，播放源区和底部三个圆按钮继续固定在底部；补了低存在感滚动条样式，避免艺人/专辑/歌单内容过多时超出可视区却无法访问。`npm run typecheck` 已通过。
