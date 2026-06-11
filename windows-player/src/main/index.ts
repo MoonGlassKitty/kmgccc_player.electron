@@ -2566,6 +2566,36 @@ function runCommand(command: string, args: string[]): string {
   }
 }
 
+function runCommandText(command: string, args: string[], timeoutMs = 5000): Promise<string> {
+  return new Promise((resolve) => {
+    execFile(command, args, { timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error, stdout) => {
+      if (error) {
+        resolve('')
+        return
+      }
+      resolve(stdout.toString())
+    })
+  })
+}
+
+type TapeDevicePresenceSnapshot = {
+  connected: boolean
+  names: string[]
+  instanceIds: string[]
+}
+
+const tapeDeviceNamePattern = /oldwu-studio\s+digital\s+audio/i
+
+async function getTapeDevicePresence(): Promise<TapeDevicePresenceSnapshot> {
+  const rawValue = await runCommandText('system_profiler', ['SPAudioDataType', 'SPUSBDataType'], 5000)
+  const connected = tapeDeviceNamePattern.test(rawValue)
+  return {
+    connected,
+    names: connected ? ['Oldwu-Studio Digital Audio'] : [],
+    instanceIds: []
+  }
+}
+
 function normalizeWallpaperPath(wallpaperPath: string): string {
   if (wallpaperPath.startsWith('~/')) {
     return join(homedir(), wallpaperPath.slice(2))
@@ -3342,6 +3372,7 @@ ipcMain.handle('external-playback:set-source-mode', async (_event, mode: Externa
 ipcMain.handle('external-playback:command', async (_event, command: string, value?: number) => runExternalPlaybackCommand(command, value))
 
 ipcMain.handle('system:get-platform', () => process.platform)
+ipcMain.handle('system:get-tape-device-presence', () => getTapeDevicePresence())
 ipcMain.handle('settings:get-library-location', () => libraryLocationInfo())
 ipcMain.handle('settings:choose-library-location', async (event) => {
   const owner = BrowserWindow.fromWebContents(event.sender)

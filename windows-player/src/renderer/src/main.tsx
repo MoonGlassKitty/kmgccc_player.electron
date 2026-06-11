@@ -183,6 +183,8 @@ const albumArtwork =
 
 const altArtwork =
   'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e9/c4/38/e9c43893-e743-269a-6a47-c11120717177/artwork.jpg/600x600bb.jpg'
+const TAPE_DEVICE_DISCONNECTED_POLL_DELAY_MS = 10000
+const TAPE_DEVICE_CONNECTED_POLL_DELAY_MS = 4000
 
 const DEFAULT_SIDEBAR_WIDTH = 320
 const COLLAPSED_SIDEBAR_WIDTH = 82
@@ -2490,6 +2492,11 @@ function App(): React.ReactElement {
   const smoothedLedValuesRef = React.useRef<number[]>([])
   const lastPlaybackTimeRef = React.useRef(0)
   const loadedAudioTrackRef = React.useRef<string>('')
+  const tapeDeviceConnectedRef = React.useRef<boolean | null>(null)
+  const selectedNowPlayingSkinRef = React.useRef<NowPlayingSkinID>(selectedNowPlayingSkin)
+  const selectedFullscreenSkinRef = React.useRef<FullscreenSkinID>(selectedFullscreenSkin)
+  const previousTapeNowPlayingSkinRef = React.useRef<NowPlayingSkinID | null>(null)
+  const previousTapeFullscreenSkinRef = React.useRef<FullscreenSkinID | null>(null)
   const pendingExternalMetadataRef = React.useRef<Set<string>>(new Set())
   const pendingPlaybackSessionRef = React.useRef<PlaybackSessionState | null>(initialPlaybackSession)
   const pendingSeekOnLoadRef = React.useRef<number | null>(initialPlaybackSession.playbackTime ?? null)
@@ -2881,8 +2888,48 @@ function App(): React.ReactElement {
   }, [isNowPlayingArtBackgroundEnabled])
 
   React.useEffect(() => {
-    persistSetting('nowPlayingSkin', selectedNowPlayingSkin)
+    persistSetting('nowPlayingSkin', tapeDeviceConnectedRef.current === true && previousTapeNowPlayingSkinRef.current ? previousTapeNowPlayingSkinRef.current : selectedNowPlayingSkin)
   }, [selectedNowPlayingSkin])
+
+  React.useEffect(() => {
+    selectedNowPlayingSkinRef.current = selectedNowPlayingSkin
+  }, [selectedNowPlayingSkin])
+
+  React.useEffect(() => {
+    selectedFullscreenSkinRef.current = selectedFullscreenSkin
+  }, [selectedFullscreenSkin])
+
+  React.useEffect(() => {
+    if (!window.kmgccc?.getTapeDevicePresence) return
+    let cancelled = false
+    let timeoutId: number | null = null
+    const checkTapeDevice = async (): Promise<void> => {
+      const snapshot = await window.kmgccc?.getTapeDevicePresence?.()
+      if (cancelled || !snapshot) return
+      const wasConnected = tapeDeviceConnectedRef.current
+      tapeDeviceConnectedRef.current = snapshot.connected
+      if (snapshot.connected && wasConnected !== true) {
+        previousTapeNowPlayingSkinRef.current = selectedNowPlayingSkinRef.current
+        previousTapeFullscreenSkinRef.current = selectedFullscreenSkinRef.current
+        setSelectedNowPlayingSkin('kmgccc.cassette')
+        setSelectedFullscreenSkin('kmgccc.cassette')
+      }
+      if (!snapshot.connected && wasConnected === true) {
+        if (previousTapeNowPlayingSkinRef.current) setSelectedNowPlayingSkin(previousTapeNowPlayingSkinRef.current)
+        if (previousTapeFullscreenSkinRef.current) setSelectedFullscreenSkin(previousTapeFullscreenSkinRef.current)
+        previousTapeNowPlayingSkinRef.current = null
+        previousTapeFullscreenSkinRef.current = null
+      }
+      timeoutId = window.setTimeout(() => {
+        void checkTapeDevice()
+      }, snapshot.connected ? TAPE_DEVICE_CONNECTED_POLL_DELAY_MS : TAPE_DEVICE_DISCONNECTED_POLL_DELAY_MS)
+    }
+    void checkTapeDevice()
+    return () => {
+      cancelled = true
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
+    }
+  }, [])
 
   React.useEffect(() => {
     persistSetting('skin.classicLED.visualizerMode', classicVisualizerMode)
@@ -2993,7 +3040,7 @@ function App(): React.ReactElement {
   }, [ledSpeed])
 
   React.useEffect(() => {
-    persistSetting('fullscreenSkin', selectedFullscreenSkin)
+    persistSetting('fullscreenSkin', tapeDeviceConnectedRef.current === true && previousTapeFullscreenSkinRef.current ? previousTapeFullscreenSkinRef.current : selectedFullscreenSkin)
   }, [selectedFullscreenSkin])
 
   React.useEffect(() => {
