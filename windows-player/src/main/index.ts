@@ -2584,7 +2584,7 @@ type TapeDevicePresenceSnapshot = {
   instanceIds: string[]
 }
 
-const tapeDeviceNamePattern = /oldwu|mv[-\s]?silicon|digital\s+audio|vid[_\s-]?8888|pid[_\s-]?1717|8888.*1717|1717.*8888/i
+const tapeDeviceNamePattern = /kmgccc(?:[_\s-]?tape)?|oldwu|mv[-\s]?silicon|digital\s+audio|vid[_\s-]?8888|pid[_\s-]?1717|8888.*1717|1717.*8888/i
 
 function matchingTapeDeviceNames(rawValue: string): string[] {
   const names = rawValue
@@ -2596,8 +2596,8 @@ function matchingTapeDeviceNames(rawValue: string): string[] {
 
 async function getTapeDevicePresence(): Promise<TapeDevicePresenceSnapshot> {
   const rawValues = await Promise.all([
-    runCommandText('system_profiler', ['SPAudioDataType', 'SPUSBDataType'], 5000),
-    runCommandText('system_profiler', ['SPAudioDataType', 'SPUSBDataType', '-json'], 5000),
+    runCommandText('system_profiler', ['SPAudioDataType', 'SPUSBDataType', 'SPBluetoothDataType'], 5000),
+    runCommandText('system_profiler', ['SPAudioDataType', 'SPUSBDataType', 'SPBluetoothDataType', '-json'], 5000),
     runCommandText('ioreg', ['-p', 'IOUSB', '-l', '-w0'], 3000),
     runCommandText('ioreg', ['-r', '-c', 'IOAudioDevice', '-l', '-w0'], 3000)
   ])
