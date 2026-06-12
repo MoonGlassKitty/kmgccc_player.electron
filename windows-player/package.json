@@ -1,8 +1,8 @@
 {
-  "name": "kmgccc-player-electron",
+  "name": "mgkccc-player-electron",
   "version": "0.1.0",
   "private": true,
-  "description": "Electron translation prototype for kmgccc_player macOS 26 UI.",
+  "description": "Electron translation of the kmgccc macOS 26 project by MoonGlassKitty.",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -13,7 +13,7 @@
   },
   "build": {
     "appId": "com.kmgccc.player.windows",
-    "productName": "kmgccc Player",
+    "productName": "mgkccc",
     "npmRebuild": false,
     "directories": {
       "output": "dist"
