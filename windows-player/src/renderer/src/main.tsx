@@ -33,6 +33,7 @@ import {
   Play,
   Plus,
   Repeat,
+  Repeat1,
   Search,
   Settings,
   Shuffle,
@@ -93,7 +94,7 @@ const APP_ZOOM_DEFAULT_PERCENT = 80
 const playbackModeOrder: PlaybackMode[] = ['shuffle', 'single', 'listLoop', 'listOnce']
 const playbackModeLabels: Record<PlaybackMode, string> = {
   shuffle: '随机播放',
-  single: '单曲播放',
+  single: '单曲循环播放',
   listLoop: '列表循环播放',
   listOnce: '列表单次播放'
 }
@@ -3846,7 +3847,15 @@ function App(): React.ReactElement {
     if (!tracks.length) return
     const currentIndex = tracks.findIndex((track) => track.id === currentId)
     if (fromEnded && playbackMode === 'single') {
-      stopLocalPlaybackAtStart()
+      const audio = audioRef.current
+      if (audio) {
+        audio.currentTime = 0
+        void audio.play().catch(() => setIsPlaying(false))
+      }
+      setPlaybackTime(0)
+      setPlaybackDuration((duration) => duration || currentTrack?.duration || 0)
+      setIsPlaying(true)
+      writeMiniProgressRatio(0, playbackDuration || currentTrack?.duration || 0)
       return
     }
     if (playbackMode === 'shuffle' && tracks.length > 1) {
@@ -3861,7 +3870,7 @@ function App(): React.ReactElement {
       return
     }
     playTrackByIndex(playbackMode === 'listLoop' ? nextIndex : Math.min(nextIndex, tracks.length - 1))
-  }, [currentId, playbackMode, playbackQueue, playTrackByIndex, playbackSource, stopLocalPlaybackAtStart])
+  }, [currentId, currentTrack?.duration, playbackDuration, playbackMode, playbackQueue, playTrackByIndex, playbackSource, stopLocalPlaybackAtStart, writeMiniProgressRatio])
   const togglePlaybackMode = React.useCallback(() => {
     setPlaybackMode((mode) => playbackModeOrder[(playbackModeOrder.indexOf(mode) + 1) % playbackModeOrder.length])
   }, [])
@@ -4064,6 +4073,49 @@ function App(): React.ReactElement {
     setPlaybackDuration(0)
     setIsPlaying(true)
   }, [])
+  const appendTracksToPlaybackQueue = React.useCallback((tracks: HomeTrack[]) => {
+    if (!tracks.length) return
+    setPlaybackSource('local')
+    setPlaybackQueueIds((ids) => {
+      const current = ids.length ? ids : homeSnapshot.tracks.map((track) => track.id)
+      return [...current, ...tracks.map((track) => track.id)]
+    })
+    if (!currentId) setCurrentId(tracks[0].id)
+  }, [currentId, homeSnapshot.tracks])
+  const reorderPlaybackQueue = React.useCallback((fromIndex: number, toIndex: number) => {
+    if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex) || fromIndex === toIndex) return
+    setPlaybackQueueIds((ids) => {
+      const current = ids.length ? ids : homeSnapshot.tracks.map((track) => track.id)
+      if (fromIndex < 0 || toIndex < 0 || fromIndex >= current.length || toIndex >= current.length) return current
+      const next = [...current]
+      const [item] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, item)
+      return next
+    })
+  }, [homeSnapshot.tracks])
+  const removeTrackFromPlaybackQueue = React.useCallback((index: number) => {
+    if (!Number.isInteger(index)) return
+    setPlaybackQueueIds((ids) => {
+      const current = ids.length ? ids : homeSnapshot.tracks.map((track) => track.id)
+      if (index < 0 || index >= current.length) return current
+      const trackId = current[index]
+      const next = [...current]
+      next.splice(index, 1)
+      if (trackId === currentId) {
+        const nextId = next[index] ?? next[index - 1]
+        if (nextId) {
+          setCurrentId(nextId)
+          setPlaybackTime(0)
+          setPlaybackDuration(0)
+        } else {
+          setIsPlaying(false)
+          setPlaybackTime(0)
+          setPlaybackDuration(0)
+        }
+      }
+      return next
+    })
+  }, [currentId, homeSnapshot.tracks])
   const playRouteTracks = React.useCallback((targetRoute: DetailRoute, preferredTrackId?: string) => {
     playTracksAsQueue(tracksForRoute(targetRoute, homeSnapshot), preferredTrackId)
   }, [homeSnapshot, playTracksAsQueue])
@@ -4713,6 +4765,7 @@ function App(): React.ReactElement {
               onNavigate={setRoute}
               onSelect={selectTrack}
               onPlayRoute={playRouteTracks}
+              onAppendTracksToQueue={appendTracksToPlaybackQueue}
               onEditTrack={editTrack}
               onDeleteTrack={deleteTrack}
               onRemoveTrackFromPlaylist={removeTrackFromCurrentPlaylist}
@@ -4794,6 +4847,8 @@ function App(): React.ReactElement {
                 onTogglePlaybackMode={togglePlaybackMode}
                 onVolumeChange={changeVolume}
                 onSelectTrack={selectTrack}
+                onReorderQueue={reorderPlaybackQueue}
+                onRemoveFromQueue={removeTrackFromPlaybackQueue}
                 onOpenNowPlaying={openNowPlaying}
                 showFullscreenActions={isFullscreenLyricsOpen}
                 fullscreenLyricsVisible={isFullscreenLyricsVisible}
@@ -9818,6 +9873,7 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
   onNavigate,
   onSelect,
   onPlayRoute,
+  onAppendTracksToQueue,
   onEditTrack,
   onDeleteTrack,
   onRemoveTrackFromPlaylist,
@@ -9847,6 +9903,7 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
   onNavigate: (route: AppRoute) => void
   onSelect: (id: string) => void
   onPlayRoute: (route: DetailRoute, preferredTrackId?: string) => void
+  onAppendTracksToQueue: (tracks: HomeTrack[]) => void
   onEditTrack: (track: HomeTrack) => void
   onDeleteTrack: (track: HomeTrack) => void
   onRemoveTrackFromPlaylist: (track: HomeTrack) => void
@@ -9934,6 +9991,11 @@ const LibraryDetailPage = React.memo(function LibraryDetailPage({
                   const artist = snapshot.artists.find((entry) => entry.id === route.id)
                   if (artist) onEditArtist(artist)
                 }}><Pencil size={18} /></button>
+              ) : null}
+              {route.name === 'albumDetail' && route.id !== 'all-albums' ? (
+                <button className="edit-button" type="button" aria-label="添加到播放列表" title="添加到播放列表" disabled={!tracks.length} onClick={() => onAppendTracksToQueue(tracks)}>
+                  <ListMusic size={18} />
+                </button>
               ) : null}
               {route.name === 'albumDetail' && route.id !== 'all-albums' ? (
                 <button className="edit-button" type="button" aria-label="编辑专辑" title="编辑专辑" onClick={() => {
@@ -10212,6 +10274,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onTogglePlaybackMode,
   onVolumeChange,
   onSelectTrack,
+  onReorderQueue,
+  onRemoveFromQueue,
   onOpenNowPlaying,
   showFullscreenActions,
   fullscreenLyricsVisible,
@@ -10238,6 +10302,8 @@ const MiniPlayer = React.memo(function MiniPlayer({
   onTogglePlaybackMode: () => void
   onVolumeChange: (volume: number) => void
   onSelectTrack: (id: string) => void
+  onReorderQueue: (fromIndex: number, toIndex: number) => void
+  onRemoveFromQueue: (index: number) => void
   onOpenNowPlaying: () => void
   showFullscreenActions: boolean
   fullscreenLyricsVisible: boolean
@@ -10302,7 +10368,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
   const modeIcon = playbackMode === 'shuffle'
     ? <Shuffle size={18} />
     : playbackMode === 'single'
-      ? <Square size={16} />
+      ? <Repeat1 size={18} />
       : playbackMode === 'listLoop'
         ? <Repeat size={18} />
         : <ListMusic size={18} />
@@ -10362,23 +10428,44 @@ const MiniPlayer = React.memo(function MiniPlayer({
               <strong>{queueTracks.length} 首</strong>
             </div>
             <div className="mini-queue-list">
-              {queueTracks.map((queueTrack) => (
-                <button
+              {queueTracks.map((queueTrack, queueIndex) => (
+                <div
                   className={`mini-queue-row ${queueTrack.id === currentId ? 'current' : ''}`}
-                  key={queueTrack.id}
-                  type="button"
-                  onClick={() => {
-                    onSelectTrack(queueTrack.id)
-                    setIsQueueOpen(false)
+                  draggable
+                  key={`${queueTrack.id}-${queueIndex}`}
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData('text/plain', String(queueIndex))
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault()
+                    event.dataTransfer.dropEffect = 'move'
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault()
+                    const draggedIndex = Number(event.dataTransfer.getData('text/plain'))
+                    onReorderQueue(draggedIndex, queueIndex)
                   }}
                 >
-                  <ArtworkImage src={trackArtwork(queueTrack, albums)} maxSize={56} alt="" loading="lazy" />
-                  <span>
-                    <strong>{queueTrack.title}</strong>
-                    <small>{queueTrack.artist}</small>
-                  </span>
-                  <time>{formatDuration(queueTrack.duration)}</time>
-                </button>
+                  <button
+                    className="mini-queue-row-main"
+                    type="button"
+                    onClick={() => {
+                      onSelectTrack(queueTrack.id)
+                      setIsQueueOpen(false)
+                    }}
+                  >
+                    <ArtworkImage src={trackArtwork(queueTrack, albums)} maxSize={56} alt="" loading="lazy" />
+                    <span>
+                      <strong>{queueTrack.title}</strong>
+                      <small>{queueTrack.artist}</small>
+                    </span>
+                    <time>{formatDuration(queueTrack.duration)}</time>
+                  </button>
+                  <button className="mini-queue-remove" type="button" aria-label={`从播放列表移除 ${queueTrack.title}`} title="从播放列表移除" onClick={() => onRemoveFromQueue(queueIndex)}>
+                    <CircleX size={16} />
+                  </button>
+                </div>
               ))}
             </div>
           </div>
