@@ -4933,13 +4933,13 @@ input {
   align-content: center;
   gap: 12px;
   min-height: 0;
-  color: rgba(8, 42, 60, 0.5);
+  color: rgba(8, 42, 60, 0.62);
   font-family: var(--lyrics-main-font-family, system-ui, sans-serif);
   text-align: center;
 }
 
 .lyrics-empty strong {
-  color: rgba(8, 42, 60, 0.8);
+  color: rgba(8, 42, 60, 0.86);
   font-size: 24px;
   font-weight: 880;
 }
@@ -6048,6 +6048,14 @@ input {
     0 2px 7px var(--cover-accent-shadow);
 }
 
+.mini-controls button:disabled,
+.mode-button:disabled {
+  cursor: default;
+  opacity: 0.36;
+  filter: grayscale(0.75);
+  box-shadow: none;
+}
+
 .mini-timeline {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -6534,6 +6542,14 @@ input {
 .appearance-dark .lyrics-side-head strong,
 .appearance-dark .lyrics-panel-head strong {
   color: rgba(244, 248, 250, 0.9);
+}
+
+.appearance-dark .lyrics-empty {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.appearance-dark .lyrics-empty strong {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .appearance-dark .home-person-card,
