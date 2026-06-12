@@ -578,12 +578,14 @@ const artworkFrameAssets = [artworkFrame1, artworkFrame2, artworkFrame3, artwork
 const ARTWORK_PULSE_VISUAL_ADVANCE_SECONDS = 0.1
 const APPROVED_ARTWORK_BEATS_STORAGE_KEY = 'skin.classicLED.approvedArtworkBeats'
 const ARTWORK_BPM_ACCEPTANCE_RANGE = 5
+const ARTWORK_BPM_MIN = 25
+const ARTWORK_BPM_MAX = 90
 const PLAYBACK_SESSION_STORAGE_KEY = 'playbackSession.v1'
 
 function normalizeArtworkPulseBpm(rawTempo: number): number {
   let bpm = rawTempo
-  while (bpm > 90) bpm /= 2
-  return clampNumber(Math.round(bpm), 45, 90)
+  while (bpm > ARTWORK_BPM_MAX) bpm /= 2
+  return clampNumber(Math.round(bpm), ARTWORK_BPM_MIN, ARTWORK_BPM_MAX)
 }
 
 function sanitizeArtworkBeat(value: unknown): ArtworkBeat | null {
@@ -592,7 +594,7 @@ function sanitizeArtworkBeat(value: unknown): ArtworkBeat | null {
   if (typeof beat.bpm !== 'number' || typeof beat.offset !== 'number') return null
   if (!Number.isFinite(beat.bpm) || !Number.isFinite(beat.offset)) return null
   return {
-    bpm: clampNumber(Math.round(beat.bpm), 45, 90),
+    bpm: clampNumber(Math.round(beat.bpm), ARTWORK_BPM_MIN, ARTWORK_BPM_MAX),
     offset: Math.max(0, beat.offset),
     approved: beat.approved === true
   }
@@ -2668,7 +2670,7 @@ function App(): React.ReactElement {
     let stableBeat: ArtworkBeat | null = null
     let stableCount = 0
     for (const duration of durations) {
-      const result = await guess(audioBuffer, 0, duration, { minTempo: 45, maxTempo: 260 })
+      const result = await guess(audioBuffer, 0, duration, { minTempo: ARTWORK_BPM_MIN, maxTempo: 260 })
       const beat = {
         bpm: normalizeArtworkPulseBpm(result.bpm),
         offset: clampNumber(result.offset || 0, 0, Math.max(0, audioBuffer.duration))
@@ -4576,7 +4578,7 @@ const ManualBpmBoard = React.memo(function ManualBpmBoard({
 }): React.ReactElement {
   const [tapTimes, setTapTimes] = React.useState<number[]>([])
   const boardRef = React.useRef<HTMLButtonElement | null>(null)
-  const intervals = React.useMemo(() => tapTimes.slice(1).map((time, index) => time - tapTimes[index]).filter((value) => value > 160 && value < 2200), [tapTimes])
+  const intervals = React.useMemo(() => tapTimes.slice(1).map((time, index) => time - tapTimes[index]).filter((value) => value > 160 && value <= 60000 / ARTWORK_BPM_MIN), [tapTimes])
   const bpm = React.useMemo(() => {
     if (!intervals.length) return null
     const sorted = [...intervals].sort((a, b) => a - b)
