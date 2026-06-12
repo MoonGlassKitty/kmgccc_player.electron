@@ -32,6 +32,7 @@ import {
   Pencil,
   Play,
   Plus,
+  Repeat,
   Search,
   Settings,
   Shuffle,
@@ -85,6 +86,14 @@ import playlistCover4 from './assets/xc-assets/cov4.png'
 import sfMusicNote from './assets/sf-symbols/music-note.png'
 import sfPhoto from './assets/sf-symbols/photo.png'
 import './styles.css'
+
+const playbackModeOrder: PlaybackMode[] = ['shuffle', 'single', 'listLoop', 'listOnce']
+const playbackModeLabels: Record<PlaybackMode, string> = {
+  shuffle: '随机播放',
+  single: '单曲播放',
+  listLoop: '列表循环播放',
+  listOnce: '列表单次播放'
+}
 
 type Track = {
   id: string
@@ -518,6 +527,7 @@ type ManualAppearanceMode = 'light' | 'dark'
 type LyricsRenderQuality = 'performance' | 'balanced' | 'quality'
 type DetailSortKey = 'importedAt' | 'addedAt' | 'title' | 'artist' | 'duration' | 'playCount' | 'favorite' | 'albumOrder'
 type SortDirection = 'asc' | 'desc'
+type PlaybackMode = 'shuffle' | 'single' | 'listLoop' | 'listOnce'
 type PlaybackSessionState = {
   currentId?: string
   queueIds?: string[]
@@ -527,6 +537,7 @@ type PlaybackSessionState = {
   isLyricsSidebarOpen?: boolean
   lyricsSidebarWidth?: number
   isShuffleEnabled?: boolean
+  playbackMode?: PlaybackMode
   volume?: number
   route?: AppRoute
 }
@@ -930,6 +941,9 @@ function storedPlaybackSession(): PlaybackSessionState {
       session.lyricsSidebarWidth = clampNumber(value.lyricsSidebarWidth, 380, 640)
     }
     if (typeof value.isShuffleEnabled === 'boolean') session.isShuffleEnabled = value.isShuffleEnabled
+    if (value.playbackMode === 'shuffle' || value.playbackMode === 'single' || value.playbackMode === 'listLoop' || value.playbackMode === 'listOnce') {
+      session.playbackMode = value.playbackMode
+    }
     if (typeof value.volume === 'number' && Number.isFinite(value.volume)) session.volume = clampNumber(value.volume, 0, 1)
     const route = sanitizeStoredRoute(value.route)
     if (route) session.route = route
@@ -2470,7 +2484,8 @@ function App(): React.ReactElement {
   const [externalPlaybackMode, setExternalPlaybackMode] = React.useState<ExternalPlaybackSourceMode>(() => initialPlaybackSession.externalPlaybackMode ?? 'auto')
   const [externalPlaybackSnapshot, setExternalPlaybackSnapshot] = React.useState<ExternalPlaybackSnapshot | null>(null)
   const [systemPlatform, setSystemPlatform] = React.useState<NodeJS.Platform | null>(null)
-  const [isShuffleEnabled, setIsShuffleEnabled] = React.useState(() => initialPlaybackSession.isShuffleEnabled ?? false)
+  const [playbackMode, setPlaybackMode] = React.useState<PlaybackMode>(() => initialPlaybackSession.playbackMode ?? (initialPlaybackSession.isShuffleEnabled ? 'shuffle' : 'listLoop'))
+  const isShuffleEnabled = playbackMode === 'shuffle'
   const [volume, setVolume] = React.useState(() => initialPlaybackSession.volume ?? 0.72)
   const [playbackTime, setPlaybackTime] = React.useState(() => initialPlaybackSession.playbackTime ?? 0)
   const [playbackDuration, setPlaybackDuration] = React.useState(0)
@@ -3138,10 +3153,11 @@ function App(): React.ReactElement {
       isLyricsSidebarOpen,
       lyricsSidebarWidth,
       isShuffleEnabled,
+      playbackMode,
       volume,
       route
     } satisfies PlaybackSessionState)
-  }, [currentId, currentTrack?.sourceUrl, externalPlaybackMode, hasResolvedInitialHomeSnapshot, isLyricsSidebarOpen, isShuffleEnabled, lyricsSidebarWidth, playbackQueueIds, playbackSource, playbackTime, route, volume])
+  }, [currentId, currentTrack?.sourceUrl, externalPlaybackMode, hasResolvedInitialHomeSnapshot, isLyricsSidebarOpen, isShuffleEnabled, lyricsSidebarWidth, playbackMode, playbackQueueIds, playbackSource, playbackTime, route, volume])
 
   React.useEffect(() => {
     persistPlaybackSession()
@@ -3256,7 +3272,17 @@ function App(): React.ReactElement {
     }
     playTrackByIndex(currentIndex - 1)
   }, [currentId, playbackQueue, playTrackByIndex, playbackSource, playbackTime, seekTo])
-  const playNextTrack = React.useCallback(() => {
+  const stopLocalPlaybackAtStart = React.useCallback(() => {
+    const audio = audioRef.current
+    if (audio) {
+      audio.pause()
+      audio.currentTime = 0
+    }
+    setIsPlaying(false)
+    setPlaybackTime(0)
+    writeMiniProgressRatio(0, playbackDuration || currentTrack?.duration || 0)
+  }, [currentTrack?.duration, playbackDuration, writeMiniProgressRatio])
+  const playNextTrack = React.useCallback((fromEnded = false) => {
     if (playbackSource === 'external') {
       void window.kmgccc?.sendExternalPlaybackCommand?.('next')
       return
@@ -3264,16 +3290,25 @@ function App(): React.ReactElement {
     const tracks = playbackQueue
     if (!tracks.length) return
     const currentIndex = tracks.findIndex((track) => track.id === currentId)
-    if (isShuffleEnabled && tracks.length > 1) {
+    if (fromEnded && playbackMode === 'single') {
+      stopLocalPlaybackAtStart()
+      return
+    }
+    if (playbackMode === 'shuffle' && tracks.length > 1) {
       let nextIndex = Math.floor(Math.random() * tracks.length)
       if (nextIndex === currentIndex) nextIndex = (nextIndex + 1) % tracks.length
       playTrackByIndex(nextIndex)
       return
     }
-    playTrackByIndex(currentIndex >= 0 ? currentIndex + 1 : 0)
-  }, [currentId, playbackQueue, isShuffleEnabled, playTrackByIndex, playbackSource])
-  const toggleShuffle = React.useCallback(() => {
-    setIsShuffleEnabled((value) => !value)
+    const nextIndex = currentIndex >= 0 ? currentIndex + 1 : 0
+    if (playbackMode === 'listOnce' && nextIndex >= tracks.length) {
+      stopLocalPlaybackAtStart()
+      return
+    }
+    playTrackByIndex(playbackMode === 'listLoop' ? nextIndex : Math.min(nextIndex, tracks.length - 1))
+  }, [currentId, playbackMode, playbackQueue, playTrackByIndex, playbackSource, stopLocalPlaybackAtStart])
+  const togglePlaybackMode = React.useCallback(() => {
+    setPlaybackMode((mode) => playbackModeOrder[(playbackModeOrder.indexOf(mode) + 1) % playbackModeOrder.length])
   }, [])
   const changeVolume = React.useCallback((nextVolume: number) => {
     setVolume(clampNumber(nextVolume, 0, 1))
@@ -3952,13 +3987,12 @@ function App(): React.ReactElement {
 
   const handleAudioEnded = React.useCallback(() => {
     if (playbackSource === 'external') return
-    if (homeSnapshot.tracks.length > 1) {
-      playNextTrack()
+    if (playbackQueue.length > 1 && playbackMode !== 'single') {
+      playNextTrack(true)
       return
     }
-    setIsPlaying(false)
-    setPlaybackTime(0)
-  }, [homeSnapshot.tracks.length, playNextTrack, playbackSource])
+    stopLocalPlaybackAtStart()
+  }, [playNextTrack, playbackMode, playbackQueue.length, playbackSource, stopLocalPlaybackAtStart])
 
   React.useEffect(() => {
     if (route.name === 'home' && previousRouteNameRef.current !== 'home') {
@@ -4208,14 +4242,17 @@ function App(): React.ReactElement {
                 albums={albums}
                 currentId={displayTrack.id}
                 isPlaying={isPlaying}
-                isShuffleEnabled={isShuffleEnabled}
+                playbackMode={playbackMode}
+                playbackModeDisabled={playbackSource === 'external'}
+                canControlPlayback={playbackSource === 'local' || Boolean(externalPlaybackSnapshot?.available && externalPlaybackSnapshot.canControlPlayback)}
+                canSkipTrack={playbackSource === 'local' || Boolean(externalPlaybackSnapshot?.available && externalPlaybackSnapshot.canSkip)}
                 volume={volume}
                 playbackTime={playbackTime}
                 playbackDuration={playbackDuration || displayTrack.duration}
-                onPlayPause={togglePlayback}
-                onPrevious={playPreviousTrack}
-                onNext={playNextTrack}
-                onToggleShuffle={toggleShuffle}
+                onPlayPause={playbackSource === 'local' || Boolean(externalPlaybackSnapshot?.available && externalPlaybackSnapshot.canControlPlayback) ? togglePlayback : () => {}}
+                onPrevious={playbackSource === 'local' || Boolean(externalPlaybackSnapshot?.available && externalPlaybackSnapshot.canSkip) ? playPreviousTrack : () => {}}
+                onNext={playbackSource === 'local' || Boolean(externalPlaybackSnapshot?.available && externalPlaybackSnapshot.canSkip) ? playNextTrack : () => {}}
+                onTogglePlaybackMode={togglePlaybackMode}
                 onVolumeChange={changeVolume}
                 onSelectTrack={selectTrack}
                 onOpenNowPlaying={openNowPlaying}
@@ -8204,7 +8241,7 @@ const AboutSettingsContent = React.memo(function AboutSettingsContent(): React.R
           <small className="settings-description">本版本延续原软件的设计与体验方向，在原项目基础上进行 Windows 端 Electron 转译、功能补充与体验优化。</small>
           <small className="settings-description">感谢原作者对 mgkccc 的设计与实现。</small>
         </SettingsSection>
-        <SettingsSection title="免责声明">
+        <SettingsSection title="声明">
           <small className="settings-description">本软件仍处于持续完善阶段，当前版本可能存在功能缺陷、兼容性问题或其他未修复的 bug。</small>
           <small className="settings-description">由于开发者学业繁忙，相关开发工作暂告一段落；本版本现交付使用，后续维护与更新将视时间安排继续推进。</small>
         </SettingsSection>
@@ -9563,14 +9600,17 @@ const MiniPlayer = React.memo(function MiniPlayer({
   albums,
   currentId,
   isPlaying,
-  isShuffleEnabled,
+  playbackMode,
+  playbackModeDisabled,
+  canControlPlayback,
+  canSkipTrack,
   volume,
   playbackTime,
   playbackDuration,
   onPlayPause,
   onPrevious,
   onNext,
-  onToggleShuffle,
+  onTogglePlaybackMode,
   onVolumeChange,
   onSelectTrack,
   onOpenNowPlaying,
@@ -9586,14 +9626,17 @@ const MiniPlayer = React.memo(function MiniPlayer({
   albums: Map<string, HomeAlbumCard>
   currentId: string
   isPlaying: boolean
-  isShuffleEnabled: boolean
+  playbackMode: PlaybackMode
+  playbackModeDisabled: boolean
+  canControlPlayback: boolean
+  canSkipTrack: boolean
   volume: number
   playbackTime: number
   playbackDuration: number
   onPlayPause: () => void
   onPrevious: () => void
   onNext: () => void
-  onToggleShuffle: () => void
+  onTogglePlaybackMode: () => void
   onVolumeChange: (volume: number) => void
   onSelectTrack: (id: string) => void
   onOpenNowPlaying: () => void
@@ -9653,6 +9696,14 @@ const MiniPlayer = React.memo(function MiniPlayer({
     '--mini-player-progress-ratio': progressRatio,
     '--mini-player-progress-width': `${progress}%`
   } as React.CSSProperties
+  const modeLabel = playbackModeLabels[playbackMode]
+  const modeIcon = playbackMode === 'shuffle'
+    ? <Shuffle size={18} />
+    : playbackMode === 'single'
+      ? <Square size={16} />
+      : playbackMode === 'listLoop'
+        ? <Repeat size={18} />
+        : <ListMusic size={18} />
 
   return (
     <>
@@ -9691,7 +9742,7 @@ const MiniPlayer = React.memo(function MiniPlayer({
           </button>
         </div>
       ) : null}
-      <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''}`} style={miniPlayerStyle}>
+      <div className={`mini-player glass-panel no-drag ${isPlaying ? 'playing' : ''} ${canControlPlayback ? '' : 'playback-control-disabled'} ${canSkipTrack ? '' : 'skip-control-disabled'} ${playbackModeDisabled ? 'mode-control-disabled' : ''}`} style={miniPlayerStyle}>
         <button className="mini-track" type="button" aria-label="打开窗口播放" onClick={onOpenNowPlaying}>
           <ArtworkImage src={trackArtwork(track, albums)} maxSize={72} alt="" />
           <div>
@@ -9731,18 +9782,18 @@ const MiniPlayer = React.memo(function MiniPlayer({
           </div>
         ) : null}
         <div className="mini-controls">
-          <button type="button" aria-label="上一首" onClick={onPrevious}>
+          <button type="button" aria-label="上一首" disabled={!canSkipTrack} onClick={onPrevious}>
             <SkipBack size={19} fill="currentColor" />
           </button>
-          <button type="button" aria-label="播放暂停" onClick={onPlayPause}>
+          <button type="button" aria-label="播放暂停" disabled={!canControlPlayback} onClick={onPlayPause}>
             {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
           </button>
-          <button type="button" aria-label="下一首" onClick={onNext}>
+          <button type="button" aria-label="下一首" disabled={!canSkipTrack} onClick={onNext}>
             <SkipForward size={19} fill="currentColor" />
           </button>
         </div>
-        <button className={`mode-button ${isShuffleEnabled ? 'active' : ''}`} type="button" aria-pressed={isShuffleEnabled} aria-label="随机" onClick={onToggleShuffle}>
-          <Shuffle size={18} />
+        <button className={`mode-button active mode-${playbackMode}`} type="button" aria-label={playbackModeDisabled ? '第三方播放源暂不支持读取播放模式' : modeLabel} disabled={playbackModeDisabled} title={playbackModeDisabled ? '第三方播放源暂不支持读取播放模式' : modeLabel} onClick={onTogglePlaybackMode}>
+          {modeIcon}
         </button>
         <div className="mini-timeline">
           <label className="volume-track">
