@@ -8446,11 +8446,9 @@ const AboutSettingsContent = React.memo(function AboutSettingsContent(): React.R
             </div>
           </dl>
         </SettingsSection>
-        <SettingsSection title="说明">
+        <SettingsSection title="声明">
           <small className="settings-description">本版本延续原软件的设计与体验方向，在原项目基础上进行 Windows 端 Electron 转译、功能补充与体验优化。</small>
           <small className="settings-description">感谢原作者对 mgkccc 的设计与实现。</small>
-        </SettingsSection>
-        <SettingsSection title="声明">
           <small className="settings-description">本软件仍处于持续完善阶段，当前版本可能存在功能缺陷、兼容性问题或其他未修复的 bug。</small>
           <small className="settings-description">由于开发者学业繁忙，相关开发工作暂告一段落；本版本现交付使用，后续维护与更新将视时间安排继续推进。</small>
         </SettingsSection>
@@ -9870,6 +9868,10 @@ const MiniPlayer = React.memo(function MiniPlayer({
   const [isQueueOpen, setIsQueueOpen] = React.useState(false)
   const progressRailRef = React.useRef<HTMLDivElement | null>(null)
   const isProgressPressedRef = React.useRef(false)
+  const queueRowRefs = React.useRef<Map<number, HTMLDivElement>>(new Map())
+  const queueDragRef = React.useRef<{ index: number; pointerId: number; startX: number; startY: number; moved: boolean } | null>(null)
+  const suppressQueueClickRef = React.useRef(false)
+  const [draggingQueueIndex, setDraggingQueueIndex] = React.useState<number | null>(null)
   const queueTracks = tracks.length ? tracks : [track]
   const safePlaybackDuration = Math.max(1, playbackDuration)
   const progress = playbackDuration > 0 ? Math.min(100, Math.max(0, (playbackTime / playbackDuration) * 100)) : 0
@@ -9908,6 +9910,53 @@ const MiniPlayer = React.memo(function MiniPlayer({
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
+  }, [])
+  const queueIndexFromPoint = React.useCallback((clientY: number): number | null => {
+    for (const [index, element] of queueRowRefs.current) {
+      const rect = element.getBoundingClientRect()
+      if (clientY >= rect.top && clientY <= rect.bottom) return index
+    }
+    return null
+  }, [])
+  const handleQueuePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>, queueIndex: number): void => {
+    if (event.button !== 0) return
+    const target = event.target as HTMLElement | null
+    if (target?.closest('.mini-queue-remove')) return
+    suppressQueueClickRef.current = false
+    queueDragRef.current = {
+      index: queueIndex,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }, [])
+  const handleQueuePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    const drag = queueDragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const movedDistance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY)
+    if (!drag.moved && movedDistance < 5) return
+    drag.moved = true
+    suppressQueueClickRef.current = true
+    setDraggingQueueIndex(drag.index)
+    const targetIndex = queueIndexFromPoint(event.clientY)
+    if (targetIndex === null || targetIndex === drag.index) return
+    onReorderQueue(drag.index, targetIndex)
+    drag.index = targetIndex
+    setDraggingQueueIndex(targetIndex)
+  }, [onReorderQueue, queueIndexFromPoint])
+  const finishQueuePointerDrag = React.useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    const drag = queueDragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    queueDragRef.current = null
+    setDraggingQueueIndex(null)
+    window.setTimeout(() => {
+      suppressQueueClickRef.current = false
+    }, 0)
   }, [])
 
   const progressRatio = progress / 100
@@ -9982,22 +10031,26 @@ const MiniPlayer = React.memo(function MiniPlayer({
             <div className="mini-queue-list">
               {queueTracks.map((queueTrack, queueIndex) => (
                 <div
-                  className={`mini-queue-row ${queueTrack.id === currentId ? 'current' : ''}`}
-                  draggable
+                  className={`mini-queue-row ${queueTrack.id === currentId ? 'current' : ''} ${draggingQueueIndex === queueIndex ? 'dragging' : ''}`}
                   key={`${queueTrack.id}-${queueIndex}`}
-                  onDragStart={(event) => {
-                    event.dataTransfer.effectAllowed = 'move'
-                    event.dataTransfer.setData('text/plain', String(queueIndex))
+                  ref={(element) => {
+                    if (element) {
+                      queueRowRefs.current.set(queueIndex, element)
+                    } else {
+                      queueRowRefs.current.delete(queueIndex)
+                    }
                   }}
-                  onDragOver={(event) => {
-                    event.preventDefault()
-                    event.dataTransfer.dropEffect = 'move'
+                  onClick={(event) => {
+                    if (queueDragRef.current?.moved) return
+                    const target = event.target as HTMLElement | null
+                    if (target?.closest('button')) return
+                    onSelectTrack(queueTrack.id)
+                    setIsQueueOpen(false)
                   }}
-                  onDrop={(event) => {
-                    event.preventDefault()
-                    const draggedIndex = Number(event.dataTransfer.getData('text/plain'))
-                    onReorderQueue(draggedIndex, queueIndex)
-                  }}
+                  onPointerDown={(event) => handleQueuePointerDown(event, queueIndex)}
+                  onPointerMove={handleQueuePointerMove}
+                  onPointerUp={finishQueuePointerDrag}
+                  onPointerCancel={finishQueuePointerDrag}
                 >
                   <button
                     className="mini-queue-row-main"
