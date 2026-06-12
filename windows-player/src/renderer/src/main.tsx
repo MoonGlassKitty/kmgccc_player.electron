@@ -8239,6 +8239,8 @@ const SettingsPanel = React.memo(function SettingsPanel({
 })
 
 const AboutSettingsContent = React.memo(function AboutSettingsContent(): React.ReactElement {
+  const [updateStatus, setUpdateStatus] = React.useState<UpdateCheckResult | null>(null)
+  const [isCheckingUpdate, setIsCheckingUpdate] = React.useState(false)
   const openSourceItems = [
     { name: 'Apple Music-like Lyrics', url: 'https://github.com/amll-dev/applemusic-like-lyrics', license: 'AGPL-3.0' },
     { name: 'React', url: 'https://github.com/facebook/react', license: 'MIT' },
@@ -8257,9 +8259,29 @@ const AboutSettingsContent = React.memo(function AboutSettingsContent(): React.R
     { name: 'mgkccc Electron 源代码', url: 'https://github.com/MoonGlassKitty/kmgccc_player.electron' },
     { name: 'kmg macOS 原始项目源代码', url: 'https://github.com/kmgcc/kmgccc_player' }
   ]
+  const handleCheckForUpdates = React.useCallback(async () => {
+    if (!window.kmgccc?.checkForUpdates) {
+      setUpdateStatus({
+        currentVersion: '0.1.0',
+        updateAvailable: false,
+        releaseUrl: 'https://github.com/MoonGlassKitty/kmgccc_player.electron/releases/latest',
+        error: '当前运行环境不支持更新检测'
+      })
+      return
+    }
+    setIsCheckingUpdate(true)
+    try {
+      setUpdateStatus(await window.kmgccc.checkForUpdates())
+    } finally {
+      setIsCheckingUpdate(false)
+    }
+  }, [])
+  const openReleasePage = React.useCallback((url: string) => {
+    void window.kmgccc?.openExternalUrl?.(url)
+  }, [])
 
   return (
-    <div className="settings-now-playing">
+    <div className="settings-now-playing settings-about-content">
       <header className="settings-header-label">
         <Info size={18} />
         <strong>关于 mgkccc</strong>
@@ -8271,6 +8293,30 @@ const AboutSettingsContent = React.memo(function AboutSettingsContent(): React.R
             <span>Windows Electron 版</span>
           </div>
           <small className="settings-description">mgkccc 是 MoonGlassKitty 对 kmgccc 项目从 macOS 26 到 Electron 的转译与适配。</small>
+        </SettingsSection>
+        <SettingsSection title="更新">
+          <div className="settings-button-row">
+            <button type="button" disabled={isCheckingUpdate} onClick={handleCheckForUpdates}>
+              {isCheckingUpdate ? '正在检查...' : '检查更新'}
+            </button>
+            <button type="button" onClick={() => openReleasePage(updateStatus?.releaseUrl ?? 'https://github.com/MoonGlassKitty/kmgccc_player.electron/releases/latest')}>
+              GitHub 下载页
+            </button>
+            <button type="button" onClick={() => openReleasePage('https://player.kmgccc.cn/')}>
+              原作者网站
+            </button>
+          </div>
+          {updateStatus ? (
+            <small className={`settings-description ${updateStatus.error ? 'danger-text' : ''}`}>
+              {updateStatus.error
+                ? updateStatus.error
+                : updateStatus.updateAvailable
+                  ? `发现新版本 ${updateStatus.latestVersion}，当前版本 ${updateStatus.currentVersion}。`
+                  : `当前已是最新版本 ${updateStatus.currentVersion}。`}
+            </small>
+          ) : (
+            <small className="settings-description">通过 GitHub Releases 检查是否有新版本；下载可走 GitHub 或原作者网站。portable 版本需要手动下载并替换 exe。</small>
+          )}
         </SettingsSection>
         <SettingsSection title="作者">
           <dl className="settings-about-list">
