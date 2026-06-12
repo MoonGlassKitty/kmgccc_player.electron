@@ -1305,6 +1305,103 @@ svg {
   font-size: 12px;
 }
 
+.settings-about-hero {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-about-hero strong {
+  color: #113e52;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.settings-about-hero span {
+  color: rgba(36, 46, 54, 0.58);
+  font-size: 14px;
+  font-weight: 720;
+}
+
+.settings-about-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.settings-about-list div {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.42fr) 1fr;
+  gap: 14px;
+  align-items: baseline;
+}
+
+.settings-about-list dt {
+  color: rgba(36, 46, 54, 0.52);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.settings-about-list dd {
+  margin: 0;
+  color: #163849;
+  font-size: 14px;
+  font-weight: 780;
+}
+
+.settings-about-link-list {
+  display: grid;
+  gap: 13px;
+}
+
+.settings-about-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.settings-about-link-row.source {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-about-link-row span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.settings-about-link-row strong {
+  overflow: hidden;
+  color: #163849;
+  font-size: 14px;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-about-link-row small {
+  overflow: hidden;
+  color: #1d87d7;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-about-link-row em {
+  min-width: 72px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(91, 180, 255, 0.16);
+  color: #1679bd;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 820;
+  text-align: center;
+}
+
 .lyrics-settings-preview {
   display: grid;
   gap: 6px;
@@ -6601,6 +6698,9 @@ input {
 
 .appearance-dark .settings-sidebar::before,
 .appearance-dark .settings-header-label,
+.appearance-dark .settings-about-hero strong,
+.appearance-dark .settings-about-list dd,
+.appearance-dark .settings-about-link-row strong,
 .appearance-dark .settings-card-section > strong,
 .appearance-dark .settings-section > header > strong {
   color: rgba(250, 252, 253, 0.94);
@@ -6615,11 +6715,22 @@ input {
 }
 
 .appearance-dark .settings-description,
+.appearance-dark .settings-about-hero span,
+.appearance-dark .settings-about-list dt,
 .appearance-dark .settings-switch-row small,
 .appearance-dark .settings-range-row small,
 .appearance-dark .settings-path-label,
 .appearance-dark .settings-empty {
   color: rgba(246, 250, 252, 0.56);
+}
+
+.appearance-dark .settings-about-link-row small {
+  color: #75bcff;
+}
+
+.appearance-dark .settings-about-link-row em {
+  background: rgba(117, 188, 255, 0.16);
+  color: #97ccff;
 }
 
 .appearance-dark .settings-select-row select,

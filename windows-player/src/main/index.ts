@@ -3285,7 +3285,7 @@ function createWindow(): void {
     transparent: false,
     backgroundColor: '#eef7fb',
     show: false,
-    title: 'kmgccc_player',
+    title: 'mgkccc',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
