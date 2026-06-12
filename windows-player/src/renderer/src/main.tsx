@@ -8328,7 +8328,7 @@ const settingsCategories: Array<{ key: SettingsCategoryKey; title: string; detai
   { key: 'fullscreen', title: '全屏播放', detail: '皮肤、歌词、LED' },
   { key: 'externalPlayback', title: '音频', detail: '延迟与补偿' },
   { key: 'data', title: '数据', detail: '资料库、导入与缓存' },
-  { key: 'about', title: '关于', detail: '待翻译' }
+  { key: 'about', title: '关于', detail: '版本与致谢' }
 ]
 
 const SettingsPanel = React.memo(function SettingsPanel({
@@ -8725,6 +8725,8 @@ const SettingsPanel = React.memo(function SettingsPanel({
               onSettingsActionStatusChange={onSettingsActionStatusChange}
               onRefreshLibrarySnapshot={onRefreshLibrarySnapshot}
             />
+          ) : selectedCategory === 'about' ? (
+            <AboutSettingsContent />
           ) : (
             <div className="settings-empty">
               <strong>{settingsCategories.find((category) => category.key === selectedCategory)?.title}</strong>
@@ -8732,6 +8734,101 @@ const SettingsPanel = React.memo(function SettingsPanel({
             </div>
           )}
         </section>
+      </div>
+    </div>
+  )
+})
+
+const AboutSettingsContent = React.memo(function AboutSettingsContent(): React.ReactElement {
+  const openSourceItems = [
+    { name: 'Apple Music-like Lyrics', url: 'https://github.com/amll-dev/applemusic-like-lyrics', license: 'AGPL-3.0' },
+    { name: 'React', url: 'https://github.com/facebook/react', license: 'MIT' },
+    { name: 'Electron', url: 'https://github.com/electron/electron', license: 'MIT' },
+    { name: 'Vite', url: 'https://github.com/vitejs/vite', license: 'MIT' },
+    { name: 'electron-vite', url: 'https://github.com/electron-vite/electron-vite', license: 'MIT' },
+    { name: 'PixiJS', url: 'https://github.com/pixijs/pixijs', license: 'MIT' },
+    { name: 'music-metadata', url: 'https://github.com/Borewit/music-metadata', license: 'MIT' },
+    { name: 'web-audio-beat-detector', url: 'https://github.com/chrisguttandin/web-audio-beat-detector', license: 'MIT' },
+    { name: 'lucide-react', url: 'https://github.com/lucide-icons/lucide', license: 'ISC' },
+    { name: 'JSS', url: 'https://github.com/cssinjs/jss', license: 'MIT' },
+    { name: 'NodeRT Windows Media Control', url: 'https://github.com/nodert-win11/node-rt-win11', license: 'Apache-2.0' },
+    { name: 'LDDC', url: 'https://github.com/chenmozhijin/LDDC', license: 'GPL-3.0' }
+  ]
+  const sourceItems = [
+    { name: 'mgkccc Electron 源代码', url: 'https://github.com/MoonGlassKitty/kmgccc_player.electron' },
+    { name: 'kmg macOS 原始项目源代码', url: 'https://github.com/kmgcc/kmgccc_player' }
+  ]
+
+  return (
+    <div className="settings-now-playing">
+      <header className="settings-header-label">
+        <Info size={18} />
+        <strong>关于 mgkccc</strong>
+      </header>
+      <div className="settings-section-stack">
+        <SettingsSection title="软件">
+          <div className="settings-about-hero">
+            <strong>mgkccc</strong>
+            <span>Windows Electron 版</span>
+          </div>
+          <small className="settings-description">mgkccc 是 MoonGlassKitty 对 kmgccc 项目从 macOS 26 到 Electron 的转译与适配。</small>
+        </SettingsSection>
+        <SettingsSection title="作者">
+          <dl className="settings-about-list">
+            <div>
+              <dt>原软件</dt>
+              <dd>kmgccc</dd>
+            </div>
+            <div>
+              <dt>原作者</dt>
+              <dd>kmg开门枸</dd>
+            </div>
+            <div>
+              <dt>当前项目</dt>
+              <dd>mgkccc</dd>
+            </div>
+            <div>
+              <dt>转译与维护</dt>
+              <dd>mgk璃月</dd>
+            </div>
+          </dl>
+        </SettingsSection>
+        <SettingsSection title="说明">
+          <small className="settings-description">本版本延续原软件的设计与体验方向，在原项目基础上进行 Windows 端 Electron 转译、功能补充与体验优化。</small>
+          <small className="settings-description">感谢原作者对 mgkccc 的设计与实现。</small>
+        </SettingsSection>
+        <SettingsSection title="免责声明">
+          <small className="settings-description">本软件仍处于持续完善阶段，当前版本可能存在功能缺陷、兼容性问题或其他未修复的 bug。</small>
+          <small className="settings-description">由于开发者学业繁忙，相关开发工作暂告一段落；本版本现交付使用，后续维护与更新将视时间安排继续推进。</small>
+        </SettingsSection>
+        <SettingsSection title="开源与鸣谢">
+          <small className="settings-description">本程序使用、集成或参考了以下开源软件。</small>
+          <div className="settings-about-link-list">
+            {openSourceItems.map((item) => (
+              <a className="settings-about-link-row" href={item.url} key={item.name} rel="noreferrer" target="_blank">
+                <span>
+                  <strong>{item.name}</strong>
+                  <small>{item.url}</small>
+                </span>
+                <em>{item.license}</em>
+              </a>
+            ))}
+          </div>
+        </SettingsSection>
+        <SettingsSection title="源代码">
+          <small className="settings-description">本程序为开源软件，此版本的完整相应源代码可在以下地址获得。</small>
+          <div className="settings-about-link-list">
+            {sourceItems.map((item) => (
+              <a className="settings-about-link-row source" href={item.url} key={item.name} rel="noreferrer" target="_blank">
+                <span>
+                  <strong>{item.name}</strong>
+                  <small>{item.url}</small>
+                </span>
+              </a>
+            ))}
+          </div>
+          <small className="settings-description">根据 GNU Affero General Public License v3.0 (AGPL-3.0) 授权。</small>
+        </SettingsSection>
       </div>
     </div>
   )
@@ -9214,7 +9311,7 @@ const DataSettingsContent = React.memo(function DataSettingsContent({
           </div>
         </SettingsSection>
         <SettingsSection title="数据共享">
-          <SettingsSwitch title="帮助改进 kmgccc_player" detail="仅保存匿名统计开关；Windows 版当前不会上传歌曲名、歌词内容、本地路径或账号信息。" checked={telemetryEnabled} onChange={onTelemetryEnabledChange} />
+          <SettingsSwitch title="帮助改进 mgkccc" detail="仅保存匿名统计开关；Windows 版当前不会上传歌曲名、歌词内容、本地路径或账号信息。" checked={telemetryEnabled} onChange={onTelemetryEnabledChange} />
         </SettingsSection>
         {settingsActionStatus ? <div className={`settings-action-status ${settingsActionStatus.tone === 'danger' ? 'danger' : ''}`}>{settingsActionStatus.label}</div> : null}
       </div>
