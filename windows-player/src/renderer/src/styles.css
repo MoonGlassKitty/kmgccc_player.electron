@@ -1280,20 +1280,29 @@ svg {
   font-size: 12px;
 }
 
+.settings-description.danger-text {
+  color: #b42318;
+}
+
 .settings-about-hero {
   display: grid;
   gap: 4px;
 }
 
+.settings-about-content .settings-description {
+  font-size: 14px;
+  line-height: 1.65;
+}
+
 .settings-about-hero strong {
   color: #113e52;
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 900;
 }
 
 .settings-about-hero span {
   color: rgba(36, 46, 54, 0.58);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 720;
 }
 
@@ -1312,14 +1321,14 @@ svg {
 
 .settings-about-list dt {
   color: rgba(36, 46, 54, 0.52);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 760;
 }
 
 .settings-about-list dd {
   margin: 0;
   color: #163849;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 780;
 }
 
@@ -1350,7 +1359,7 @@ svg {
 .settings-about-link-row strong {
   overflow: hidden;
   color: #163849;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 820;
   text-overflow: ellipsis;
   white-space: nowrap;

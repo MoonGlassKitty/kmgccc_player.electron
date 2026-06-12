@@ -1,14 +1,14 @@
-# mgkccc Player Electron - Windows 分支
+# mgkccc_player Electron - Windows 分支
 
-这是 **mgkccc** 的 Windows Electron 分支。
+这是 **mgkccc_player** 的 Windows Electron 分支。
 
-本项目基于原作者的 **kmgccc** 软件继续开发与适配。原项目名称为 **kmgccc**，本仓库维护的版本名称为 **mgkccc**。
+本项目基于原作者的 **kmgccc** 软件继续开发与适配。原项目名称为 **kmgccc**，本仓库维护的版本名称为 **mgkccc_player**。
 
 ## 作者说明
 
 - 原作者：**kmgccc** 的作者
 - 当前维护者：**MoonGlassKitty**
-- 当前项目名：**mgkccc**
+- 当前项目名：**mgkccc_player**
 
 感谢原作者对 kmgccc 的设计与实现。本仓库在原项目基础上继续进行 Windows 端 Electron 适配、功能补充与体验优化。
 

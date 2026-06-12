@@ -1,5 +1,5 @@
 {
-  "name": "mgkccc-player-electron",
+  "name": "mgkccc_player",
   "version": "0.1.0",
   "private": true,
   "description": "Electron translation of the kmgccc macOS 26 project by MoonGlassKitty.",
@@ -7,13 +7,13 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "package:win": "npm run build && electron-builder --win portable --x64",
+    "package:win": "set NODE_TLS_REJECT_UNAUTHORIZED=0&& npm run build && electron-builder --win portable nsis --x64",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit"
   },
   "build": {
-    "appId": "com.kmgccc.player.windows",
-    "productName": "mgkccc",
+    "appId": "com.mgkccc.player.windows",
+    "productName": "mgkccc_player",
     "npmRebuild": false,
     "directories": {
       "output": "dist"
@@ -22,16 +22,36 @@
       "out/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
     "win": {
-      "signAndEditExecutable": false,
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true,
       "target": [
         {
           "target": "portable",
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
         }
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "mgkccc_player"
     }
   },
   "dependencies": {

@@ -8831,6 +8831,8 @@ const SettingsPanel = React.memo(function SettingsPanel({
 })
 
 const AboutSettingsContent = React.memo(function AboutSettingsContent(): React.ReactElement {
+  const [updateStatus, setUpdateStatus] = React.useState<UpdateCheckResult | null>(null)
+  const [isCheckingUpdate, setIsCheckingUpdate] = React.useState(false)
   const openSourceItems = [
     { name: 'Apple Music-like Lyrics', url: 'https://github.com/amll-dev/applemusic-like-lyrics', license: 'AGPL-3.0' },
     { name: 'React', url: 'https://github.com/facebook/react', license: 'MIT' },
@@ -8846,23 +8848,67 @@ const AboutSettingsContent = React.memo(function AboutSettingsContent(): React.R
     { name: 'LDDC', url: 'https://github.com/chenmozhijin/LDDC', license: 'GPL-3.0' }
   ]
   const sourceItems = [
-    { name: 'mgkccc Electron 源代码', url: 'https://github.com/MoonGlassKitty/kmgccc_player.electron' },
+    { name: 'mgkccc_player Electron 源代码', url: 'https://github.com/MoonGlassKitty/kmgccc_player.electron' },
     { name: 'kmg macOS 原始项目源代码', url: 'https://github.com/kmgcc/kmgccc_player' }
   ]
+  const handleCheckForUpdates = React.useCallback(async () => {
+    if (!window.kmgccc?.checkForUpdates) {
+      setUpdateStatus({
+        currentVersion: '0.1.0',
+        updateAvailable: false,
+        releaseUrl: 'https://github.com/MoonGlassKitty/kmgccc_player.electron/releases/latest',
+        error: '当前运行环境不支持更新检测'
+      })
+      return
+    }
+    setIsCheckingUpdate(true)
+    try {
+      setUpdateStatus(await window.kmgccc.checkForUpdates())
+    } finally {
+      setIsCheckingUpdate(false)
+    }
+  }, [])
+  const openReleasePage = React.useCallback((url: string) => {
+    void window.kmgccc?.openExternalUrl?.(url)
+  }, [])
 
   return (
-    <div className="settings-now-playing">
+    <div className="settings-now-playing settings-about-content">
       <header className="settings-header-label">
         <Info size={18} />
-        <strong>关于 mgkccc</strong>
+        <strong>关于 mgkccc_player</strong>
       </header>
       <div className="settings-section-stack">
         <SettingsSection title="软件">
           <div className="settings-about-hero">
-            <strong>mgkccc</strong>
+            <strong>mgkccc_player</strong>
             <span>Windows Electron 版</span>
           </div>
-          <small className="settings-description">mgkccc 是 MoonGlassKitty 对 kmgccc 项目从 macOS 26 到 Electron 的转译与适配。</small>
+          <small className="settings-description">mgkccc_player 是 MoonGlassKitty 对 kmgccc 项目从 macOS 26 到 Electron 的转译与适配。</small>
+        </SettingsSection>
+        <SettingsSection title="更新">
+          <div className="settings-button-row">
+            <button type="button" disabled={isCheckingUpdate} onClick={handleCheckForUpdates}>
+              {isCheckingUpdate ? '正在检查...' : '检查更新'}
+            </button>
+            <button type="button" onClick={() => openReleasePage(updateStatus?.releaseUrl ?? 'https://github.com/MoonGlassKitty/kmgccc_player.electron/releases/latest')}>
+              GitHub 下载页
+            </button>
+            <button type="button" onClick={() => openReleasePage('https://player.kmgccc.cn/')}>
+              原作者网站
+            </button>
+          </div>
+          {updateStatus ? (
+            <small className={`settings-description ${updateStatus.error ? 'danger-text' : ''}`}>
+              {updateStatus.error
+                ? updateStatus.error
+                : updateStatus.updateAvailable
+                  ? `发现新版本 ${updateStatus.latestVersion}，当前版本 ${updateStatus.currentVersion}。`
+                  : `当前已是最新版本 ${updateStatus.currentVersion}。`}
+            </small>
+          ) : (
+            <small className="settings-description">通过 GitHub Releases 检查是否有新版本；下载可走 GitHub 或原作者网站。portable 版本需要手动下载并替换 exe。</small>
+          )}
         </SettingsSection>
         <SettingsSection title="作者">
           <dl className="settings-about-list">
@@ -8876,7 +8922,7 @@ const AboutSettingsContent = React.memo(function AboutSettingsContent(): React.R
             </div>
             <div>
               <dt>当前项目</dt>
-              <dd>mgkccc</dd>
+              <dd>mgkccc_player</dd>
             </div>
             <div>
               <dt>转译与维护</dt>
@@ -8886,7 +8932,7 @@ const AboutSettingsContent = React.memo(function AboutSettingsContent(): React.R
         </SettingsSection>
         <SettingsSection title="声明">
           <small className="settings-description">本版本延续原软件的设计与体验方向，在原项目基础上进行 Windows 端 Electron 转译、功能补充与体验优化。</small>
-          <small className="settings-description">感谢原作者对 mgkccc 的设计与实现。</small>
+          <small className="settings-description">感谢原作者对 mgkccc_player 的设计与实现。</small>
           <small className="settings-description">本软件仍处于持续完善阶段，当前版本可能存在功能缺陷、兼容性问题或其他未修复的 bug。</small>
           <small className="settings-description">由于开发者学业繁忙，相关开发工作暂告一段落；本版本现交付使用，后续维护与更新将视时间安排继续推进。</small>
         </SettingsSection>
@@ -9400,7 +9446,7 @@ const DataSettingsContent = React.memo(function DataSettingsContent({
           </div>
         </SettingsSection>
         <SettingsSection title="数据共享">
-          <SettingsSwitch title="帮助改进 mgkccc" detail="仅保存匿名统计开关；Windows 版当前不会上传歌曲名、歌词内容、本地路径或账号信息。" checked={telemetryEnabled} onChange={onTelemetryEnabledChange} />
+          <SettingsSwitch title="帮助改进 mgkccc_player" detail="仅保存匿名统计开关；Windows 版当前不会上传歌曲名、歌词内容、本地路径或账号信息。" checked={telemetryEnabled} onChange={onTelemetryEnabledChange} />
         </SettingsSection>
         {settingsActionStatus ? <div className={`settings-action-status ${settingsActionStatus.tone === 'danger' ? 'danger' : ''}`}>{settingsActionStatus.label}</div> : null}
       </div>

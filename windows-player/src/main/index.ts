@@ -11,6 +11,26 @@ import { decryptQrcHex, parseQrc, type LyricLine as AmllParsedLyricLine } from '
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL)
 const runtimeRequire = createRequire(import.meta.url)
+const appIconPath = app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'build', 'icon.png')
+const UPDATE_REPOSITORY_OWNER = 'MoonGlassKitty'
+const UPDATE_REPOSITORY_NAME = 'kmgccc_player.electron'
+const UPDATE_RELEASES_URL = `https://github.com/${UPDATE_REPOSITORY_OWNER}/${UPDATE_REPOSITORY_NAME}/releases`
+const UPDATE_LATEST_RELEASE_API_URL = `https://api.github.com/repos/${UPDATE_REPOSITORY_OWNER}/${UPDATE_REPOSITORY_NAME}/releases/latest`
+
+app.setName('mgkccc_player')
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.mgkccc.player.windows')
+}
+
+type UpdateCheckResult = {
+  currentVersion: string
+  latestVersion?: string
+  updateAvailable: boolean
+  releaseUrl: string
+  releaseName?: string
+  publishedAt?: string
+  error?: string
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -4329,7 +4349,8 @@ function createWindow(): void {
     transparent: false,
     backgroundColor: '#eef7fb',
     show: false,
-    title: 'mgkccc',
+    title: 'mgkccc_player',
+    icon: appIconPath,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -4345,6 +4366,72 @@ function createWindow(): void {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
     void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  }
+}
+
+function normalizedVersionParts(version: string): number[] {
+  return version
+    .trim()
+    .replace(/^v/i, '')
+    .split(/[.-]/)
+    .slice(0, 3)
+    .map((part) => {
+      const match = part.match(/\d+/)
+      return match ? Number(match[0]) : 0
+    })
+}
+
+function compareVersions(a: string, b: string): number {
+  const left = normalizedVersionParts(a)
+  const right = normalizedVersionParts(b)
+  for (let index = 0; index < 3; index += 1) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0)
+    if (difference !== 0) return difference
+  }
+  return 0
+}
+
+async function checkForUpdates(): Promise<UpdateCheckResult> {
+  const currentVersion = app.getVersion()
+  try {
+    const response = await fetch(UPDATE_LATEST_RELEASE_API_URL, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': `mgkccc_player/${currentVersion}`
+      },
+      signal: AbortSignal.timeout(12000)
+    })
+    if (!response.ok) {
+      return {
+        currentVersion,
+        updateAvailable: false,
+        releaseUrl: `${UPDATE_RELEASES_URL}/latest`,
+        error: `检查失败：GitHub 返回 ${response.status}`
+      }
+    }
+    const release = await response.json() as {
+      tag_name?: unknown
+      name?: unknown
+      html_url?: unknown
+      published_at?: unknown
+    }
+    const latestVersion = typeof release.tag_name === 'string' ? release.tag_name.replace(/^v/i, '') : undefined
+    const releaseUrl = typeof release.html_url === 'string' ? release.html_url : `${UPDATE_RELEASES_URL}/latest`
+    return {
+      currentVersion,
+      latestVersion,
+      updateAvailable: latestVersion ? compareVersions(latestVersion, currentVersion) > 0 : false,
+      releaseUrl,
+      releaseName: typeof release.name === 'string' ? release.name : undefined,
+      publishedAt: typeof release.published_at === 'string' ? release.published_at : undefined
+    }
+  } catch (error) {
+    return {
+      currentVersion,
+      updateAvailable: false,
+      releaseUrl: `${UPDATE_RELEASES_URL}/latest`,
+      error: error instanceof Error ? `检查失败：${error.message}` : '检查失败：网络请求异常'
+    }
   }
 }
 
@@ -4438,6 +4525,15 @@ ipcMain.handle('external-playback:set-volume', async (_event, volume: number) =>
 
 ipcMain.handle('system:get-platform', () => process.platform)
 ipcMain.handle('system:get-tape-device-presence', () => getTapeDevicePresence())
+ipcMain.handle('app:check-for-updates', () => checkForUpdates())
+ipcMain.handle('app:open-external-url', async (_event, url: string) => {
+  const isAllowedUpdateUrl =
+    /^https:\/\/github\.com\/MoonGlassKitty\/kmgccc_player\.electron\/releases(?:\/|$)/.test(url) ||
+    /^https:\/\/player\.kmgccc\.cn\/?$/.test(url)
+  if (!isAllowedUpdateUrl) return false
+  await shell.openExternal(url)
+  return true
+})
 ipcMain.handle('settings:get-library-location', () => libraryLocationInfo())
 ipcMain.handle('settings:choose-library-location', async (event) => {
   const owner = BrowserWindow.fromWebContents(event.sender)

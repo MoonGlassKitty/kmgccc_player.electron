@@ -48,6 +48,10 @@ applemusic-like-lyrics-kmgcccplayer-integration/.nx/scripts/
 
 # Xcode
 build/
+!windows-player/build/
+windows-player/build/*
+!windows-player/build/icon.png
+!windows-player/build/icon.ico
 *.project/xcuserdata
 *.project/xcshareddata
 *.project/project.xcworkspace/xcuserdata

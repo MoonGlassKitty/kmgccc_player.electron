@@ -43,6 +43,8 @@ contextBridge.exposeInMainWorld('kmgccc', {
   setExternalPlaybackVolume: (volume: number) => ipcRenderer.invoke('external-playback:set-volume', volume),
   getSystemPlatform: () => ipcRenderer.invoke('system:get-platform'),
   getTapeDevicePresence: () => ipcRenderer.invoke('system:get-tape-device-presence'),
+  checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
+  openExternalUrl: (url: string) => ipcRenderer.invoke('app:open-external-url', url),
   sampleWindowColor: (rect: { x: number; y: number; width: number; height: number }) => ipcRenderer.invoke('window:sample-color', rect),
   getWallpaperTint: () => ipcRenderer.invoke('system:get-wallpaper-tint')
 })
