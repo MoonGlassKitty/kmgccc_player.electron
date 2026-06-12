@@ -213,6 +213,7 @@ declare global {
       startWindowDrag: (point: { x: number; y: number }) => void
       moveWindowDrag: (point: { x: number; y: number }) => void
       endWindowDrag: () => void
+      setAppZoomFactor: (factor: number) => void
       getHomeSnapshot: () => Promise<HomeSnapshot>
       importAudioFile: () => Promise<LocalAudioImport | null>
       importAudioFiles: () => Promise<{ tracks: LocalAudioImport[] } | null>

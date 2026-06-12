@@ -86,6 +86,10 @@ import sfMusicNote from './assets/sf-symbols/music-note.png'
 import sfPhoto from './assets/sf-symbols/photo.png'
 import './styles.css'
 
+const APP_ZOOM_MIN_PERCENT = 50
+const APP_ZOOM_MAX_PERCENT = 125
+const APP_ZOOM_DEFAULT_PERCENT = 80
+
 type Track = {
   id: string
   title: string
@@ -2579,6 +2583,7 @@ function App(): React.ReactElement {
   const [settingsCategory, setSettingsCategory] = React.useState<SettingsCategoryKey>('appearance')
   const [nowPlayingSettingsTab, setNowPlayingSettingsTab] = React.useState<NowPlayingSettingsTab>('general')
   const [fullscreenSettingsTab, setFullscreenSettingsTab] = React.useState<NowPlayingSettingsTab>('general')
+  const [appZoomPercent, setAppZoomPercent] = React.useState(() => clampNumber(storedNumber('appearance.appZoomPercent', APP_ZOOM_DEFAULT_PERCENT), APP_ZOOM_MIN_PERCENT, APP_ZOOM_MAX_PERCENT))
   const [globalArtworkTintEnabled, setGlobalArtworkTintEnabled] = React.useState(() => storedBoolean('globalArtworkTintEnabled', true))
   const [dockProgressVisible, setDockProgressVisible] = React.useState(() => storedBoolean('dockProgressVisible', true))
   const [followSystemAppearance, setFollowSystemAppearance] = React.useState(() => storedBoolean('followSystemAppearance', true))
@@ -3082,6 +3087,12 @@ function App(): React.ReactElement {
       artworkPulseLastBeatRef.current = null
     }
   }, [displayTrack?.id, isArtworkBpmPulseEnabled, isPlaying, playbackSource, trackBeatById])
+
+  React.useEffect(() => {
+    const zoomPercent = clampNumber(appZoomPercent, APP_ZOOM_MIN_PERCENT, APP_ZOOM_MAX_PERCENT)
+    persistSetting('appearance.appZoomPercent', zoomPercent)
+    window.kmgccc?.setAppZoomFactor(zoomPercent / 100)
+  }, [appZoomPercent])
 
   React.useEffect(() => {
     persistSetting('globalArtworkTintEnabled', globalArtworkTintEnabled)
@@ -4780,6 +4791,8 @@ function App(): React.ReactElement {
             selectedCategory={settingsCategory}
             onSelectCategory={setSettingsCategory}
             onClose={() => setIsSettingsOpen(false)}
+            appZoomPercent={appZoomPercent}
+            onAppZoomPercentChange={setAppZoomPercent}
             globalArtworkTintEnabled={globalArtworkTintEnabled}
             onGlobalArtworkTintEnabledChange={setGlobalArtworkTintEnabled}
             dockProgressVisible={dockProgressVisible}
@@ -8322,6 +8335,8 @@ const SettingsPanel = React.memo(function SettingsPanel({
   selectedCategory,
   onSelectCategory,
   onClose,
+  appZoomPercent,
+  onAppZoomPercentChange,
   globalArtworkTintEnabled,
   onGlobalArtworkTintEnabledChange,
   dockProgressVisible,
@@ -8439,6 +8454,8 @@ const SettingsPanel = React.memo(function SettingsPanel({
   selectedCategory: SettingsCategoryKey
   onSelectCategory: (category: SettingsCategoryKey) => void
   onClose: () => void
+  appZoomPercent: number
+  onAppZoomPercentChange: (value: number) => void
   globalArtworkTintEnabled: boolean
   onGlobalArtworkTintEnabledChange: (enabled: boolean) => void
   dockProgressVisible: boolean
@@ -8575,6 +8592,8 @@ const SettingsPanel = React.memo(function SettingsPanel({
           </button>
           {selectedCategory === 'appearance' ? (
             <AppearanceSettingsContent
+              appZoomPercent={appZoomPercent}
+              onAppZoomPercentChange={onAppZoomPercentChange}
               globalArtworkTintEnabled={globalArtworkTintEnabled}
               onGlobalArtworkTintEnabledChange={onGlobalArtworkTintEnabledChange}
               dockProgressVisible={dockProgressVisible}
@@ -8719,6 +8738,8 @@ const SettingsPanel = React.memo(function SettingsPanel({
 })
 
 const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent({
+  appZoomPercent,
+  onAppZoomPercentChange,
   globalArtworkTintEnabled,
   onGlobalArtworkTintEnabledChange,
   dockProgressVisible,
@@ -8734,6 +8755,8 @@ const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent(
   homeSectionOrder,
   onHomeSectionOrderChange
 }: {
+  appZoomPercent: number
+  onAppZoomPercentChange: (value: number) => void
   globalArtworkTintEnabled: boolean
   onGlobalArtworkTintEnabledChange: (enabled: boolean) => void
   dockProgressVisible: boolean
@@ -8823,6 +8846,9 @@ const AppearanceSettingsContent = React.memo(function AppearanceSettingsContent(
         <strong>外观</strong>
       </header>
       <div className="settings-section-stack">
+        <SettingsSection title="显示">
+          <SettingsRange title="界面大小" valueText={`${Math.round(appZoomPercent)}%`} value={appZoomPercent} min={APP_ZOOM_MIN_PERCENT} max={APP_ZOOM_MAX_PERCENT} step={5} onChange={onAppZoomPercentChange} />
+        </SettingsSection>
         <SettingsSection title="常规">
           <SettingsSwitch title="全局取色" detail="开启后重点色跟随当前歌曲封面，关闭后使用默认主题色。" checked={globalArtworkTintEnabled} onChange={onGlobalArtworkTintEnabledChange} />
           <SettingsSwitch title="Dock 播放进度" detail="开启后底部状态栏显示当前歌曲进度垫层。" checked={dockProgressVisible} onChange={onDockProgressVisibleChange} />

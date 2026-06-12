@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webFrame } from 'electron'
 
 contextBridge.exposeInMainWorld('kmgccc', {
   minimize: () => ipcRenderer.send('window:minimize'),
@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('kmgccc', {
   startWindowDrag: (point: { x: number; y: number }) => ipcRenderer.send('window:drag-start', point),
   moveWindowDrag: (point: { x: number; y: number }) => ipcRenderer.send('window:drag-move', point),
   endWindowDrag: () => ipcRenderer.send('window:drag-end'),
+  setAppZoomFactor: (factor: number) => webFrame.setZoomFactor(factor),
   getHomeSnapshot: () => ipcRenderer.invoke('library:get-home-snapshot'),
   importAudioFile: () => ipcRenderer.invoke('library:import-audio-file'),
   importAudioFiles: () => ipcRenderer.invoke('library:import-audio-files'),
