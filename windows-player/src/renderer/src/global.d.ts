@@ -185,6 +185,16 @@ declare global {
     }
   }
 
+  type UpdateCheckResult = {
+    currentVersion: string
+    latestVersion?: string
+    updateAvailable: boolean
+    releaseUrl: string
+    releaseName?: string
+    publishedAt?: string
+    error?: string
+  }
+
   interface Window {
     kmgccc?: {
       minimize: () => void
@@ -225,6 +235,8 @@ declare global {
       setExternalPlaybackSourceMode: (mode: ExternalPlaybackSourceMode) => Promise<ExternalPlaybackSnapshot>
       sendExternalPlaybackCommand: (command: string, value?: number) => Promise<boolean>
       getSystemPlatform: () => Promise<NodeJS.Platform>
+      checkForUpdates: () => Promise<UpdateCheckResult>
+      openExternalUrl: (url: string) => Promise<boolean>
       sampleWindowColor: (rect: { x: number; y: number; width: number; height: number }) => Promise<{ r: number; g: number; b: number } | null>
       getWallpaperTint: () => Promise<WallpaperTint>
     }
