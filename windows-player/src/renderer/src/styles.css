@@ -5918,8 +5918,13 @@ input {
   min-height: 220px;
   padding: 16px 12px 12px;
   border-radius: 24px;
-  --glass-alpha: 0.5;
-  --glass-shadow: rgba(16, 36, 52, 0.07);
+  background: #ffffff;
+  color: #0b2a3c;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    0 18px 45px rgba(16, 36, 52, 0.18),
+    0 0 0 1px rgba(16, 36, 52, 0.08) inset;
 }
 
 .mini-queue-head {
@@ -5950,16 +5955,45 @@ input {
 
 .mini-queue-row {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 30px;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   width: 100%;
   min-height: 52px;
-  padding: 6px 8px;
+  padding: 4px;
   border-radius: 13px;
   color: #0b2a3c;
   background: transparent;
   text-align: left;
+}
+
+.mini-queue-row-main {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 2px 4px;
+  border-radius: 10px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.mini-queue-remove {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  color: rgba(11, 42, 60, 0.42);
+  background: transparent;
+}
+
+.mini-queue-remove:hover {
+  color: rgba(11, 42, 60, 0.82);
+  background: rgba(11, 42, 60, 0.08);
 }
 
 .mini-queue-row.current {
@@ -5969,16 +6003,16 @@ input {
     0 2px 7px var(--cover-accent-shadow);
 }
 
-.mini-queue-row img {
+.mini-queue-row-main img {
   width: 40px;
   height: 40px;
   border-radius: 7px;
   object-fit: cover;
 }
 
-.mini-queue-row span,
-.mini-queue-row strong,
-.mini-queue-row small {
+.mini-queue-row-main span,
+.mini-queue-row-main strong,
+.mini-queue-row-main small {
   display: block;
   min-width: 0;
   overflow: hidden;
@@ -5986,19 +6020,19 @@ input {
   white-space: nowrap;
 }
 
-.mini-queue-row strong {
+.mini-queue-row-main strong {
   font-size: 14px;
   font-weight: 820;
 }
 
-.mini-queue-row small,
-.mini-queue-row time {
+.mini-queue-row-main small,
+.mini-queue-row-main time {
   color: rgba(11, 42, 60, 0.58);
   font-size: 12px;
   font-weight: 680;
 }
 
-.mini-queue-row time {
+.mini-queue-row-main time {
   justify-self: end;
 }
 
@@ -6869,6 +6903,7 @@ input {
 .appearance-dark .mini-track strong,
 .appearance-dark .mini-queue-head span,
 .appearance-dark .mini-queue-row,
+.appearance-dark .mini-queue-row-main,
 .appearance-dark .track-title,
 .appearance-dark .artist-copy h1 {
   color: rgba(242, 247, 250, 0.88);
@@ -6876,14 +6911,31 @@ input {
 
 .appearance-dark .mini-track span,
 .appearance-dark .mini-queue-head strong,
-.appearance-dark .mini-queue-row small,
-.appearance-dark .mini-queue-row time,
+.appearance-dark .mini-queue-row-main small,
+.appearance-dark .mini-queue-row-main time,
 .appearance-dark .volume-track,
 .appearance-dark .track-artist,
 .appearance-dark .track-duration,
 .appearance-dark .artist-meta,
 .appearance-dark .artist-description {
   color: rgba(220, 228, 234, 0.56);
+}
+
+.appearance-dark .mini-queue-popover {
+  background: #080c10;
+  color: rgba(242, 247, 250, 0.9);
+  box-shadow:
+    0 18px 45px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+.appearance-dark .mini-queue-remove {
+  color: rgba(242, 247, 250, 0.46);
+}
+
+.appearance-dark .mini-queue-remove:hover {
+  color: rgba(242, 247, 250, 0.9);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .appearance-dark .mini-fullscreen-actions button,
