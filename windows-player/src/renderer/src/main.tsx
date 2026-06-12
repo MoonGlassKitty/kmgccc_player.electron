@@ -6585,8 +6585,7 @@ const LyricsEmptyState = React.memo(function LyricsEmptyState(): React.ReactElem
   return (
     <div className="lyrics-empty">
       <MessageSquareQuote size={38} />
-      <strong>还没有歌词</strong>
-      <span>导入歌曲后会自动尝试补全歌词；补全成功后会显示在这里。</span>
+      <strong>纯音乐，你的故事在这里。</strong>
     </div>
   )
 })
