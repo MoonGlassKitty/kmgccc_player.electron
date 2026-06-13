@@ -5,9 +5,9 @@ Windows/macOS/Linux Electron translation workspace for `kmgccc_player`, with the
 ## Branches
 
 - `main`: canonical reference branch. Keeps both the original Swift source and the Electron implementation.
-- `win`: Windows Electron development branch. Swift source is removed there to keep the branch focused.
-- `mac`: macOS Electron development branch. Swift source is removed there; use `main` when Swift reference is needed.
-- `linux`: Linux Electron development branch. Swift source is removed there; use `main` when Swift reference is needed.
+- `mgkccc-win`: Windows Electron development branch. Swift source is removed there to keep the branch focused.
+- `mgkccc-mac`: macOS Electron development branch. Swift source is removed there; use `main` when Swift reference is needed.
+- `mgkccc-linux`: Linux Electron development branch. Swift source is removed there; use `main` when Swift reference is needed.
 
 ## What Lives Here
 
@@ -16,7 +16,7 @@ Windows/macOS/Linux Electron translation workspace for `kmgccc_player`, with the
 - `windows-player/`: Electron + React implementation. Despite the name, this is now the shared Electron codebase for platform branches.
 - `AGENTS.md`: project rules for Codex/development workflow.
 - `DEVELOPMENT_LOG.md`: running implementation log. Add a concise entry after code-writing sessions.
-- `交接.md`: handoff notes for continuing development on Windows.
+- `bug-list.md`: shared list of known bugs and optional development ideas.
 
 ## Electron App
 
@@ -52,10 +52,10 @@ Windows uses GSMTC/NodeRT first and falls back to PowerShell WinRT when the nati
 ## Recommended Workflow
 
 ```bash
-git checkout win    # Windows Electron work
-git checkout mac    # macOS Electron work
-git checkout linux  # Linux Electron work
-git checkout main   # Swift reference + shared baseline
+git checkout mgkccc-win    # Windows Electron work
+git checkout mgkccc-mac    # macOS Electron work
+git checkout mgkccc-linux  # Linux Electron work
+git checkout main          # Swift reference + shared baseline
 ```
 
 When a platform branch needs Swift reference code:
