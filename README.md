@@ -42,4 +42,4 @@ npm run build
 - Commit macOS Electron work here.
 - Do not re-add `myPlayer2/` or `kmgccc_player.xcodeproj/` to this branch.
 - Use `main` as the Swift reference branch.
-- Keep shared Electron changes easy to cherry-pick to `win` and `linux`.
+- Keep shared Electron changes easy to cherry-pick to `mgkccc-win` and `mgkccc-linux`.
