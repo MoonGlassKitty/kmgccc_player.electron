@@ -188,8 +188,20 @@ type ExternalPlaybackSnapshot = {
   canControlPlayback: boolean
   canSkip: boolean
   canSeek: boolean
+  artworkUrl?: string
+  audioSourceUrl?: string
+  beatSourceUrl?: string
+  neteaseSongId?: number
+  lyricsText?: string
+  syncedLyrics?: string
   updatedAt: number
   error?: string
+}
+
+type TapeDevicePresenceSnapshot = {
+  connected: boolean
+  names: string[]
+  instanceIds: string[]
 }
 
 type WinRtMediaControlModule = {
@@ -3063,6 +3075,14 @@ async function runExternalPlaybackCommand(command: string, value?: number): Prom
   }
 }
 
+async function getTapeDevicePresence(): Promise<TapeDevicePresenceSnapshot> {
+  return {
+    connected: false,
+    names: [],
+    instanceIds: []
+  }
+}
+
 function getHomeSnapshot() {
   const library = loadPersistedLibrary()
   const tracks = mergeTrackList(library.tracks)
@@ -3276,6 +3296,7 @@ ipcMain.handle('external-playback:set-source-mode', async (_event, mode: Externa
 ipcMain.handle('external-playback:command', async (_event, command: string, value?: number) => runExternalPlaybackCommand(command, value))
 
 ipcMain.handle('system:get-platform', () => process.platform)
+ipcMain.handle('system:get-tape-device-presence', () => getTapeDevicePresence())
 ipcMain.handle('app:check-for-updates', () => checkForUpdates())
 ipcMain.handle('app:open-external-url', async (_event, url: string) => {
   const isAllowedUpdateUrl =

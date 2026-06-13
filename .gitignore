@@ -81,6 +81,10 @@ myPlayer2/Resources/Tools/qqmusic-helper/qqmusic-helper
 myPlayer2/Resources/Tools/qqmusic-helper/_internal.bundle/
 .qqmusic-helper-venv/
 
+# JavaScript / Electron dependencies
+node_modules/
+windows-player/node_modules/
+
 # Tools / Binary distributions
 Tools/lddc-server/
 .derivedDataLocalBuild/

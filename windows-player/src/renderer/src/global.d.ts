@@ -155,8 +155,20 @@ declare global {
     canControlPlayback: boolean
     canSkip: boolean
     canSeek: boolean
+    artworkUrl?: string
+    audioSourceUrl?: string
+    beatSourceUrl?: string
+    neteaseSongId?: number
+    lyricsText?: string
+    syncedLyrics?: string
     updatedAt: number
     error?: string
+  }
+
+  type TapeDevicePresenceSnapshot = {
+    connected: boolean
+    names: string[]
+    instanceIds: string[]
   }
 
   type LocalAudioImport = HomeTrack & {
@@ -235,6 +247,7 @@ declare global {
       setExternalPlaybackSourceMode: (mode: ExternalPlaybackSourceMode) => Promise<ExternalPlaybackSnapshot>
       sendExternalPlaybackCommand: (command: string, value?: number) => Promise<boolean>
       getSystemPlatform: () => Promise<NodeJS.Platform>
+      getTapeDevicePresence: () => Promise<TapeDevicePresenceSnapshot>
       checkForUpdates: () => Promise<UpdateCheckResult>
       openExternalUrl: (url: string) => Promise<boolean>
       sampleWindowColor: (rect: { x: number; y: number; width: number; height: number }) => Promise<{ r: number; g: number; b: number } | null>

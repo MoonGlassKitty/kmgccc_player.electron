@@ -2543,13 +2543,17 @@ function App(): React.ReactElement {
       album,
       albumId: `external-album-${album}`,
       duration: snapshot.duration,
+      artworkUrl: snapshot.artworkUrl,
       sourcePath: '',
-      sourceUrl: '',
+      sourceUrl: snapshot.audioSourceUrl || snapshot.beatSourceUrl || '',
+      lyricsText: snapshot.lyricsText,
+      syncedLyrics: snapshot.syncedLyrics,
+      neteaseSongId: snapshot.neteaseSongId,
       metadataSource: 'externalPlayback'
     }
   }, [externalPlaybackSnapshot])
   const displayTrack = playbackSource === 'external' ? externalDisplayTrack : currentTrack
-  const isExternalPlaybackSupported = systemPlatform === 'win32'
+  const isExternalPlaybackSupported = systemPlatform === 'win32' || systemPlatform === 'darwin' || systemPlatform === 'linux'
   const currentTrackHasTimedLyrics = React.useMemo(() => trackHasTimedLyrics(displayTrack), [displayTrack])
   React.useEffect(() => {
     if (!isMultiSelectMode) setSelectedTrackIds(new Set())
@@ -2772,14 +2776,14 @@ function App(): React.ReactElement {
   }, [currentArtworkUrl, displayTrack, fallbackCoverThemeStyle])
 
   React.useEffect(() => {
-    if (!isArtworkBpmPulseEnabled || !isPlaying || !currentTrack?.id || !currentTrack.sourceUrl) {
+    if (!isArtworkBpmPulseEnabled || !isPlaying || !displayTrack?.id || !displayTrack.sourceUrl) {
       return
     }
-    const detectionTrackId = currentTrack.id
+    const detectionTrackId = displayTrack.id
     if (beatCacheRef.current[detectionTrackId]) return
     const approvedBeat = approvedArtworkBeatById[detectionTrackId]
     let cancelled = false
-    void analyzeArtworkBeat(currentTrack, approvedBeat, (candidate) => {
+    void analyzeArtworkBeat(displayTrack, approvedBeat, (candidate) => {
       if (cancelled || beatCacheRef.current[detectionTrackId]) return
       setTrackBeatById((previous) => ({ ...previous, [detectionTrackId]: candidate }))
     })
@@ -2797,10 +2801,10 @@ function App(): React.ReactElement {
     return () => {
       cancelled = true
     }
-  }, [analyzeArtworkBeat, approvedArtworkBeatById, currentTrack, currentTrack?.id, currentTrack?.sourceUrl, isArtworkBpmPulseEnabled, isPlaying])
+  }, [analyzeArtworkBeat, approvedArtworkBeatById, displayTrack, displayTrack?.id, displayTrack?.sourceUrl, isArtworkBpmPulseEnabled, isPlaying])
 
   React.useEffect(() => {
-    const beat = currentTrack?.id ? trackBeatById[currentTrack.id] : null
+    const beat = displayTrack?.id ? trackBeatById[displayTrack.id] : null
     if (!isArtworkBpmPulseEnabled || !isPlaying || !beat) {
       artworkPulseLastBeatRef.current = null
       if (artworkPulseFrameRef.current !== null) {
@@ -2811,7 +2815,7 @@ function App(): React.ReactElement {
     }
     const beatSeconds = 60 / beat.bpm
     const tick = (): void => {
-      const time = (audioRef.current?.currentTime ?? 0) + ARTWORK_PULSE_VISUAL_ADVANCE_SECONDS
+      const time = (playbackSource === 'external' ? playbackTime : (audioRef.current?.currentTime ?? 0)) + ARTWORK_PULSE_VISUAL_ADVANCE_SECONDS
       const beatIndex = Math.floor(Math.max(0, time - beat.offset) / beatSeconds)
       if (artworkPulseLastBeatRef.current !== beatIndex) {
         artworkPulseLastBeatRef.current = beatIndex
@@ -2827,7 +2831,7 @@ function App(): React.ReactElement {
       }
       artworkPulseLastBeatRef.current = null
     }
-  }, [currentTrack?.id, isArtworkBpmPulseEnabled, isPlaying, trackBeatById])
+  }, [displayTrack?.id, isArtworkBpmPulseEnabled, isPlaying, playbackSource, playbackTime, trackBeatById])
 
   React.useEffect(() => {
     persistSetting('globalArtworkTintEnabled', globalArtworkTintEnabled)
