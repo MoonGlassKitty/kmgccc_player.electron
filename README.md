@@ -2,7 +2,7 @@
 
 Language: English | [中文](README.zh-CN.md)
 
-你可在顶部选择阅读中文版README。
+你可在顶部切换为中文版README。
 
 You can use the language links at the top to view the Chinese version.
 
