@@ -1,5 +1,9 @@
 # kmgccc_player Electron - Linux Branch
 
+Language: English | [中文](README.zh-CN.md)
+
+You can use the language links at the top to view the Chinese version.
+
 This branch is for Linux Electron development.
 
 The original Swift/macOS source is intentionally removed from this branch. Use `main` when you need Swift reference code, visual behavior, or layout constants.
