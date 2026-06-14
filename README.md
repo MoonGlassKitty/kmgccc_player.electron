@@ -1,8 +1,10 @@
-# kmgccc_player.winToX86
+# kmgccc_player.electron
 
 Language: English | [中文](README.zh-CN.md)
 
 你可在顶部切换为中文版README。
+
+This project is mainly developed with AI. Practicality and safety are not guaranteed.
 
 You can use the language links at the top to view the Chinese version.
 
@@ -21,6 +23,7 @@ Windows/macOS/Linux Electron translation workspace for `kmgccc_player`, with the
 - `kmgccc_player.xcodeproj/`: original Xcode project. Reference only on `main`.
 - `windows-player/`: Electron + React implementation. Despite the name, this is now the shared Electron codebase for platform branches.
 - `AGENTS.md`: project rules for Codex/development workflow.
+- `CONTRIBUTING.md`: contribution and branch collaboration rules.
 - `DEVELOPMENT_LOG.md`: running implementation log. Add a concise entry after code-writing sessions.
 - `bug-list.md`: shared list of known bugs and optional development ideas.
 

@@ -1,8 +1,10 @@
-# kmgccc_player.winToX86
+# kmgccc_player.electron
 
 语言：[English](README.md) | 中文
 
 可以在顶部选择查看英文版本。
+
+该项目主要由 AI 开发，不保证实用性和安全性。
 
 这是 `kmgccc_player` 的 Windows/macOS/Linux Electron 移植工作区，`main` 分支保留原始 Swift/macOS 源码作为视觉和行为参考。
 
@@ -19,6 +21,7 @@
 - `kmgccc_player.xcodeproj/`：原始 Xcode 工程。仅在 `main` 上作为参考。
 - `windows-player/`：Electron + React 实现。虽然目录名包含 Windows，但现在它是平台分支共用的 Electron 代码库。
 - `AGENTS.md`：给 Codex/协作者看的项目规则和开发流程。
+- `CONTRIBUTING.md`：贡献和分支协作规则。
 - `DEVELOPMENT_LOG.md`：持续开发日志。代码工作后应添加简短记录。
 - `bug-list.md`：已知 BUG 和可选开发方向清单。
 
