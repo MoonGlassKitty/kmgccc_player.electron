@@ -1,39 +1,43 @@
-# mgkccc_player Electron - Windows 分支
+# mgkccc_player Electron - Windows Branch
 
-这是 **mgkccc_player** 的 Windows Electron 分支。
+Language: English | [中文](README.zh-CN.md)
 
-本项目基于原作者的 **kmgccc** 软件继续开发与适配。原项目名称为 **kmgccc**，本仓库维护的版本名称为 **mgkccc_player**。
+You can use the language links at the top to view the Chinese version.
 
-## 作者说明
+This is the Windows Electron branch for **mgkccc_player**.
 
-- 原作者：**kmgccc** 的作者
-- 当前维护者：**MoonGlassKitty**
-- 当前项目名：**mgkccc_player**
+This project continues development and adaptation based on the original **kmgccc** software. The original project name is **kmgccc**; the maintained version in this repository is named **mgkccc_player**.
 
-感谢原作者对 kmgccc 的设计与实现。本仓库在原项目基础上继续进行 Windows 端 Electron 适配、功能补充与体验优化。
+## Authors
 
-## 项目范围
+- Original author: the author of **kmgccc**
+- Current maintainer: **MoonGlassKitty**
+- Current project name: **mgkccc_player**
 
-- Windows 10/11 x64 Electron 应用
-- 本地音乐导入与播放
-- AMLL 歌词渲染
-- Liquid Glass 风格界面
-- Windows 第三方音乐软件播放源集成
+Thanks to the original author for the design and implementation of kmgccc. This repository continues Windows Electron adaptation, feature work, and experience improvements on top of the original project.
 
-## 第三方播放
+## Scope
 
-侧边栏播放源切换支持：
+- Windows 10/11 x64 Electron app
+- Local music import and playback
+- AMLL lyrics rendering
+- Liquid Glass style UI
+- Windows third-party music app playback source integration
 
-- 第三方音乐软件
-- 其他源
-- 自动检测
+## Third-Party Playback
 
-Windows 端通过 GSMTC 读取和控制外部播放状态：
+The sidebar playback source switcher supports:
 
-- 优先使用 NodeRT：`@nodert-win11/windows.media.control`
-- 当原生模块不可用时，回退到 PowerShell WinRT 路径
+- Third-party music apps
+- Other sources
+- Auto detect
 
-## 开发命令
+On Windows, external playback state is read and controlled through GSMTC:
+
+- Prefer NodeRT: `@nodert-win11/windows.media.control`
+- Fall back to the PowerShell WinRT path when the native module is unavailable
+
+## Development Commands
 
 ```bash
 cd windows-player
@@ -43,9 +47,9 @@ npm run build
 npm run package:win
 ```
 
-## 分支说明
+## Branch Notes
 
-- 当前分支用于 Windows Electron 开发。
-- macOS Swift 原始源码不保留在该 Windows 分支中。
-- 如需参考 Swift 布局常量、视觉行为或 MediaRemote 实现，请查看对应主线/参考分支。
-- 共享 Electron 改动应尽量保持易于 cherry-pick 到 macOS 与 Linux 分支。
+- This branch is for Windows Electron development.
+- The original macOS Swift source is not kept in this Windows branch.
+- To reference Swift layout constants, visual behavior, or MediaRemote implementation details, use the main/reference branch.
+- Shared Electron changes should be kept easy to cherry-pick to the macOS and Linux branches.
