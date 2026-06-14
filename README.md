@@ -2,6 +2,8 @@
 
 Language: English | [中文](README.zh-CN.md)
 
+你可在顶部选择阅读中文版README。
+
 You can use the language links at the top to view the Chinese version.
 
 Windows/macOS/Linux Electron translation workspace for `kmgccc_player`, with the original Swift/macOS source kept as the visual and behavior reference.
