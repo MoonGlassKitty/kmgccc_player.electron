@@ -1,8 +1,12 @@
-# mgkccc_player Electron - Windows 分支
+# kmgccc_player.electron
+
+Windows Electron 分支。
 
 语言：[English](README.md) | 中文
 
 可以在顶部选择查看英文版本。
+
+该项目主要由 AI 开发，不保证实用性和安全性。
 
 这是 **mgkccc_player** 的 Windows Electron 分支。
 
