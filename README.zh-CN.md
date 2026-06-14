@@ -1,8 +1,12 @@
-# kmgccc_player Electron - macOS 分支
+# kmgccc_player.electron
+
+macOS Electron 分支。
 
 语言：[English](README.md) | 中文
 
 可以在顶部选择查看英文版本。
+
+该项目主要由 AI 开发，不保证实用性和安全性。
 
 这是 `kmgccc_player` 的 macOS Electron 开发分支。
 
