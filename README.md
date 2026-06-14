@@ -1,8 +1,12 @@
-# kmgccc_player Electron - Linux Branch
+# kmgccc_player.electron
+
+Linux Electron branch.
 
 Language: English | [中文](README.zh-CN.md)
 
 你可在顶部切换为中文版README。
+
+This project is mainly developed with AI. Practicality and safety are not guaranteed.
 
 You can use the language links at the top to view the Chinese version.
 
